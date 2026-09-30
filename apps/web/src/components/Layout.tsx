@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
 import { CalendarDays, Home, Menu, UserRound, UsersRound, X, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { Logo } from './Logo';
-import { SpectrumBar } from './Print';
-import { ButtonLink, Loading } from './ui';
+import { PencilBuddy } from './Doodles';
+import { Avatar, ButtonLink, Loading } from './ui';
 import { useAuth } from '../lib/auth';
 import { isMiniApp, setTelegramBack, getThemePref, setThemePref, type ThemePref } from '../lib/platform';
 import type { Role } from '../lib/types';
@@ -26,7 +26,71 @@ export function Root() {
     const roots = ['/', '/app', '/app/schedule', '/teachers', '/teach', '/admin'];
     setTelegramBack(!roots.includes(location.pathname), () => navigate(-1));
   }, [location.pathname, navigate]);
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      {__DEMO__ && <DemoBar />}
+    </>
+  );
+}
+
+/** Панель демо-версии: быстрый вход под любой ролью, чтобы посмотреть все кабинеты. */
+function DemoBar() {
+  const { user, login, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const as = async (email: string, password: string) => {
+    const u = await login(email, password);
+    setOpen(false);
+    navigate(homeFor(u.role));
+  };
+  return (
+    <div className="fixed bottom-4 left-4 z-50 flex flex-col items-start gap-2 print:hidden" style={{ bottom: isMiniApp ? 84 : undefined }}>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            className="flex w-[260px] flex-col gap-1 rounded-[12px] border-[1.5px] border-forest/15 bg-paper p-2 text-ink shadow-sticker"
+          >
+            <p className="t-mono px-2 pt-1 pb-1.5 text-[11px] text-muted">войти в демо как</p>
+            {[
+              ['Ученица', 'student@spectr.school', 'spectr-student'],
+              ['Преподаватель', 'anna@spectr.school', 'spectr-teacher'],
+              ['Администратор', 'admin@spectr.school', 'spectr-admin'],
+            ].map(([label, e, p]) => (
+              <button key={e} className="press rounded-full px-3 py-2 text-left text-[14px] hover:bg-mark hover:text-forest" onClick={() => as(e, p)}>
+                {label}
+              </button>
+            ))}
+            {user && (
+              <button
+                className="press rounded-full px-3 py-2 text-left text-[14px] text-muted hover:bg-ink/[0.06]"
+                onClick={() => {
+                  logout();
+                  setOpen(false);
+                  navigate('/');
+                }}
+              >
+                Выйти
+              </button>
+            )}
+            <p className="px-2 pt-1 pb-1 text-[12px] leading-snug text-muted">Демо без сервера: изменения живут до перезагрузки страницы.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="press t-mono flex h-10 items-center gap-2 rounded-full bg-forest px-4 text-[12px] text-mark shadow-sticker hover:-translate-y-0.5"
+      >
+        <span className="size-2 rounded-full bg-mark" style={{ animation: 'pulse-dot 1.6s infinite' }} />
+        демо{user ? ` · ${user.name.split(' ')[0]}` : ''}
+      </button>
+    </div>
+  );
 }
 
 // ——— Сайт ———
@@ -34,8 +98,6 @@ export function SiteLayout() {
   if (isMiniApp) return <MiniLayout />;
   return (
     <div className="flex min-h-dvh flex-col">
-      <SpectrumBar />
-      <Dateline />
       <SiteHeader />
       <main className="flex-1">
         <Outlet />
@@ -45,39 +107,39 @@ export function SiteLayout() {
   );
 }
 
-function Dateline() {
-  const date = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  return (
-    <div className="border-b border-hair-soft">
-      <div className="t-mono mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2 text-[11px] text-muted sm:px-8">
-        <span className="first-letter:uppercase">{date}</span>
-        <span className="hidden sm:block">Физика · Математика · ОГЭ · ЕГЭ · Занятия с репетитором</span>
-      </div>
-    </div>
-  );
-}
-
 function SiteHeader() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 8);
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-paper">
-      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
+    <header className="sticky top-0 z-30 px-3 pt-3 sm:px-6">
+      <div
+        className={clsx(
+          'mx-auto flex h-[64px] max-w-[1120px] items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-dashed px-3 transition-[background-color,box-shadow,border-color] duration-300 sm:px-4',
+          scrolled ? 'border-ink/25 bg-paper/90 shadow-card backdrop-blur-md' : 'border-ink/20 bg-paper/70',
+        )}
+      >
         <Link to="/" className="no-underline" aria-label="Спектр — на главную">
           <Logo />
         </Link>
-        <nav aria-label="Разделы" className="hidden items-stretch gap-7 self-stretch lg:flex">
+        <nav aria-label="Разделы" className="hidden items-center gap-1 lg:flex">
           {PUBLIC_NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               className={({ isActive }) =>
                 clsx(
-                  'flex items-center border-y-[3px] border-transparent text-[15px] font-[600] no-underline transition-colors',
-                  isActive ? 'border-b-ink' : 'hover:border-b-hair-soft',
+                  't-mono press rounded-full px-3.5 py-2 text-[13px] no-underline',
+                  isActive ? 'bg-mark text-forest' : 'hover:bg-ink/[0.06]',
                 )
               }
             >
@@ -85,7 +147,7 @@ function SiteHeader() {
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2">
           {user ? (
             <span className="hidden sm:block">
               <ButtonLink to={homeFor(user.role)} className="min-h-10 px-4 text-[14px]">
@@ -95,19 +157,19 @@ function SiteHeader() {
           ) : (
             <>
               <span className="hidden sm:block">
-                <ButtonLink to="/login" variant="secondary" className="min-h-10 px-4 text-[14px]">
+                <ButtonLink to="/login" variant="secondary" className="min-h-10 border px-4 text-[14px]">
                   Войти
                 </ButtonLink>
               </span>
               <span className="hidden md:block">
                 <ButtonLink to="/book" className="min-h-10 px-4 text-[14px]">
-                  Записаться
+                  Записаться <span aria-hidden="true">→</span>
                 </ButtonLink>
               </span>
             </>
           )}
           <button
-            className="press grid size-11 place-items-center rounded-ctl lg:hidden"
+            className="press grid size-11 place-items-center rounded-full hover:bg-ink/[0.06] lg:hidden"
             onClick={() => setOpen(true)}
             aria-label="Открыть меню"
             aria-expanded={open}
@@ -116,8 +178,6 @@ function SiteHeader() {
           </button>
         </div>
       </div>
-      {/* двойная линейка под шапкой */}
-      <div className="border-y border-hair" style={{ height: 5 }} aria-hidden="true" />
       <AnimatePresence>{open && <MobileMenu onClose={() => setOpen(false)} />}</AnimatePresence>
     </header>
   );
@@ -146,7 +206,7 @@ function MobileMenu({ onClose }: { onClose(): void }) {
       exit={{ opacity: 0, y: -12 }}
       transition={{ type: 'spring', stiffness: 320, damping: 24 }}
     >
-      <div className="flex h-16 items-center justify-between border-b border-charcoal px-4">
+      <div className="flex h-[76px] items-center justify-between border-b border-dashed border-hair-soft px-5">
         <Logo />
         <button className="press grid size-11 place-items-center rounded-full" onClick={onClose} aria-label="Закрыть меню">
           <X className="size-6" strokeWidth={1.6} />
@@ -160,8 +220,8 @@ function MobileMenu({ onClose }: { onClose(): void }) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24, delay: 0.04 * i }}
           >
-            <NavLink to={n.to} className="t-display block border-b border-hair-soft py-3 text-[40px] no-underline">
-              {n.label}
+            <NavLink to={n.to} className={({ isActive }) => clsx('t-display block border-b border-dashed border-hair-soft py-3 text-[38px] no-underline', isActive && '[&>span]:bg-mark')}>
+              <span className="rounded-md px-1">{n.label}</span>
             </NavLink>
           </motion.div>
         ))}
@@ -175,17 +235,20 @@ function MobileMenu({ onClose }: { onClose(): void }) {
 
 function SiteFooter() {
   return (
-    <footer className="mt-24 bg-banner text-on-banner">
-      <SpectrumBar />
-      <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-12 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
+    <footer className="mt-28 bg-forest-2 text-cream dark:bg-banner">
+      <div className="relative mx-auto grid max-w-[1120px] gap-10 px-5 pt-16 pb-12 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
+        <PencilBuddy className="pointer-events-none absolute -top-[150px] right-6 hidden w-[120px] text-cream md:block" />
         <div className="flex flex-col gap-4">
           <Logo inverse />
-          <p className="t-sub max-w-[38ch] text-[17px] opacity-80">
+          <p className="max-w-[38ch] text-[16px] text-cream/80">
             Онлайн-школа занятий с репетитором. Школьная программа, ОГЭ и ЕГЭ, вузовская математика и физика.
           </p>
+          <ButtonLink to="/book" variant="banner" className="mt-2 w-fit">
+            Записаться на занятие <span aria-hidden="true">→</span>
+          </ButtonLink>
         </div>
-        <nav className="flex flex-col gap-2" aria-label="Разделы сайта">
-          <p className="t-mono mb-1 opacity-70">Школа</p>
+        <nav className="flex flex-col gap-2.5" aria-label="Разделы сайта">
+          <p className="t-mono mb-1 text-mark">школа</p>
           {PUBLIC_NAV.map((n) => (
             <Link key={n.to} to={n.to} className="link w-fit">
               {n.label}
@@ -195,8 +258,8 @@ function SiteFooter() {
             Записаться на занятие
           </Link>
         </nav>
-        <div className="flex flex-col gap-2">
-          <p className="t-mono mb-1 opacity-70">Ученикам</p>
+        <div className="flex flex-col gap-2.5">
+          <p className="t-mono mb-1 text-mark">ученикам</p>
           <Link to="/app" className="link w-fit">
             Личный кабинет
           </Link>
@@ -208,8 +271,8 @@ function SiteFooter() {
           </div>
         </div>
       </div>
-      <div className="border-t border-on-banner/20">
-        <p className="t-mono mx-auto max-w-[1200px] px-4 py-5 text-[11px] opacity-70 sm:px-8">© {new Date().getFullYear()} Спектр · Выпуск отпечатан красками спектра</p>
+      <div className="border-t border-dashed border-cream/20">
+        <p className="t-mono mx-auto max-w-[1120px] px-5 py-5 text-[11px] text-cream/60 sm:px-8">© {new Date().getFullYear()} Спектр · разложим любой предмет на понятные части</p>
       </div>
     </footer>
   );
@@ -223,7 +286,7 @@ export function ThemeSwitch({ onDark = false }: { onDark?: boolean }) {
     { v: 'system', label: 'Как в системе', Icon: MonitorSmartphone },
   ];
   return (
-    <div role="radiogroup" aria-label="Тема оформления" className="inline-flex rounded-ctl border border-current/40 p-0.5">
+    <div role="radiogroup" aria-label="Тема оформления" className={clsx('inline-flex rounded-full border border-current/30 p-0.5', onDark && 'text-cream')}>
       {options.map(({ v, label, Icon }) => (
         <button
           key={v}
@@ -235,7 +298,7 @@ export function ThemeSwitch({ onDark = false }: { onDark?: boolean }) {
             setThemePref(v);
             setPref(v);
           }}
-          className={clsx('press grid h-9 w-11 place-items-center rounded-[2px]', pref === v ? (onDark ? 'bg-on-banner text-banner' : 'bg-ink text-paper') : 'text-current')}
+          className={clsx('press grid h-9 w-11 place-items-center rounded-full', pref === v ? 'bg-mark text-forest' : 'text-current hover:bg-current/10')}
         >
           <Icon className="size-4" strokeWidth={1.7} />
         </button>
@@ -268,7 +331,7 @@ export function BottomTabs() {
   return (
     <nav
       aria-label="Вкладки"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-hair bg-paper"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-dashed border-hair-soft bg-paper/95 backdrop-blur-md"
       style={{ paddingBottom: 'var(--safe-bottom)' }}
     >
       <ul className="mx-auto grid max-w-xl grid-cols-4">
@@ -277,15 +340,10 @@ export function BottomTabs() {
             <NavLink to={to} end={end} className="group relative flex h-16 flex-col items-center justify-center gap-1 no-underline">
               {({ isActive }) => (
                 <>
-                  <Icon className={clsx('size-[22px]', isActive ? 'text-ink' : 'text-muted')} strokeWidth={isActive ? 2 : 1.6} />
+                  <span className={clsx('grid h-8 w-12 place-items-center rounded-full transition-colors', isActive && 'bg-mark text-forest')}>
+                    <Icon className={clsx('size-[21px]', isActive ? '' : 'text-muted')} strokeWidth={isActive ? 2 : 1.6} />
+                  </span>
                   <span className={clsx('text-[12px] leading-none', isActive ? 'font-[500] text-ink' : 'text-muted')}>{label}</span>
-                  {isActive && (
-                    <motion.span
-                      layoutId="tab-indicator"
-                      className="absolute top-0 h-[3px] w-10 bg-ink"
-                      transition={{ duration: 0.4, ease: [0.65, 0, 0.35, 1] }}
-                    />
-                  )}
                 </>
               )}
             </NavLink>
@@ -371,14 +429,16 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
   return (
     <div className="flex min-h-dvh flex-col">
       {!isMiniApp && (
-        <header className="sticky top-0 z-30 border-b border-hair bg-paper">
-          <SpectrumBar className="h-[4px]" />
-          <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
+        <header className="sticky top-0 z-30 border-b border-dashed border-hair-soft bg-paper/90 backdrop-blur-md">
+          <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
             <Link to="/" className="no-underline" aria-label="На главную">
               <Logo compact />
             </Link>
             <div className="flex items-center gap-4">
-              <span className="hidden text-[16px] text-muted sm:inline">{user.name}</span>
+              <span className="hidden items-center gap-2 text-[15px] text-muted sm:inline-flex">
+                <Avatar name={user.name} url={user.avatarUrl} className="size-8 text-[12px]" />
+                {user.name}
+              </span>
               <button className="link text-[16px]" onClick={logout}>
                 Выйти
               </button>
@@ -387,7 +447,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
         </header>
       )}
       {/* мобильная навигация по разделам кабинета */}
-      <nav aria-label="Разделы кабинета" className="sticky top-0 z-20 border-b border-hair-soft bg-paper lg:hidden" style={isMiniApp ? undefined : { top: 68 }}>
+      <nav aria-label="Разделы кабинета" className="sticky top-0 z-20 border-b border-dashed border-hair-soft bg-paper/95 backdrop-blur-md lg:hidden" style={isMiniApp ? undefined : { top: 68 }}>
         <ul className="flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none]">
           {flat.map((n) => (
             <li key={n.to} className="shrink-0">
@@ -395,7 +455,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
                 to={n.to}
                 end={n.end}
                 className={({ isActive }) =>
-                  clsx('press block rounded-full px-3.5 py-2 text-[14px] font-[500] leading-none whitespace-nowrap no-underline', isActive ? 'bg-ink text-paper' : 'text-ink')
+                  clsx('press block rounded-full px-3.5 py-2 text-[14px] font-[500] leading-none whitespace-nowrap no-underline', isActive ? 'bg-mark text-forest' : 'text-ink hover:bg-ink/[0.06]')
                 }
               >
                 {n.label}
@@ -409,14 +469,14 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
           <nav aria-label="Разделы кабинета" className="sticky top-24 flex flex-col gap-8">
             {sections.map((s) => (
               <div key={s.title} className="flex flex-col">
-                <p className="t-mono mb-2 px-2.5 text-muted uppercase">{s.title}</p>
+                <p className="t-mono mb-2 px-3 text-muted">{s.title.toLowerCase()}</p>
                 {s.items.map((n) => (
                   <NavLink
                     key={n.to}
                     to={n.to}
                     end={n.end}
                     className={({ isActive }) =>
-                      clsx('my-0.5 rounded-ctl px-2.5 py-2 text-[15px] no-underline transition-colors', isActive ? 'bg-ink font-[600] text-paper' : 'text-muted hover:bg-bone hover:text-ink')
+                      clsx('press my-0.5 rounded-full px-3 py-2 text-[15px] no-underline', isActive ? 'bg-mark font-[600] text-forest' : 'text-muted hover:bg-ink/[0.06] hover:text-ink')
                     }
                   >
                     {n.label}

@@ -1,8 +1,6 @@
-/* Спектр — «Печатный лист»: токены из DESIGN.md */
+/* Спектр — «Скетчбук»: токены из DESIGN.md */
 @import 'tailwindcss';
-@import '@fontsource-variable/playfair-display/wght.css';
-@import '@fontsource-variable/playfair-display/wght-italic.css';
-@import '@fontsource-variable/literata/wght.css';
+@import '@fontsource-variable/geologica/wght.css';
 @import '@fontsource-variable/inter';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
@@ -10,31 +8,33 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
-  --paper: #f4eedf;
-  --bone: #eae2cf;
-  --ink: #1c1b33;
-  --muted: #57556e;
-  --charcoal: #b7b09c;
-  --ember: #b8391f;
-  --ember-text: #b8391f;
+  --paper: #fbf8f0;
+  --bone: #f2eddf;
+  --ink: #1a3300;
+  --muted: #4d5942;
+  --charcoal: #cfc9b8;
+  --ember: #c24f1c;
+  --ember-text: #a8431a;
   --on-ember: #ffffff;
-  --mark: #ffd21f;
-  --on-mark: #1c1b33;
-  --plate-blue: #2f52d0;
-  --banner-bg: #1c1b33;
-  --banner-fg: #f4eedf;
-  --hair: #1c1b33;
-  --hair-soft: rgb(28 27 51 / 0.2);
+  --mark: #ffe95c;
+  --on-mark: #1a3300;
+  --plate-blue: #c4cbf7;
+  --banner-bg: #1a3300;
+  --banner-fg: #fbf8f0;
+  --hair: #1a3300;
+  --hair-soft: rgb(26 51 0 / 0.16);
   --blend: multiply;
-  --grain-opacity: 0.07;
+  --terracotta: #cb5521;
+  --forest-2: #24420a;
 
-  --tint-raw-0: #f6c4b4;
-  --tint-raw-1: #f8d5a8;
-  --tint-raw-2: #f7e28a;
-  --tint-raw-3: #c3e3c8;
-  --tint-raw-4: #b4e0e4;
-  --tint-raw-5: #c3cdf2;
-  --tint-raw-6: #ddc8f0;
+  /* стикеры: подложки */
+  --tint-raw-0: #ffc9b0;
+  --tint-raw-1: #ffd9a0;
+  --tint-raw-2: #ffe95c;
+  --tint-raw-3: #d5f5c2;
+  --tint-raw-4: #a8e5e5;
+  --tint-raw-5: #c9cff8;
+  --tint-raw-6: #f6d0ff;
 
   --tint-0: var(--tint-raw-0);
   --tint-1: var(--tint-raw-1);
@@ -44,31 +44,33 @@
   --tint-5: var(--tint-raw-5);
   --tint-6: var(--tint-raw-6);
 
-  --ink-0: #8f2412;
-  --ink-1: #7d4300;
-  --ink-2: #5c4a00;
-  --ink-3: #1c5e38;
-  --ink-4: #0c5661;
-  --ink-5: #23409e;
-  --ink-6: #5f2a92;
+  /* тёмный текст поверх своей подложки (от 6:1) */
+  --ink-0: #7a2e0c;
+  --ink-1: #6b3d00;
+  --ink-2: #4d4200;
+  --ink-3: #24530f;
+  --ink-4: #0b5252;
+  --ink-5: #2c3697;
+  --ink-6: #6a2385;
 
-  /* краски спектра: полосы, цифры, линейки */
-  --ray-0: #e5432d;
-  --ray-1: #f28a1e;
-  --ray-2: #f5c400;
-  --ray-3: #2fa568;
-  --ray-4: #14a3b5;
-  --ray-5: #2f52d0;
-  --ray-6: #9b4fd1;
+  /* яркие краски: точки, цифры, линии */
+  --ray-0: #e0622c;
+  --ray-1: #f0962a;
+  --ray-2: #f5cf00;
+  --ray-3: #5aa832;
+  --ray-4: #1ea8a8;
+  --ray-5: #5a68dc;
+  --ray-6: #c05cdc;
 
   --t: var(--bone);
   --i: var(--ink);
   --r: var(--ink);
 
-  --shadow-card: none;
-  --shadow-print: 3px 3px 0 var(--ray-0);
+  --shadow-card: 0 1px 0 rgb(26 51 0 / 0.06), 0 10px 24px -14px rgb(26 51 0 / 0.35);
+  --shadow-sticker: 0 2px 0 rgb(26 51 0 / 0.08), 0 16px 28px -18px rgb(26 51 0 / 0.55);
   --ease-glide: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   --spectrum: linear-gradient(
@@ -86,28 +88,32 @@
 }
 
 [data-theme='dark'] {
-  --paper: #15142a;
-  --bone: #1f1e3a;
-  --ink: #f4eedf;
-  --muted: #b7b5cc;
-  --charcoal: #4a4868;
-  --ember: #ff8a6b;
-  --ember-text: #ff8a6b;
-  --on-ember: #15142a;
-  --banner-bg: #0d0c1d;
-  --banner-fg: #f4eedf;
-  --hair: rgb(244 238 223 / 0.85);
-  --hair-soft: rgb(244 238 223 / 0.16);
+  --paper: #11190b;
+  --bone: #1a2612;
+  --ink: #f6f2e4;
+  --muted: #bcc4ae;
+  --charcoal: #3b4a30;
+  --ember: #ff9a6b;
+  --ember-text: #ff9a6b;
+  --on-ember: #11190b;
+  --mark: #ffe95c;
+  --on-mark: #1a3300;
+  --banner-bg: #0a1006;
+  --banner-fg: #f6f2e4;
+  --hair: rgb(246 242 228 / 0.85);
+  --hair-soft: rgb(246 242 228 / 0.14);
   --blend: screen;
-  --grain-opacity: 0.05;
+  --forest-2: #0a1006;
+  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.3), 0 12px 26px -16px rgb(0 0 0 / 0.8);
+  --shadow-sticker: 0 2px 0 rgb(0 0 0 / 0.3), 0 16px 28px -18px rgb(0 0 0 / 0.9);
 
-  --tint-0: color-mix(in oklab, var(--tint-raw-0) 22%, #15142a);
-  --tint-1: color-mix(in oklab, var(--tint-raw-1) 22%, #15142a);
-  --tint-2: color-mix(in oklab, var(--tint-raw-2) 22%, #15142a);
-  --tint-3: color-mix(in oklab, var(--tint-raw-3) 22%, #15142a);
-  --tint-4: color-mix(in oklab, var(--tint-raw-4) 22%, #15142a);
-  --tint-5: color-mix(in oklab, var(--tint-raw-5) 22%, #15142a);
-  --tint-6: color-mix(in oklab, var(--tint-raw-6) 22%, #15142a);
+  --tint-0: color-mix(in oklab, var(--tint-raw-0) 24%, #11190b);
+  --tint-1: color-mix(in oklab, var(--tint-raw-1) 24%, #11190b);
+  --tint-2: color-mix(in oklab, var(--tint-raw-2) 24%, #11190b);
+  --tint-3: color-mix(in oklab, var(--tint-raw-3) 24%, #11190b);
+  --tint-4: color-mix(in oklab, var(--tint-raw-4) 24%, #11190b);
+  --tint-5: color-mix(in oklab, var(--tint-raw-5) 24%, #11190b);
+  --tint-6: color-mix(in oklab, var(--tint-raw-6) 24%, #11190b);
 
   --ink-0: var(--tint-raw-0);
   --ink-1: var(--tint-raw-1);
@@ -120,13 +126,13 @@
   color-scheme: dark;
 }
 
-.hue-0 { --t: var(--tint-0); --i: var(--ink-0); --r: var(--ray-0); }
-.hue-1 { --t: var(--tint-1); --i: var(--ink-1); --r: var(--ray-1); }
-.hue-2 { --t: var(--tint-2); --i: var(--ink-2); --r: var(--ray-2); }
-.hue-3 { --t: var(--tint-3); --i: var(--ink-3); --r: var(--ray-3); }
-.hue-4 { --t: var(--tint-4); --i: var(--ink-4); --r: var(--ray-4); }
-.hue-5 { --t: var(--tint-5); --i: var(--ink-5); --r: var(--ray-5); }
-.hue-6 { --t: var(--tint-6); --i: var(--ink-6); --r: var(--ray-6); }
+.hue-0 { --t: var(--tint-0); --i: var(--ink-0); --r: var(--ray-0); --s: var(--tint-raw-0); }
+.hue-1 { --t: var(--tint-1); --i: var(--ink-1); --r: var(--ray-1); --s: var(--tint-raw-1); }
+.hue-2 { --t: var(--tint-2); --i: var(--ink-2); --r: var(--ray-2); --s: var(--tint-raw-2); }
+.hue-3 { --t: var(--tint-3); --i: var(--ink-3); --r: var(--ray-3); --s: var(--tint-raw-3); }
+.hue-4 { --t: var(--tint-4); --i: var(--ink-4); --r: var(--ray-4); --s: var(--tint-raw-4); }
+.hue-5 { --t: var(--tint-5); --i: var(--ink-5); --r: var(--ray-5); --s: var(--tint-raw-5); }
+.hue-6 { --t: var(--tint-6); --i: var(--ink-6); --r: var(--ray-6); --s: var(--tint-raw-6); }
 
 @theme inline {
   --color-paper: var(--paper);
@@ -142,26 +148,34 @@
   --color-tint: var(--t);
   --color-hue: var(--i);
   --color-ray: var(--r);
+  --color-sticky: var(--s);
   --color-hair: var(--hair);
   --color-hair-soft: var(--hair-soft);
   --color-mark: var(--mark);
   --color-on-mark: var(--on-mark);
   --color-plate-blue: var(--plate-blue);
+  --color-terracotta: var(--terracotta);
+  --color-forest: #1a3300;
+  --color-forest-2: var(--forest-2);
+  --color-cream: #fbf8f0;
 
-  --font-display: 'Playfair Display Variable', 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --font-lead: 'Literata Variable', 'Literata', Georgia, serif;
+  --font-display: 'Geologica Variable', 'Geologica', 'Inter Variable', system-ui, sans-serif;
+  --font-lead: 'Inter Variable', 'Inter', system-ui, sans-serif;
   --font-text: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius-card: 3px;
-  --radius-ctl: 2px;
+  --radius-card: 10px;
+  --radius-ctl: 7px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-sticker: var(--shadow-sticker);
 }
 
 @theme {
   --breakpoint-xs: 400px;
 }
 
-/* ——— База (в @layer base, чтобы утилиты Tailwind её перекрывали) ——— */
+/* ——— База ——— */
 @layer base {
   html {
     background: var(--paper);
@@ -180,56 +194,90 @@
     font-weight: 400;
     font-size: 17px;
     line-height: 1.5;
-    letter-spacing: -0.003em;
+    letter-spacing: -0.006em;
     font-feature-settings: 'cv11', 'ss01';
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     caret-color: var(--ember);
   }
 
-  /* зерно бумаги */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    pointer-events: none;
-    opacity: var(--grain-opacity);
-    mix-blend-mode: var(--blend);
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0 0.2  0 0 0 1.4 -0.2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-    background-size: 220px 220px;
-  }
-
   ::selection {
-    background: var(--ray-2);
-    color: #1c1b33;
+    background: var(--mark);
+    color: #1a3300;
   }
 
-  /* курсив + красная краска на одном-двух словах заголовка */
+  /* маркер: жёлтая заливка протягивается под словом при появлении */
   mark {
-    background: none;
-    color: var(--ember-text);
-    font-style: italic;
+    color: inherit;
+    font-style: normal;
     font-weight: inherit;
-    padding: 0 0.04em;
+    padding: 0 0.12em;
+    margin: 0 -0.04em;
+    border-radius: 0.14em;
+    background-image: linear-gradient(100deg, transparent 0 1%, var(--mark) 1% 97%, transparent 97%);
+    background-repeat: no-repeat;
+    background-position: 0 58%;
+    background-size: 100% 86%;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    animation: marker-draw 0.9s var(--ease-out-expo) 0.35s both;
   }
+  [data-theme='dark'] mark { color: #1a3300; }
+  [data-reveal]:not([data-in]) mark { animation-play-state: paused; }
 
   :focus-visible {
-    outline: 2px solid var(--ink);
+    outline: 2.5px solid var(--ink);
     outline-offset: 3px;
-    border-radius: 2px;
+    border-radius: 6px;
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: var(--charcoal); border: 2px solid var(--paper); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--charcoal); border: 2px solid var(--paper); border-radius: 9px; }
   ::-webkit-scrollbar-track { background: transparent; }
 
   h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
-  [id] { scroll-margin-top: 96px; }
+  [id] { scroll-margin-top: 110px; }
   p { text-wrap: pretty; margin: 0; }
   a { color: inherit; }
 
   .tnum { font-variant-numeric: tabular-nums lining-nums; }
+}
+
+@keyframes marker-draw {
+  from { background-size: 0% 86%; }
+  to { background-size: 100% 86%; }
+}
+
+@keyframes float-a {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--rot, 0deg)); }
+  50% { transform: translate3d(0, -12px, 0) rotate(calc(var(--rot, 0deg) + 3deg)); }
+}
+@keyframes float-b {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--rot, 0deg)); }
+  50% { transform: translate3d(6px, 10px, 0) rotate(calc(var(--rot, 0deg) - 4deg)); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes dash {
+  to { stroke-dashoffset: -40; }
+}
+@keyframes ray-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 0.92; }
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgb(224 98 44 / 0.55); }
+  100% { box-shadow: 0 0 0 10px rgb(224 98 44 / 0); }
 }
 
 @layer components {
@@ -237,56 +285,52 @@
   .t-display {
     font-family: var(--font-display);
     font-weight: 800;
-    line-height: 1.02;
-    letter-spacing: -0.02em;
+    line-height: 1.04;
+    letter-spacing: -0.012em;
     font-variant-numeric: lining-nums;
   }
   .t-heading {
     font-family: var(--font-display);
     font-weight: 700;
-    line-height: 1.12;
-    letter-spacing: -0.01em;
+    line-height: 1.14;
+    letter-spacing: -0.008em;
     font-variant-numeric: lining-nums;
   }
-  .t-xl { font-size: clamp(38px, 5.1vw, 74px); }
-  .t-lg { font-size: clamp(32px, 4.6vw, 54px); }
-  .t-md { font-size: clamp(24px, 2.6vw, 30px); }
+  .t-xl { font-size: clamp(40px, 6vw, 80px); }
+  .t-lg { font-size: clamp(32px, 4.4vw, 58px); }
+  .t-md { font-size: clamp(24px, 2.6vw, 32px); }
   .t-sub {
     font-family: var(--font-lead);
-    font-size: clamp(18px, 1.6vw, 21px);
+    font-size: clamp(18px, 1.55vw, 21px);
     line-height: 1.5;
-    letter-spacing: 0;
+    letter-spacing: -0.01em;
   }
   .t-caption { font-size: 14px; line-height: 1.45; letter-spacing: 0; font-weight: 450; }
   .t-mono {
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.3;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.02em;
     font-weight: 500;
-    text-transform: uppercase;
   }
 
-  /* ссылка-подчёркивание */
+  /* ссылка */
   .link {
     text-decoration: underline;
-    text-decoration-thickness: 1px;
+    text-decoration-thickness: 1.5px;
     text-underline-offset: 3px;
-    transition: text-underline-offset 0.2s var(--ease-out-expo);
+    text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+    transition: text-underline-offset 0.2s var(--ease-out-expo), text-decoration-color 0.2s;
   }
-  .link:hover { text-underline-offset: 5px; }
+  .link:hover { text-underline-offset: 5px; text-decoration-color: currentColor; }
 
-  /* ——— Линейки ——— */
-  .rule-thick { border-top: 3px solid var(--ink); }
-  .rule-double {
-    border-top: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
-    height: 5px;
-  }
-  .rule-dotted { border-bottom: 1px dotted var(--hair); }
+  /* ——— Линии ——— */
+  .rule-thick { border-top: 0; }
+  .rule-double { border-top: 1px solid var(--hair-soft); height: 1px; }
+  .rule-dotted { border-bottom: 1px dashed var(--hair-soft); }
 
-  /* ——— Печать ——— */
-  .spectrum-bar { background: var(--spectrum); height: 6px; }
+  /* ——— Бумага ——— */
+  .spectrum-bar { background: var(--spectrum); height: 5px; }
   .overprint { mix-blend-mode: var(--blend); }
   .halftone {
     background-image: radial-gradient(circle at center, currentColor 1.1px, transparent 1.6px);
@@ -294,25 +338,53 @@
   }
   .graph-paper {
     background-image:
-      linear-gradient(to right, rgb(28 27 51 / 0.07) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(28 27 51 / 0.07) 1px, transparent 1px);
+      linear-gradient(to right, rgb(26 51 0 / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(26 51 0 / 0.06) 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  [data-theme='dark'] .graph-paper {
-    background-image:
-      linear-gradient(to right, rgb(244 238 223 / 0.07) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(244 238 223 / 0.07) 1px, transparent 1px);
+  /* тетрадь в линейку */
+  .ruled {
+    background-image: repeating-linear-gradient(to bottom, transparent 0 39px, rgb(0 0 0 / 0.16) 39px 40px);
+  }
+  .dotted-frame {
+    background-image: radial-gradient(circle, var(--hair-soft) 1px, transparent 1.4px);
+    background-size: 18px 18px;
+  }
+  .dashed-box {
+    border: 1.5px dashed color-mix(in oklab, var(--ink) 35%, transparent);
   }
 
-  /* буквица */
+  /* стикер: цветной листок с тенью и скотчем */
+  .sticker {
+    background: var(--s, var(--t));
+    color: #1a3300;
+    border-radius: 4px;
+    box-shadow: var(--shadow-sticker);
+  }
+  .tape::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    width: 84px;
+    height: 24px;
+    transform: translateX(-50%) rotate(-3deg);
+    background: rgb(255 255 255 / 0.55);
+    border: 1px solid rgb(26 51 0 / 0.08);
+    backdrop-filter: blur(2px);
+  }
+  [data-theme='dark'] .tape::before { background: rgb(255 255 255 / 0.22); }
+
+  .float-a { animation: float-a 7s ease-in-out infinite; }
+  .float-b { animation: float-b 9s ease-in-out infinite; }
+  .wiggle-hover:hover { animation: wiggle 0.5s ease-in-out; }
+
+  /* буквица: первая буква цветом краски */
   .dropcap::first-letter {
     font-family: var(--font-display);
     font-weight: 800;
-    float: left;
-    font-size: 3.6em;
-    line-height: 0.82;
-    padding: 0.06em 0.1em 0 0;
-    color: var(--r);
+    font-size: 1.45em;
+    color: var(--i);
   }
 
   /* ——— Движение ——— */
@@ -324,14 +396,15 @@
     }
   }
 
-  .press { transition: transform 0.18s var(--ease-out-expo), box-shadow 0.18s var(--ease-out-expo); }
-  .press:active { transform: translate(1px, 1px); }
+  .press { transition: transform 0.25s var(--ease-back), box-shadow 0.2s var(--ease-out-expo), background-color 0.2s, color 0.2s, border-color 0.2s; }
+  .press:active { transform: translateY(1px) scale(0.98); }
 
-  /* «сдвиг красок»: кнопка-оттиск */
-  .print-shadow { box-shadow: var(--shadow-print); }
-  .print-shadow:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ray-0); }
-  .print-shadow:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ray-0); }
+  /* основная кнопка: «наклейка» с жёсткой тенью, при наведении подпрыгивает */
+  .print-shadow { box-shadow: 0 0 0 0 var(--ink); }
+  .print-shadow:hover { transform: translateY(-2px); box-shadow: 0 3px 0 0 var(--ink); }
+  .print-shadow:active { transform: translateY(1px); box-shadow: 0 0 0 0 var(--ink); }
 
+  .lift { transition: transform 0.35s var(--ease-back); }
   .lift .lift-title { text-decoration: underline; text-decoration-color: transparent; text-decoration-thickness: 2px; text-underline-offset: 4px; transition: text-decoration-color 0.2s; }
   .lift:hover .lift-title { text-decoration-color: currentColor; }
 

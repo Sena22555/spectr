@@ -31,7 +31,7 @@ export default function Group() {
 
   return (
     <div className={`hue-${g.hue}`}>
-      <section className="bg-tint">
+      <section className="mx-3 mt-4 rounded-[18px] bg-tint sm:mx-6">
         <Container className="grid gap-8 py-12 md:grid-cols-[1.3fr_1fr] md:items-end md:py-16">
           <div className="flex flex-col gap-5">
             {g.course && (

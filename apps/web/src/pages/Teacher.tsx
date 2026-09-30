@@ -23,10 +23,12 @@ export default function Teacher() {
 
   return (
     <div className={`hue-${t.hue}`}>
-      <section className="bg-tint">
+      <section className="mx-3 mt-4 rounded-[18px] bg-tint sm:mx-6">
         <Container className="grid gap-8 py-10 md:grid-cols-[minmax(0,420px)_1fr] md:items-end md:py-16">
-          <div className="aspect-[4/5] w-full max-w-[420px] overflow-hidden rounded-card">
-            <Monogram name={t.user.name} hue={t.hue} photoUrl={t.photoUrl} size="fill" className="text-[120px]" />
+          <div className="w-full max-w-[420px] -rotate-2 rounded-[12px] bg-paper p-3 shadow-sticker transition-transform duration-500 hover:rotate-0">
+            <div className="aspect-[4/5] overflow-hidden rounded-[8px]">
+              <Monogram name={t.user.name} hue={t.hue} photoUrl={t.photoUrl} size="fill" className="text-[120px]" />
+            </div>
           </div>
           <div className="flex flex-col gap-5">
             <Tag hue={t.hue} className="w-fit bg-paper/60">
@@ -46,8 +48,7 @@ export default function Teacher() {
           <section>
             <SectionTitle>О преподавателе</SectionTitle>
             <p className="mt-5 max-w-[62ch] text-[19px] leading-[1.5]">
-              <span className="t-display float-left mr-2 text-[72px] leading-[0.8] text-hue">{first?.[0]}</span>
-              {first?.slice(1)} {rest.join(' ')}
+              {first} {rest.join(' ')}
             </p>
           </section>
           {t.courses.length > 0 && (

@@ -33,7 +33,7 @@ export function TeacherLessonRow({ lesson, showDate }: { lesson: Lesson; showDat
       </div>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="flex items-center gap-2 text-[18px] font-[450]">
-          <span className="size-2.5 shrink-0 rounded-[2px] bg-hue" aria-hidden="true" />
+          <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
           <span className="truncate">{lesson.group?.name ?? lesson.student?.name ?? lesson.title}</span>
         </p>
         <p className="t-caption flex items-center gap-2 text-muted">

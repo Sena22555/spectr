@@ -42,11 +42,15 @@ export function LogoMark({ className, title = 'Спектр' }: { className?: st
 
 export function Logo({ className, compact = false, inverse = false }: { className?: string; compact?: boolean; inverse?: boolean }) {
   return (
-    <span className={clsx('inline-flex items-center gap-2.5', inverse ? 'text-on-banner' : 'text-ink', className)}>
-      <LogoMark className={compact ? 'h-7 w-9' : 'h-9 w-11'} title="" />
-      <span className="flex flex-col">
-        <span className="t-display text-[26px] leading-[0.95] tracking-[-0.03em]">Спектр</span>
-        {!compact && <span className="t-mono mt-1 text-[9.5px] leading-none tracking-[0.14em] opacity-70">онлайн-школа</span>}
+    <span className={clsx('group inline-flex items-center gap-2', inverse ? 'text-cream' : 'text-ink', className)}>
+      <LogoMark className={clsx(compact ? 'h-7 w-9' : 'h-8 w-10', 'transition-transform duration-500 group-hover:-rotate-6')} title="" />
+      <span className="relative">
+        <span className="t-display text-[24px] leading-none">Спектр</span>
+        {!compact && (
+          <span className="t-mono absolute -top-3 -right-9 rotate-[8deg] rounded-[3px] bg-mark px-1 py-px text-[8.5px] leading-none text-forest">
+            онлайн
+          </span>
+        )}
       </span>
     </span>
   );

@@ -19,7 +19,7 @@ export default function Subject() {
 
   return (
     <div className={`hue-${s.hue}`}>
-      <section className="bg-tint">
+      <section className="mx-3 mt-4 rounded-[18px] bg-tint sm:mx-6">
         <Container className="flex flex-col gap-5 py-12 md:py-20">
           <p className="t-caption text-hue">
             {s.level} · {s.format}

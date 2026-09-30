@@ -69,7 +69,7 @@ export default function AdminLessons() {
                 <span className="t-heading tnum text-[26px]">{fmtTime(l.startsAt)}</span>
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 truncate text-[17px] font-[450]">
-                    <span className="size-2.5 shrink-0 rounded-[2px] bg-hue" aria-hidden="true" />
+                    <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
                     {l.group?.name ?? l.student?.name ?? l.title}
                   </p>
                   <p className="t-caption text-muted">

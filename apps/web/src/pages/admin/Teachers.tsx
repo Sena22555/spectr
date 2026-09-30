@@ -17,7 +17,7 @@ export function HuePicker({ value, onChange }: { value: number; onChange(h: numb
         {HUE_NAMES.map((name, i) => (
           <label key={name} className={clsx(`hue-${i}`, 'press relative grid size-11 cursor-pointer place-items-center rounded-ctl bg-tint', value === i && 'ring-2 ring-ink ring-offset-2 ring-offset-paper')}>
             <input type="radio" name="hue" className="sr-only" checked={value === i} onChange={() => onChange(i)} aria-label={name} />
-            <span className="size-3 rounded-[2px] bg-hue" aria-hidden="true" />
+            <span className="size-3 rounded-full bg-ray" aria-hidden="true" />
           </label>
         ))}
       </div>

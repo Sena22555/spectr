@@ -98,7 +98,7 @@ function GroupAdmin({ g }: { g: AGroup }) {
           {g.members.map((m) => (
             <li key={m.user.id} className="flex items-center gap-1 rounded-ctl bg-paper/70 py-1 pr-1 pl-2.5 text-[15px]">
               {m.user.name}
-              <button className="grid size-7 place-items-center rounded-[2px] hover:bg-ink/10" onClick={() => remove.mutate(m.user.id)} aria-label={`Убрать ${m.user.name} из группы`}>
+              <button className="grid size-7 place-items-center rounded-full hover:bg-ink/10" onClick={() => remove.mutate(m.user.id)} aria-label={`Убрать ${m.user.name} из группы`}>
                 <X className="size-3.5" />
               </button>
             </li>

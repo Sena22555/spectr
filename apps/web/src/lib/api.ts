@@ -31,6 +31,10 @@ export class ApiError extends Error {
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init;
   const token = getToken() ?? memoryToken;
+  if (__DEMO__) {
+    const { demoApi } = await import('../demo/mock');
+    return demoApi<T>(path, init, token);
+  }
   const res = await fetch(`/api${path}`, {
     ...rest,
     headers: {
@@ -49,6 +53,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 }
 
 export async function uploadImage(file: File) {
+  if (__DEMO__) return (await import('../demo/mock')).demoUpload(file);
   const form = new FormData();
   form.append('file', file);
   return api<{ url: string }>('/uploads', { method: 'POST', body: form });

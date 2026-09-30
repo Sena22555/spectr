@@ -73,10 +73,19 @@ npm start          # API раздаёт собранный сайт с того 
 
 ## Дизайн
 
-- `DESIGN.md` — дизайн-система «Печатный лист»: газета, отпечатанная красками спектра с наложением (`mix-blend-mode`). Шрифты с кириллицей: Playfair Display (заголовки), Literata (подводки), Inter (интерфейс), IBM Plex Mono (рубрики). Семь красок спектра, у каждого предмета, преподавателя и группы свой тон. Прежние варианты лежат в `docs/design/` (`miranda.md`, `say-briefly.md`).
+- `DESIGN.md` — дизайн-система «Скетчбук»: кремовая бумага, тёмно-зелёные чернила, жёлтый маркер, стикеры и рисунки от руки (референс владельца — SayBriefly). Шрифты с кириллицей: Geologica (заголовки), Inter (текст), IBM Plex Mono (рубрики). Прежние варианты — в `docs/design/` и в истории git («Печатный лист»).
 - `PRODUCT.md` — продуктовые факты: для кого школа, что делает и чего не выдумывать.
 - `CLAUDE.md` — правила для Claude, включая раздел Frontend references.
 - `.claude/skills/impeccable` — навыки [Impeccable](https://impeccable.style) (polish, distill, audit и др.). Бинарник детектора в git не хранится. На своей машине выполните `npx impeccable install -y --providers=claude --scope=project`, затем `npm run design:detect`.
+
+## Демо-версия без сервера
+
+Статическая сборка, которую можно выложить на любой хостинг и отправить ссылкой: API подменён снимком демо-данных, страницы открываются по `#`-ссылкам, внизу слева кнопка «демо» для входа под любой ролью. Изменения живут до перезагрузки.
+
+```bash
+npm run demo:snapshot -w @spectr/web   # при запущенном API: обновить src/demo/snapshot.json
+npm run build:demo -w @spectr/web      # сборка в apps/web/dist-demo
+```
 
 ## Структура
 

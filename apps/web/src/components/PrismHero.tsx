@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { RegCorners, pad2 } from './Print';
+import { pad2 } from './Print';
 import type { Subject } from '../lib/types';
 
 /**
@@ -38,8 +38,7 @@ export function PrismHero({ subjects, caption = true }: { subjects: Subject[]; c
 
   return (
     <figure className="m-0">
-      <div className="graph-paper relative border border-hair bg-bone/60 p-3 sm:p-4">
-        <RegCorners className="text-ink/60" />
+      <div className="relative rounded-[14px] border-[1.5px] border-dashed border-ink/20 bg-paper p-3 sm:p-4">
         <div className="relative w-full" style={{ aspectRatio: `${W} / ${H}` }}>
           <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
             {/* лучи: клинья с перекрытием */}
@@ -136,7 +135,7 @@ export function PrismHero({ subjects, caption = true }: { subjects: Subject[]; c
                     to={s ? `/subjects/${s.slug}` : '/book'}
                     className={`hue-${i} press group flex max-w-full items-center gap-1.5 leading-none no-underline`}
                   >
-                    <span className="t-mono shrink-0 bg-tint px-1 py-[3px] text-[10px] text-hue sm:text-[11px]">{pad2(i + 1)}</span>
+                    <span className="t-mono shrink-0 rounded-full bg-tint px-1.5 py-[3px] text-[10px] text-hue sm:text-[11px]">{pad2(i + 1)}</span>
                     <span className="truncate py-0.5 text-[12.5px] font-[600] text-ink group-hover:underline sm:text-[15px]">{s ? s.title : 'Свой предмет'}</span>
                   </Link>
                 </motion.li>

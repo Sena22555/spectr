@@ -5,14 +5,20 @@ import { haptic, isMiniApp, platform, platformLabel } from '../lib/platform';
 import { homeFor } from '../components/Layout';
 import { Button, Input } from '../components/ui';
 import { LogoMark } from '../components/Logo';
+import { LaptopDoodle, PaperDoodle, PencilDoodle } from '../components/Doodles';
 
 function AuthFrame({ title, lead, children, footer }: { title: string; lead: string; children: ReactNode; footer: ReactNode }) {
   return (
     <div className="mx-auto grid min-h-[calc(100dvh-64px)] w-full max-w-[1200px] lg:grid-cols-2">
-      <aside className="hue-5 relative hidden overflow-hidden bg-tint p-12 lg:flex lg:flex-col lg:justify-between">
-        <p className="t-display text-[clamp(72px,8vw,140px)] text-hue">Спектр</p>
-        <LogoMark className="absolute right-[-8%] bottom-[12%] w-[70%] text-ink opacity-90" title="" />
-        <p className="t-sub relative max-w-[26ch]">Расписание, ссылки на уроки и связь с преподавателем — в одном кабинете.</p>
+      <aside className="relative m-4 hidden overflow-hidden rounded-[18px] bg-mark p-12 text-forest lg:flex lg:flex-col lg:justify-between">
+        <div className="relative">
+          <LogoMark className="h-12 w-16" title="" />
+          <p className="t-display mt-6 max-w-[12ch] text-[clamp(40px,4vw,56px)]">Всё про учёбу — в одном кабинете.</p>
+        </div>
+        <PaperDoodle className="float-a absolute top-[34%] right-[10%] w-[110px]" style={{ ['--rot' as string]: '14deg' }} />
+        <PencilDoodle className="absolute top-[58%] left-[8%] w-[150px] -rotate-12" />
+        <LaptopDoodle className="absolute right-[-4%] bottom-[6%] w-[62%]" />
+        <p className="relative max-w-[26ch] text-[18px]">Расписание, ссылки на уроки и связь с преподавателем.</p>
       </aside>
       <div className="flex flex-col justify-center px-4 py-10 sm:px-12">
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
@@ -21,7 +27,7 @@ function AuthFrame({ title, lead, children, footer }: { title: string; lead: str
             <p className="text-[17px] text-muted">{lead}</p>
           </div>
           {children}
-          <div className="border-t border-hair-soft pt-5 text-[16px]">{footer}</div>
+          <div className="border-t border-dashed border-hair-soft pt-5 text-[16px]">{footer}</div>
         </div>
       </div>
     </div>
@@ -80,7 +86,7 @@ export function Login() {
           Войти
         </Button>
       </form>
-      {import.meta.env.DEV && <DemoAccounts onPick={(e, p) => (setEmail(e), setPassword(p))} />}
+      {(import.meta.env.DEV || __DEMO__) && <DemoAccounts onPick={(e, p) => (setEmail(e), setPassword(p))} />}
     </AuthFrame>
   );
 }
@@ -92,11 +98,11 @@ function DemoAccounts({ onPick }: { onPick(email: string, password: string): voi
     ['Администратор', 'admin@spectr.school', 'spectr-admin'],
   ] as const;
   return (
-    <div className="hue-2 flex flex-col gap-2 rounded-card bg-tint p-4">
-      <p className="t-caption text-hue">Демо-аккаунты (видно только в режиме разработки)</p>
+    <div className="hue-2 flex -rotate-[0.5deg] flex-col gap-2 rounded-[10px] bg-tint p-4 shadow-sticker">
+      <p className="t-caption text-hue">Демо-аккаунты — нажмите, чтобы войти</p>
       <div className="flex flex-wrap gap-2">
         {list.map(([label, e, p]) => (
-          <button key={e} type="button" className="press rounded-ctl border border-ink/50 px-3 py-2 text-[15px] hover:border-ink" onClick={() => onPick(e, p)}>
+          <button key={e} type="button" className="press rounded-full border-[1.5px] border-forest/40 bg-paper px-4 py-2 text-[15px] hover:-translate-y-0.5 hover:border-forest" onClick={() => onPick(e, p)}>
             {label}
           </button>
         ))}

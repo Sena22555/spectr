@@ -1,6 +1,6 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import './styles.css';
@@ -55,7 +55,8 @@ const s = (el: React.ReactNode) => (
   </Suspense>
 );
 
-const router = createBrowserRouter([
+// в демо-версии страницы открываются по #-ссылкам: так работает любой статический хостинг
+const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
   {
     element: <Root />,
     children: [

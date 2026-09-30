@@ -29,7 +29,7 @@ export function NextLesson({ lesson }: { lesson: Lesson }) {
   const state = linkState(lesson);
   const pending = lesson.reschedules?.some((r) => r.status === 'PENDING');
   return (
-    <article className={clsx(`hue-${hue}`, 'flex flex-col gap-5 rounded-card border-t-[4px] border-ray bg-tint p-5 sm:p-8')}>
+    <article className={clsx(`hue-${hue}`, 'flex flex-col gap-5 rounded-[14px] bg-tint p-5 sm:p-8')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="t-caption text-hue">Ближайшее занятие · {untilLabel(lesson.startsAt)}</p>
         {pending && <Badge tone="outline">Перенос на рассмотрении</Badge>}
@@ -85,7 +85,7 @@ export function LessonRow({ lesson, showDate = false, onReschedule }: { lesson: 
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-[2px] bg-hue" aria-hidden="true" />
+            <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
             <p className="truncate text-[18px] font-[450]">{lesson.group?.name ?? lesson.title}</p>
           </div>
           <p className="t-caption text-muted">

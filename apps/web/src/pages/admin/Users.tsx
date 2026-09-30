@@ -73,7 +73,7 @@ export default function AdminUsers() {
                   aria-checked={u.role === r}
                   disabled={u.id === me?.id && r !== 'ADMIN'}
                   onClick={() => u.role !== r && m.mutate({ id: u.id, role: r })}
-                  className={`press h-9 rounded-[2px] px-3 text-[14px] disabled:opacity-40 ${u.role === r ? 'bg-ink text-paper' : 'hover:bg-ink/10'}`}
+                  className={`press h-9 rounded-full px-3 text-[14px] disabled:opacity-40 ${u.role === r ? 'bg-ink text-paper' : 'hover:bg-ink/10'}`}
                 >
                   {STATUS_LABEL[r]}
                 </button>

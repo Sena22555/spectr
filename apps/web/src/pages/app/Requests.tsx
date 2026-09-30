@@ -44,7 +44,7 @@ export default function Requests() {
             <li key={r.id} className={clsx(`hue-${r.lesson.group?.hue ?? r.lesson.teacher?.hue ?? 2}`, 'grid gap-2 border-b border-hair-soft py-5 sm:grid-cols-[1fr_auto]')}>
               <div className="flex flex-col gap-1.5">
                 <p className="flex items-center gap-2 text-[18px] font-[450]">
-                  <span className="size-2.5 rounded-[2px] bg-hue" aria-hidden="true" />
+                  <span className="size-2.5 rounded-full bg-ray" aria-hidden="true" />
                   {r.lesson.group?.name ?? r.lesson.title}
                 </p>
                 <p className="t-caption text-muted">
