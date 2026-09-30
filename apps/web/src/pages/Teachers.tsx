@@ -47,7 +47,7 @@ export function FilterChip({ active, hue, onClick, children }: { active: boolean
         active ? 'border-ink bg-ink text-paper' : 'border-ink/35 hover:border-ink',
       )}
     >
-      {hue !== undefined && <span className={clsx('size-2 rounded-full', active ? 'bg-paper' : 'bg-hue')} aria-hidden="true" />}
+      {hue !== undefined && <span className={clsx('h-3.5 w-1 rounded-full', active ? 'bg-paper' : 'bg-hue')} aria-hidden="true" />}
       {children}
     </button>
   );

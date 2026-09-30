@@ -26,15 +26,15 @@ export function TeacherLessonRow({ lesson, showDate }: { lesson: Lesson; showDat
   });
 
   return (
-    <li className={clsx(`hue-${hue}`, 'grid gap-3 border-b border-hair-soft py-4 sm:grid-cols-[96px_1fr_minmax(0,360px)] sm:items-center sm:gap-5')}>
+    <li className={clsx(`hue-${hue}`, 'grid gap-3 border-b border-hair-soft py-4 sm:grid-cols-[96px_1fr_minmax(0,360px)] sm:items-center sm:gap-5 [&>*]:min-w-0')}>
       <div className="flex items-baseline gap-3 sm:flex-col sm:gap-0">
         <span className={clsx('t-heading tnum text-[32px]', lesson.status !== 'SCHEDULED' && 'text-muted')}>{fmtTime(lesson.startsAt)}</span>
         {showDate && <span className="t-caption text-muted">{fmtDay(lesson.startsAt)}</span>}
       </div>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="flex items-center gap-2 text-[18px] font-[450]">
-          <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
-          <span className="truncate">{lesson.group?.name ?? lesson.student?.name ?? lesson.title}</span>
+        <p className="flex items-start gap-2 text-[18px] font-[450]">
+          <span className="mt-1 h-4 w-1 shrink-0 rounded-full bg-ray" aria-hidden="true" />
+          <span className="min-w-0 [overflow-wrap:anywhere]">{lesson.group?.name ?? lesson.student?.name ?? lesson.title}</span>
         </p>
         <p className="t-caption flex items-center gap-2 text-muted">
           {lesson.group ? (

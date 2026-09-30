@@ -118,24 +118,8 @@ export function DeskScene({ className }: { className?: string }) {
         <path d="M578 337h44" />
       </g>
 
-      {/* призма и спектр */}
-      <g>
-        <path d="M770 236l62 26" strokeWidth="3.2" />
-        <g style={{ mixBlendMode: 'var(--blend)' as never }} stroke="none">
-          {Array.from({ length: 7 }, (_, i) => (
-            <path
-              key={i}
-              d={`M872 272L1030 ${196 + i * 20}L1030 ${214 + i * 20}z`}
-              fill={`var(--ray-${i})`}
-              opacity="0.92"
-              style={{ transformOrigin: '872px 272px', transformBox: 'view-box', animation: `ray-in 0.9s ${0.5 + i * 0.07}s var(--ease-out-expo) both` }}
-            />
-          ))}
-        </g>
-        <path d="M846 206l-50 138h100z" fill={PAPER} />
-        <path d="M846 206l-50 138h100z" fill="var(--mark)" fillOpacity="0.35" />
-        <path d="M818 272l54 0" strokeWidth="1.8" strokeOpacity="0.5" />
-      </g>
+      {/* призма в объёме и спектр */}
+      <ScenePrism />
 
       {/* стакан с карандашами */}
       <g>
@@ -149,6 +133,50 @@ export function DeskScene({ className }: { className?: string }) {
       {/* край стола */}
       <path d="M0 346h1200" stroke="var(--terracotta)" strokeWidth="7" />
     </Sheet>
+  );
+}
+
+/** Стеклянная призма для сцены: та же, что в логотипе, крупнее. Лучи слегка «дышат», сама призма парит. */
+function ScenePrism() {
+  const id = useId().replace(/:/g, '');
+  const front = 'M42 12 L12 82 L72 82 Z';
+  const side = 'M42 12 L60 4 L90 74 L72 82 Z';
+  const BEAM = ['#e8674a', '#f29a3c', '#f4cf3a', '#68b544', '#28aeb0', '#5f6fe0', '#a865d8'];
+  return (
+    <g transform="translate(742 168) scale(2.1)" strokeWidth="1.6">
+      <defs>
+        <linearGradient id={`${id}f`} x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.45" stopColor="#d9f5f0" />
+          <stop offset="1" stopColor="#8fd8d4" />
+        </linearGradient>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#4fb9b6" />
+          <stop offset="1" stopColor="#1a6f73" />
+        </linearGradient>
+      </defs>
+      <g style={{ mixBlendMode: 'var(--blend)' as never }} stroke="none">
+        {BEAM.map((c, i) => (
+          <polygon
+            key={c}
+            points={`80,46 124,${20 + i * 8.6} 124,${20 + i * 8.6 + 11}`}
+            fill={c}
+            style={{ transformOrigin: '80px 46px', transformBox: 'view-box', animation: `ray-in 0.9s ${0.5 + i * 0.07}s var(--ease-out-expo) both, ray-breathe 4.5s ${i * 0.35}s ease-in-out infinite` }}
+          />
+        ))}
+      </g>
+      <ellipse cx="46" cy="87" rx="36" ry="4.5" fill="var(--ink)" fillOpacity="0.14" stroke="none" />
+      <line x1="0" y1="62" x2="30" y2="52" strokeWidth="3.2" />
+      <g style={{ animation: 'float-a 7s ease-in-out infinite', ['--rot' as string]: '0deg' }}>
+        <path d={side} fill={`url(#${id}s)`} stroke="none" />
+        <path d={front} fill={`url(#${id}f)`} stroke="none" />
+        <line x1="30" y1="52" x2="74" y2="47" stroke="#fff" strokeWidth="3" />
+        <path d="M42 12 L15 76" stroke="#fff" strokeWidth="2.2" />
+        <ellipse cx="34" cy="38" rx="3.4" ry="9" transform="rotate(20 34 38)" fill="#fff" fillOpacity="0.55" stroke="none" />
+        <path d={front} strokeWidth="2.6" />
+        <path d="M42 12 L60 4 L90 74 L72 82" strokeWidth="2.6" />
+      </g>
+    </g>
   );
 }
 

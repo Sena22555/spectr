@@ -1,8 +1,8 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
 import clsx from 'clsx';
 import {
   ArrowRight,
@@ -46,7 +46,7 @@ import {
   TargetDoodle,
 } from '../components/Doodles';
 import { ButtonLink, Chip, Monogram, SectionTitle, Skeleton, Squiggle } from '../components/ui';
-import type { GroupCard as Group, Lesson } from '../lib/types';
+import type { GroupCard as Group, Lesson, Subject } from '../lib/types';
 
 export default function Home() {
   return isMiniApp ? <MiniHome /> : <Landing />;
@@ -114,7 +114,7 @@ function Landing() {
 
   return (
     <>
-      <Hero />
+      <Hero subjects={subjects.data} />
       <ProductBand />
       <Ticker items={subjects.data?.map((s) => s.title) ?? ['Математика', 'Физика', 'Информатика', 'Английский язык']} />
 
@@ -224,7 +224,7 @@ function Landing() {
       {/* Запись */}
       <Container className="pt-24">
         <Reveal as="section">
-          <div id="book" className="relative overflow-hidden rounded-[14px] bg-[#a8e5e5] text-forest">
+          <div id="book" className="relative overflow-hidden rounded-[14px] bg-[var(--tint-raw-4)] text-forest">
             <div className="grid gap-10 p-6 sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:p-14">
               <div className="flex flex-col gap-5">
                 <Chip hue={2} icon={<Sparkles />}>
@@ -256,28 +256,105 @@ function Landing() {
   );
 }
 
-function Hero() {
+const HERO_LINES: { words: string[]; mark?: boolean }[] = [
+  { words: ['Разложим', 'любой', 'предмет', 'на'] },
+  { words: ['понятные', 'части.'], mark: true },
+];
+
+/** Стикеры-предметы по бокам заголовка (только на широких экранах): влетают пружиной и покачиваются. */
+const STICKERS = [
+  { side: 'left', top: '30%', x: '5%', rot: -7, delay: 0.9, float: 'float-a' },
+  { side: 'right', top: '26%', x: '5%', rot: 6, delay: 1.05, float: 'float-b' },
+  { side: 'left', top: '58%', x: '9%', rot: 5, delay: 1.2, float: 'float-b' },
+  { side: 'right', top: '56%', x: '8%', rot: -5, delay: 1.35, float: 'float-a' },
+] as const;
+
+function Hero({ subjects }: { subjects?: Subject[] }) {
   const reduce = useReducedMotion();
   const { scrollY } = useScroll();
   const yLeft = useTransform(scrollY, [0, 600], [0, reduce ? 0 : 90]);
   const yRight = useTransform(scrollY, [0, 600], [0, reduce ? 0 : -70]);
   const yPlane = useTransform(scrollY, [0, 600], [0, reduce ? 0 : -140]);
+  const sceneY = useTransform(scrollY, [0, 700], [0, reduce ? 0 : 40]);
+
+  // курсор двигает декор в разные стороны, а светлое пятно идёт за ним
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const sx = useSpring(mx, { stiffness: 90, damping: 18 });
+  const sy = useSpring(my, { stiffness: 90, damping: 18 });
+  const xNear = useTransform(sx, [-1, 1], [-16, 16]);
+  const xFar = useTransform(sx, [-1, 1], [12, -12]);
+  const yNear = useTransform(sy, [-1, 1], [-8, 8]);
+  const ref = useRef<HTMLElement>(null);
+  const onMove = (e: React.PointerEvent) => {
+    if (reduce || e.pointerType === 'touch') return;
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    mx.set(px * 2 - 1);
+    my.set(py * 2 - 1);
+    el.style.setProperty('--px', `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty('--py', `${(py * 100).toFixed(1)}%`);
+  };
+
+  const picks = (subjects ?? []).filter((s, i, a) => a.findIndex((x) => x.hue === s.hue) === i).slice(0, 4);
+  let w = 0;
 
   return (
-    <section className="relative overflow-hidden pt-14 sm:pt-20">
-      {/* летающие листки по краям */}
-      <motion.div style={{ y: yLeft }} className="pointer-events-none absolute top-[46%] left-[4%] hidden w-[108px] lg:block" aria-hidden="true">
-        <PaperDoodle className="float-a w-full" style={{ ['--rot' as string]: '-22deg' }} />
-      </motion.div>
-      <motion.div style={{ y: yRight }} className="pointer-events-none absolute top-[40%] right-[5%] hidden w-[124px] lg:block" aria-hidden="true">
-        <PaperDoodle className="float-b w-full" lines={4} style={{ ['--rot' as string]: '16deg' }} />
-      </motion.div>
-      <motion.div style={{ y: yPlane }} className="pointer-events-none absolute top-[12%] right-[10%] hidden w-[190px] lg:block" aria-hidden="true">
-        <PlaneDoodle className="w-full" />
-      </motion.div>
-      <motion.div style={{ y: yRight }} className="pointer-events-none absolute top-[16%] left-[9%] hidden w-[130px] -rotate-[24deg] lg:block" aria-hidden="true">
+    <section
+      ref={ref}
+      onPointerMove={onMove}
+      className="relative overflow-hidden pt-14 sm:pt-20"
+      style={{ ['--px' as string]: '50%', ['--py' as string]: '28%' }}
+    >
+      {/* фон: медленно дрейфующие пастельные пятна и мягкий спектральный луч */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -top-40 -left-32 size-[620px] rounded-full opacity-90" style={{ background: 'radial-gradient(closest-side, var(--tint-2), transparent)', animation: 'aura-a 22s ease-in-out infinite' }} />
+        <div className="absolute top-10 -right-40 size-[680px] rounded-full opacity-80" style={{ background: 'radial-gradient(closest-side, var(--tint-4), transparent)', animation: 'aura-b 26s ease-in-out infinite' }} />
+        <div className="absolute top-[42%] left-[22%] size-[560px] rounded-full opacity-70" style={{ background: 'radial-gradient(closest-side, var(--tint-6), transparent)', animation: 'aura-c 30s ease-in-out infinite' }} />
+        <div className="absolute top-[22%] -right-10 size-[420px] rounded-full opacity-60" style={{ background: 'radial-gradient(closest-side, var(--tint-0), transparent)', animation: 'aura-a 28s ease-in-out infinite reverse' }} />
+        <div
+          className="absolute inset-x-0 top-[34%] h-40 -rotate-[4deg] opacity-[0.22] [mask-image:linear-gradient(90deg,transparent,#000_20%,#000_80%,transparent)]"
+          style={{ background: 'linear-gradient(90deg, var(--ray-0), var(--ray-1), var(--ray-2), var(--ray-3), var(--ray-4), var(--ray-5), var(--ray-6), var(--ray-0))', backgroundSize: '200% 100%', animation: 'ribbon 40s linear infinite', filter: 'blur(36px)' }}
+        />
+        <div className="absolute inset-0 hidden lg:block" style={{ background: 'radial-gradient(520px circle at var(--px) var(--py), color-mix(in oklab, var(--mark) 40%, transparent), transparent 70%)' }} />
+      </div>
+
+      {/* декор по краям */}
+      <motion.div style={{ y: yRight, x: xFar }} className="pointer-events-none absolute top-[10%] left-[8%] hidden w-[130px] -rotate-[24deg] lg:block" aria-hidden="true">
         <PencilDoodle className="w-full" />
       </motion.div>
+      <motion.div style={{ y: yPlane, x: xNear }} className="pointer-events-none absolute top-[8%] right-[9%] hidden w-[190px] lg:block" aria-hidden="true">
+        <PlaneDoodle className="w-full" />
+      </motion.div>
+      <motion.div style={{ y: yLeft, x: xNear }} className="pointer-events-none absolute top-[64%] left-[3%] hidden w-[92px] xl:block" aria-hidden="true">
+        <PaperDoodle className="float-a w-full" style={{ ['--rot' as string]: '-18deg' }} />
+      </motion.div>
+      {picks.length === 4 &&
+        STICKERS.map((st, i) => {
+          const s = picks[i];
+          return (
+            <motion.div
+              key={s.id}
+              style={{ top: st.top, [st.side]: st.x, x: st.side === 'left' ? xFar : xNear, y: yNear }}
+              className="absolute z-[1] hidden xl:block"
+              initial={reduce ? false : { opacity: 0, scale: 0.4, rotate: st.rot * 4 }}
+              animate={{ opacity: 1, scale: 1, rotate: st.rot }}
+              transition={{ type: 'spring', stiffness: 260, damping: 15, delay: st.delay }}
+            >
+              <Link
+                to={`/subjects/${s.slug}`}
+                className={clsx(`hue-${s.hue}`, st.float, 'sticker tape block px-5 py-3 no-underline transition-transform duration-300 hover:scale-110 hover:!rotate-0')}
+                style={{ ['--rot' as string]: `${st.rot}deg` }}
+              >
+                <span className="t-heading block text-[19px] leading-tight">{s.title}</span>
+                <span className="t-mono block text-[12px] opacity-75">{s.level}</span>
+              </Link>
+            </motion.div>
+          );
+        })}
 
       <div className="relative mx-auto flex max-w-[860px] flex-col items-center px-5 text-center">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 24 }}>
@@ -285,19 +362,40 @@ function Hero() {
             занятия с репетитором онлайн
           </Chip>
         </motion.div>
-        <motion.h1
-          className="t-display t-xl mt-7"
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.06 }}
-        >
-          Разложим любой предмет на <mark>понятные части.</mark>
-        </motion.h1>
+        <h1 className="t-display t-xl mt-7" aria-label="Разложим любой предмет на понятные части.">
+          {HERO_LINES.map((line, li) => {
+            const words = line.words.map((word, wi) => {
+              const i = w++;
+              return (
+                <Fragment key={word}>
+                  {wi > 0 && ' '}
+                  <motion.span
+                    aria-hidden="true"
+                    className="inline-block"
+                    initial={reduce ? false : { opacity: 0, y: '0.6em', rotate: 5 }}
+                    animate={{ opacity: 1, y: 0, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 220, damping: 20, delay: 0.1 + i * 0.07 }}
+                  >
+                    {word}
+                  </motion.span>
+                </Fragment>
+              );
+            });
+            return line.mark ? (
+              <Fragment key={li}>
+                {' '}
+                <mark style={{ animationDelay: '0.95s' }}>{words}</mark>
+              </Fragment>
+            ) : (
+              <span key={li}>{words}</span>
+            );
+          })}
+        </h1>
         <motion.p
           className="mt-6 max-w-[44ch] text-[clamp(18px,1.7vw,21px)] leading-[1.5]"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 26, delay: 0.14 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 26, delay: 0.55 }}
         >
           Школьная программа, ОГЭ и ЕГЭ, вузовская математика и физика. Один на один или в мини-группе — с расписанием, ссылками на уроки и поддержкой в одном кабинете.
         </motion.p>
@@ -305,7 +403,7 @@ function Hero() {
           className="mt-9 flex flex-col items-center gap-3"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 26, delay: 0.22 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 26, delay: 0.7 }}
         >
           <div className="flex flex-wrap justify-center gap-3">
             <ButtonLink to="/book" className="min-h-14 px-7 text-[16px]">
@@ -315,17 +413,17 @@ function Hero() {
               Выбрать преподавателя
             </ButtonLink>
           </div>
-          <p className="t-mono text-[12px] text-muted">без регистрации · заявка за минуту</p>
+          <p className="t-mono text-[12.5px] text-muted">без регистрации · заявка за минуту</p>
         </motion.div>
       </div>
 
-      <div className="relative mx-auto mt-10 max-w-[1240px] overflow-x-clip px-2 sm:mt-6">
-        <Blob className="absolute -bottom-10 -left-24 w-[190px] sm:w-[380px]" />
-        <Blob className="absolute right-[-80px] -bottom-24 w-[220px] rotate-90 opacity-70" color="var(--tint-raw-6)" />
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 26, delay: 0.3 }}>
+      <motion.div style={{ y: sceneY }} className="relative mx-auto mt-10 max-w-[1240px] overflow-x-clip px-2 sm:mt-6">
+        <Blob className="absolute -bottom-10 -left-24 w-[190px] opacity-70 sm:w-[380px]" color="var(--butter)" />
+        <Blob className="absolute right-[-80px] -bottom-24 w-[220px] rotate-90 opacity-60" color="var(--tint-raw-6)" />
+        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 180, damping: 24, delay: 0.35 }}>
           <DeskScene className="relative -ml-[45%] w-[190%] max-w-none sm:ml-0 sm:w-full" />
         </motion.div>
-      </div>
+      </motion.div>
     </section>
   );
 }
@@ -333,7 +431,7 @@ function Hero() {
 /** Тёмно-зелёная полоса под «столом»: из неё выглядывает кабинет ученика. */
 function ProductBand() {
   return (
-    <section className="relative bg-forest-2 pb-20 text-cream dark:bg-banner">
+    <section className="relative bg-forest-2 pb-28 text-cream dark:bg-banner">
       <Container className="pt-14">
         <Reveal y={60}>
           <CabinetMock />
@@ -389,9 +487,7 @@ function CabinetMock() {
   return (
     <div className="mx-auto max-w-[980px] overflow-hidden rounded-[14px] border border-cream/10 bg-paper text-ink shadow-[0_40px_80px_-30px_rgb(0_0_0/0.6)]" aria-label="Пример личного кабинета ученика" role="img">
       <div className="flex items-center gap-2 border-b border-dashed border-hair-soft px-4 py-3">
-        <span className="size-3 rounded-full bg-ray-0" style={{ background: 'var(--ray-0)' }} />
-        <span className="size-3 rounded-full" style={{ background: 'var(--ray-2)' }} />
-        <span className="size-3 rounded-full" style={{ background: 'var(--ray-3)' }} />
+        <LogoMark className="h-4 w-5 text-ink" title="" />
         <span className="t-mono ml-3 truncate rounded-full bg-bone px-3 py-1 text-[11px] text-muted">spectr.school/app</span>
       </div>
       <div className="grid md:grid-cols-[190px_1fr]">
@@ -433,7 +529,7 @@ function CabinetMock() {
             ].map((l) => (
               <div key={l.n} className={clsx(`hue-${l.h}`, 'flex items-center gap-3 border-b border-dashed border-hair-soft py-2.5 last:border-0')}>
                 <span className="t-heading tnum w-14 text-[18px]">{l.t}</span>
-                <span className="size-2.5 shrink-0 rounded-full bg-ray" />
+                <span className="h-4 w-1 shrink-0 rounded-full bg-ray" />
                 <span className="min-w-0 flex-1 truncate text-[14.5px]">{l.n}</span>
                 <span className="t-mono text-[11px] text-muted">{l.d}</span>
               </div>
@@ -448,12 +544,12 @@ function CabinetMock() {
 function Ticker({ items }: { items: string[] }) {
   const row = [...items, ...items, ...items];
   return (
-    <div className="relative z-10 -mt-7 -rotate-[1.5deg] overflow-hidden border-y-[1.5px] border-forest bg-mark py-3 text-forest" aria-hidden="true">
+    <div className="relative z-10 -mt-7 -rotate-[1.5deg] overflow-hidden border-y-[1.5px] border-forest/70 bg-butter py-3 text-forest" aria-hidden="true">
       <div className="flex w-max animate-[marquee_38s_linear_infinite] gap-8">
         {[...row, ...row].map((x, i) => (
           <span key={i} className="t-display flex items-center gap-8 text-[22px] whitespace-nowrap">
             {x}
-            <span className="text-[18px]">✦</span>
+            <span className="h-5 w-1.5 rotate-[20deg] rounded-full bg-forest/60" />
           </span>
         ))}
       </div>
@@ -511,7 +607,7 @@ function LessonFeature() {
           занятия
         </Chip>
         <div className="grid overflow-hidden rounded-[14px] lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="relative flex flex-col gap-5 bg-mark p-7 text-forest sm:p-10">
+          <div className="relative flex flex-col gap-5 bg-butter p-7 text-forest sm:p-10">
             <h2 className="t-display text-[clamp(28px,2.7vw,38px)] leading-[1.1]">
               Занимайтесь спокойно — ссылку и расписание мы держим под рукой.
             </h2>
@@ -527,7 +623,6 @@ function LessonFeature() {
                 <Monogram name="Анна Лебедева" hue={4} size="fill" className="absolute inset-0" />
                 <span className="t-mono absolute bottom-2.5 left-2.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white">Анна · преподаватель</span>
                 <span className="t-mono absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white">
-                  <span className="size-2 rounded-full bg-[#ff6b4a]" style={{ animation: 'pulse-dot 1.4s infinite' }} />
                   идёт урок · {time}
                 </span>
               </div>
@@ -657,7 +752,7 @@ function WeekMock() {
           <div key={d} className={clsx('flex flex-col items-center gap-1.5 rounded-[8px] py-2', i === 0 && 'bg-mark text-forest')}>
             <span className="t-mono text-[10.5px]">{d}</span>
             <span className="t-heading tnum text-[17px]">{12 + i}</span>
-            <span className={clsx('size-1.5 rounded-full', marks[i] !== undefined ? '' : 'opacity-0')} style={{ background: `var(--ray-${marks[i] ?? 0})` }} />
+            <span className={clsx('h-1 w-4 rounded-full', marks[i] !== undefined ? '' : 'opacity-0')} style={{ background: `var(--ray-${marks[i] ?? 0})` }} />
           </div>
         ))}
       </div>
@@ -732,7 +827,7 @@ function Audience() {
   return (
     <section className="mt-32">
       <Container>
-        <div className="ruled relative overflow-hidden rounded-[14px] bg-terracotta px-5 py-14 text-cream sm:px-10 sm:py-20">
+        <div className="ruled relative overflow-hidden rounded-[14px] bg-terracotta px-5 py-14 text-forest sm:px-10 sm:py-20">
           <div className="grid items-center gap-y-12 lg:grid-cols-[1fr_1.1fr_1fr] lg:gap-x-6">
             <div className="flex flex-col items-center gap-8 lg:gap-14">
               {AUDIENCE.slice(0, 2).map((a, i) => (
@@ -746,7 +841,7 @@ function Audience() {
               <h2 className="t-display text-[clamp(34px,4vw,54px)] leading-[1.05]">
                 Подстроимся под <span className="relative inline-block">вашу задачу<Squiggle className="absolute -bottom-2 left-0 h-3 w-full [&_path]:stroke-mark" /></span>.
               </h2>
-              <p className="mx-auto mt-6 max-w-[34ch] text-[17px] text-cream/90">Школа и вуз, один на один или в мини-группе. Преподавателя и время подбираем под цель.</p>
+              <p className="mx-auto mt-6 max-w-[34ch] text-[17px] text-forest/90">Школа и вуз, один на один или в мини-группе. Преподавателя и время подбираем под цель.</p>
               <div className="mt-8 flex justify-center">
                 <ButtonLink to="/book" variant="banner" className="min-h-12">
                   Подобрать занятие <ArrowRight className="size-4" strokeWidth={2.4} />
@@ -778,7 +873,7 @@ function AudienceNote({
     <Reveal rotate={rot} delay={delay} className="w-full max-w-[290px]">
       <div className={clsx(`hue-${hue}`, 'sticker relative flex flex-col items-center gap-2 px-6 pt-6 pb-7 text-center transition-transform duration-300 hover:scale-[1.04] hover:rotate-2')}>
         <span className="t-mono absolute -top-3 left-4 flex items-center gap-1.5 rounded-[4px] bg-paper px-2 py-1 text-[10.5px] text-forest shadow-card">
-          <span className="size-1.5 rounded-full bg-forest" /> {label}
+          {label}
         </span>
         <Doodle className="h-20 w-24" />
         <h3 className="t-heading text-[24px]">{title}</h3>

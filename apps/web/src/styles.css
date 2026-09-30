@@ -2,8 +2,6 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/geologica/wght.css';
 @import '@fontsource-variable/inter';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -16,7 +14,8 @@
   --ember: #c24f1c;
   --ember-text: #a8431a;
   --on-ember: #ffffff;
-  --mark: #ffe95c;
+  --mark: #ffe987;
+  --butter: #fff1b0;
   --on-mark: #1a3300;
   --plate-blue: #c4cbf7;
   --banner-bg: #1a3300;
@@ -24,17 +23,17 @@
   --hair: #1a3300;
   --hair-soft: rgb(26 51 0 / 0.16);
   --blend: multiply;
-  --terracotta: #cb5521;
+  --terracotta: #d98259;
   --forest-2: #24420a;
 
   /* стикеры: подложки */
-  --tint-raw-0: #ffc9b0;
-  --tint-raw-1: #ffd9a0;
-  --tint-raw-2: #ffe95c;
-  --tint-raw-3: #d5f5c2;
-  --tint-raw-4: #a8e5e5;
-  --tint-raw-5: #c9cff8;
-  --tint-raw-6: #f6d0ff;
+  --tint-raw-0: #fbd3c0;
+  --tint-raw-1: #fbdfb5;
+  --tint-raw-2: #fbeb9a;
+  --tint-raw-3: #d9efcb;
+  --tint-raw-4: #bfe6e4;
+  --tint-raw-5: #d0d5f3;
+  --tint-raw-6: #eed5f6;
 
   --tint-0: var(--tint-raw-0);
   --tint-1: var(--tint-raw-1);
@@ -56,7 +55,7 @@
   /* яркие краски: точки, цифры, линии */
   --ray-0: #e0622c;
   --ray-1: #f0962a;
-  --ray-2: #f5cf00;
+  --ray-2: #efc93a;
   --ray-3: #5aa832;
   --ray-4: #1ea8a8;
   --ray-5: #5a68dc;
@@ -96,7 +95,8 @@
   --ember: #ff9a6b;
   --ember-text: #ff9a6b;
   --on-ember: #11190b;
-  --mark: #ffe95c;
+  --mark: #ffe987;
+  --butter: #fff1b0;
   --on-mark: #1a3300;
   --banner-bg: #0a1006;
   --banner-fg: #f6f2e4;
@@ -152,6 +152,7 @@
   --color-hair: var(--hair);
   --color-hair-soft: var(--hair-soft);
   --color-mark: var(--mark);
+  --color-butter: var(--butter);
   --color-on-mark: var(--on-mark);
   --color-plate-blue: var(--plate-blue);
   --color-terracotta: var(--terracotta);
@@ -162,7 +163,7 @@
   --font-display: 'Geologica Variable', 'Geologica', 'Inter Variable', system-ui, sans-serif;
   --font-lead: 'Inter Variable', 'Inter', system-ui, sans-serif;
   --font-text: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-mono: 'Inter Variable', 'Inter', system-ui, sans-serif;
 
   --radius-card: 10px;
   --radius-ctl: 7px;
@@ -208,6 +209,7 @@
 
   /* маркер: жёлтая заливка протягивается под словом при появлении */
   mark {
+    background-color: transparent;
     color: inherit;
     font-style: normal;
     font-weight: inherit;
@@ -272,6 +274,30 @@
   from { transform: scaleX(0); opacity: 0; }
   to { transform: scaleX(1); opacity: 0.92; }
 }
+@keyframes ray-breathe {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.6; }
+}
+@keyframes aura-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(70px, 40px, 0) scale(1.18); }
+}
+@keyframes aura-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-60px, 50px, 0) scale(0.92); }
+}
+@keyframes aura-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(40px, -50px, 0) scale(1.12); }
+}
+@keyframes ribbon {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+@keyframes prism-glint {
+  from { transform: translateX(0); }
+  to { transform: translateX(160px); }
+}
 @keyframes marquee {
   to { transform: translateX(-50%); }
 }
@@ -296,7 +322,7 @@
     letter-spacing: -0.008em;
     font-variant-numeric: lining-nums;
   }
-  .t-xl { font-size: clamp(40px, 6vw, 80px); }
+  .t-xl { font-size: clamp(34px, 6vw, 80px); }
   .t-lg { font-size: clamp(32px, 4.4vw, 58px); }
   .t-md { font-size: clamp(24px, 2.6vw, 32px); }
   .t-sub {
@@ -306,12 +332,14 @@
     letter-spacing: -0.01em;
   }
   .t-caption { font-size: 14px; line-height: 1.45; letter-spacing: 0; font-weight: 450; }
+  /* мелкие метки: Inter, цифры табличные, без точек в нулях и «i» */
   .t-mono {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 12.5px;
     line-height: 1.3;
-    letter-spacing: 0.02em;
-    font-weight: 500;
+    letter-spacing: 0.01em;
+    font-weight: 560;
+    font-variant-numeric: tabular-nums lining-nums;
   }
 
   /* ссылка */

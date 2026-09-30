@@ -48,7 +48,7 @@ export default function Today() {
             {todos.map((t) => (
               <li key={t.to}>
                 <Link to={t.to} className="link inline-flex items-center gap-2 text-[17px]">
-                  <span className="size-2 rounded-full bg-ember" aria-hidden="true" />
+                  <span className="h-4 w-1 rounded-full bg-ember" aria-hidden="true" />
                   {t.text}
                 </Link>
               </li>

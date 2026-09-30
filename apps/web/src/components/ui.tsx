@@ -135,7 +135,7 @@ export function Choice<T extends string>({
   return (
     <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
       <legend className="t-caption mb-1.5 p-0 font-[550] text-ink">{label}</legend>
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))' }}>
         {options.map((o) => (
           <label
             key={o.value}
@@ -145,7 +145,7 @@ export function Choice<T extends string>({
             )}
           >
             <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="sr-only" />
-            <span className="text-[16px] leading-tight font-[420]">{o.label}</span>
+            <span className="text-[15.5px] leading-tight font-[500] [overflow-wrap:anywhere]">{o.label}</span>
             {o.hint && <span className={clsx('t-caption', value === o.value ? 'text-paper/80' : 'text-muted')}>{o.hint}</span>}
           </label>
         ))}
@@ -173,8 +173,7 @@ export function Badge({ tone = 'outline', children, className }: { tone?: 'ember
 
 export function Tag({ hue, children, className }: { hue: number; children: ReactNode; className?: string }) {
   return (
-    <span className={clsx(`hue-${hue}`, 't-mono inline-flex h-7 items-center gap-1.5 rounded-full bg-tint px-3 text-[11.5px] leading-none text-hue', className)}>
-      <span className="size-2 rounded-full bg-ray" aria-hidden="true" />
+    <span className={clsx(`hue-${hue}`, 't-mono inline-flex h-7 items-center gap-1.5 rounded-full bg-tint px-3 text-[12px] leading-none text-hue', className)}>
       {children}
     </span>
   );
@@ -302,7 +301,7 @@ export function Chip({ icon, children, hue = 2, className }: { icon?: ReactNode;
   return (
     <span className={clsx(`hue-${hue}`, 'inline-flex h-7 w-fit items-stretch overflow-hidden rounded-[5px] text-[12px]', className)}>
       <span className="grid w-7 place-items-center bg-forest text-mark [&>svg]:size-3.5" aria-hidden="true">
-        {icon ?? <span className="size-1.5 rounded-full bg-mark" />}
+        {icon ?? <span className="h-3 w-1 rounded-full bg-mark" />}
       </span>
       <span className="t-mono flex items-center bg-sticky px-2.5 text-forest">{children}</span>
     </span>

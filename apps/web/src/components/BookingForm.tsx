@@ -99,7 +99,7 @@ export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { sub
       }}
     >
       <Select label="Предмет" value={form.courseSlug} onChange={(e) => set('courseSlug', e.target.value)} className={compact ? 'sm:col-span-2 lg:col-span-1 xl:col-span-2' : 'sm:col-span-2'}>
-        <option value="">Пока не знаю — помогите выбрать</option>
+        <option value="">Помогите выбрать</option>
         {subjects.data?.map((s) => (
           <option key={s.slug} value={s.slug}>
             {s.title} · {s.level}

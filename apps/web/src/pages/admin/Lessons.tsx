@@ -68,8 +68,8 @@ export default function AdminLessons() {
               <li key={l.id} className={`hue-${l.group?.hue ?? l.teacher.hue} grid grid-cols-[72px_1fr_auto] items-center gap-4 border-b border-hair-soft py-3`}>
                 <span className="t-heading tnum text-[26px]">{fmtTime(l.startsAt)}</span>
                 <div className="min-w-0">
-                  <p className="flex items-center gap-2 truncate text-[17px] font-[450]">
-                    <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
+                  <p className="flex items-start gap-2 text-[17px] leading-snug font-[450] [overflow-wrap:anywhere]">
+                    <span className="mt-1 h-4 w-1 shrink-0 rounded-full bg-ray" aria-hidden="true" />
                     {l.group?.name ?? l.student?.name ?? l.title}
                   </p>
                   <p className="t-caption text-muted">

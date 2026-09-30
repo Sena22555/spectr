@@ -60,8 +60,8 @@ export default function AdminUsers() {
             <div className="flex min-w-0 items-center gap-3">
               <Avatar name={u.name} url={u.avatarUrl} />
               <div className="min-w-0">
-                <p className="truncate text-[17px] font-[450]">{u.name}</p>
-                <p className="t-caption truncate text-muted">{u.email ?? (u.telegramLinked ? 'через Telegram' : u.vkLinked ? 'через VK' : '—')}</p>
+                <p className="text-[17px] font-[450] [overflow-wrap:anywhere]">{u.name}</p>
+                <p className="t-caption text-muted [overflow-wrap:anywhere]">{u.email ?? (u.telegramLinked ? 'через Telegram' : u.vkLinked ? 'через VK' : '—')}</p>
               </div>
             </div>
             <p className="t-caption text-muted">с {fmtDay(u.createdAt)}</p>

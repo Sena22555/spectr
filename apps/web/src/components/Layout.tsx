@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import clsx from 'clsx';
 import { CalendarDays, Home, Menu, UserRound, UsersRound, X, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { Logo } from './Logo';
@@ -86,11 +86,27 @@ function DemoBar() {
         aria-expanded={open}
         className="press t-mono flex h-10 items-center gap-2 rounded-full bg-forest px-4 text-[12px] text-mark shadow-sticker hover:-translate-y-0.5"
       >
-        <span className="size-2 rounded-full bg-mark" style={{ animation: 'pulse-dot 1.6s infinite' }} />
         демо{user ? ` · ${user.name.split(' ')[0]}` : ''}
       </button>
     </div>
   );
+}
+
+/** Плавный переход между страницами: новая страница всплывает на пружине. */
+function PageTransition() {
+  const { pathname } = useLocation();
+  return (
+    <motion.div key={pathname} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 30 }}>
+      <Outlet />
+    </motion.div>
+  );
+}
+
+/** Тонкая полоса спектра вверху: растёт по мере прокрутки. */
+function ScrollBar() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 140, damping: 26, mass: 0.4 });
+  return <motion.div className="spectrum-bar fixed inset-x-0 top-0 z-50 h-[3px] origin-left" style={{ scaleX }} aria-hidden="true" />;
 }
 
 // ——— Сайт ———
@@ -98,9 +114,10 @@ export function SiteLayout() {
   if (isMiniApp) return <MiniLayout />;
   return (
     <div className="flex min-h-dvh flex-col">
+      <ScrollBar />
       <SiteHeader />
       <main className="flex-1">
-        <Outlet />
+        <PageTransition />
       </main>
       <SiteFooter />
     </div>
@@ -125,7 +142,7 @@ function SiteHeader() {
       <div
         className={clsx(
           'mx-auto flex h-[64px] max-w-[1120px] items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-dashed px-3 transition-[background-color,box-shadow,border-color] duration-300 sm:px-4',
-          scrolled ? 'border-ink/25 bg-paper/90 shadow-card backdrop-blur-md' : 'border-ink/20 bg-paper/70',
+          scrolled ? 'border-ink/25 bg-paper/97 shadow-card backdrop-blur-md' : 'border-ink/15 bg-paper/90 backdrop-blur-sm',
         )}
       >
         <Link to="/" className="no-underline" aria-label="Спектр — на главную">
@@ -138,7 +155,7 @@ function SiteHeader() {
               to={n.to}
               className={({ isActive }) =>
                 clsx(
-                  't-mono press rounded-full px-3.5 py-2 text-[13px] no-underline',
+                  'press rounded-full px-3.5 py-2 text-[14px] font-[560] no-underline',
                   isActive ? 'bg-mark text-forest' : 'hover:bg-ink/[0.06]',
                 )
               }
@@ -487,7 +504,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
           </nav>
         </aside>
         <div className="min-w-0">
-          <Outlet />
+          <PageTransition />
         </div>
       </div>
       {isMiniApp && <BottomTabs />}

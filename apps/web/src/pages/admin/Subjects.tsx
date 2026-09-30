@@ -47,7 +47,7 @@ export default function AdminSubjects() {
             <div className="grid gap-2 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-[19px] font-[450]">
-                  <span className="size-2.5 rounded-full bg-ray" aria-hidden="true" />
+                  <span className="h-4 w-1 shrink-0 rounded-full bg-ray" aria-hidden="true" />
                   {c.title}
                   {!c.published && <span className="t-caption text-muted">· скрыт</span>}
                   {c.source === 'UNIVERSITY' && <span className="t-caption text-hue">· университет</span>}

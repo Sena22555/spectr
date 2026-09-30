@@ -85,8 +85,8 @@ export function LessonRow({ lesson, showDate = false, onReschedule }: { lesson: 
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-full bg-ray" aria-hidden="true" />
-            <p className="truncate text-[18px] font-[450]">{lesson.group?.name ?? lesson.title}</p>
+            <span className="mt-1 h-4 w-1 shrink-0 rounded-full bg-ray" aria-hidden="true" />
+            <p className="min-w-0 text-[18px] leading-snug font-[450] [overflow-wrap:anywhere]">{lesson.group?.name ?? lesson.title}</p>
           </div>
           <p className="t-caption text-muted">
             {lesson.teacher ? `${lesson.teacher.subject} · ${lesson.teacher.user.name}` : lesson.student?.name} · {lesson.durationMin} мин
