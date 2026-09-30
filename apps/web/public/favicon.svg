@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96">
+  <style>
+    .p { fill: #e2dedb; stroke: #1d1d1b; }
+    .b { stroke: #1d1d1b; }
+    @media (prefers-color-scheme: dark) { .p { fill: #1d1d1b; stroke: #e2dedb; } .b { stroke: #e2dedb; } }
+  </style>
+  <polygon points="67.6,49.8 120,28 120,37" fill="#c03f13"/>
+  <polygon points="67.6,49.8 120,37 120,46" fill="#d9731a"/>
+  <polygon points="67.6,49.8 120,46 120,55" fill="#e0b224"/>
+  <polygon points="67.6,49.8 120,55 120,64" fill="#4f8a3c"/>
+  <polygon points="67.6,49.8 120,64 120,73" fill="#2f8f9d"/>
+  <polygon points="67.6,49.8 120,73 120,82" fill="#2b4c9b"/>
+  <polygon points="67.6,49.8 120,82 120,91" fill="#6b3fa0"/>
+  <line class="b" x1="0" y1="62" x2="30.8" y2="53.6" stroke-width="7" stroke-linecap="round"/>
+  <polygon class="p" points="50,8 18,84 82,84" stroke-width="9" stroke-linejoin="round"/>
+</svg>

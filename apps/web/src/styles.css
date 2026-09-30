@@ -1,0 +1,256 @@
+/* Спектр — токены из DESIGN.md (Miranda + «мягкая цветная газета») */
+@import 'tailwindcss';
+@import '@fontsource/rubik/800.css';
+@import '@fontsource-variable/inter';
+@import '@fontsource/roboto-mono/400.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --paper: #fcfaf5;
+  --bone: #f3efe3;
+  --ink: #1a3300;
+  --muted: #5b6650;
+  --charcoal: #b6b6b6;
+  --ember: #b44a1c;
+  --ember-text: #a8431a;
+  --on-ember: #ffffff;
+  --mark: #ffe95c;
+  --banner-bg: #1a3300;
+  --banner-fg: #fcfaf5;
+  --hair: #1a3300;
+  --hair-soft: rgb(26 51 0 / 0.16);
+
+  --tint-raw-0: #ffd4c2;
+  --tint-raw-1: #ffdfb0;
+  --tint-raw-2: #fff2a6;
+  --tint-raw-3: #d5f5c2;
+  --tint-raw-4: #a8e5e5;
+  --tint-raw-5: #c9d9ff;
+  --tint-raw-6: #f6d0ff;
+
+  --tint-0: var(--tint-raw-0);
+  --tint-1: var(--tint-raw-1);
+  --tint-2: var(--tint-raw-2);
+  --tint-3: var(--tint-raw-3);
+  --tint-4: var(--tint-raw-4);
+  --tint-5: var(--tint-raw-5);
+  --tint-6: var(--tint-raw-6);
+
+  --ink-0: #a3370f;
+  --ink-1: #8a4800;
+  --ink-2: #6b5800;
+  --ink-3: #2e6619;
+  --ink-4: #0f5f5d;
+  --ink-5: #2a4a9e;
+  --ink-6: #7b2a8f;
+
+  /* насыщенные лучи логотипа */
+  --ray-0: #c03f13;
+  --ray-1: #d9731a;
+  --ray-2: #e0b224;
+  --ray-3: #4f8a3c;
+  --ray-4: #2f8f9d;
+  --ray-5: #2b4c9b;
+  --ray-6: #6b3fa0;
+
+  --t: var(--bone);
+  --i: var(--ink);
+
+  --shadow-card: rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px;
+  --shadow-glow: rgba(255, 235, 90, 0.05) 0px 60px 80px 0px, rgba(255, 235, 90, 0.12) 0px 20px 50px 0px, rgba(255, 235, 90, 0.18) 0px 8px 24px 0px;
+  --ease-glide: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --paper: #111a0b;
+  --bone: #1b2713;
+  --ink: #fcfaf5;
+  --muted: #b9c2ae;
+  --charcoal: #4a5640;
+  --ember: #ef7a45;
+  --ember-text: #ef7a45;
+  --on-ember: #111a0b;
+  --banner-bg: #fcfaf5;
+  --banner-fg: #1a3300;
+  --hair: rgb(252 250 245 / 0.85);
+  --hair-soft: rgb(252 250 245 / 0.14);
+
+  --tint-0: color-mix(in oklab, var(--tint-raw-0) 20%, #111a0b);
+  --tint-1: color-mix(in oklab, var(--tint-raw-1) 20%, #111a0b);
+  --tint-2: color-mix(in oklab, var(--tint-raw-2) 20%, #111a0b);
+  --tint-3: color-mix(in oklab, var(--tint-raw-3) 20%, #111a0b);
+  --tint-4: color-mix(in oklab, var(--tint-raw-4) 20%, #111a0b);
+  --tint-5: color-mix(in oklab, var(--tint-raw-5) 20%, #111a0b);
+  --tint-6: color-mix(in oklab, var(--tint-raw-6) 20%, #111a0b);
+
+  --ink-0: var(--tint-raw-0);
+  --ink-1: var(--tint-raw-1);
+  --ink-2: var(--tint-raw-2);
+  --ink-3: var(--tint-raw-3);
+  --ink-4: var(--tint-raw-4);
+  --ink-5: var(--tint-raw-5);
+  --ink-6: var(--tint-raw-6);
+
+  --shadow-card: rgba(0, 0, 0, 0.5) 0px 2px 6px 0px;
+  --shadow-glow: rgba(255, 235, 90, 0.04) 0px 20px 50px 0px;
+  color-scheme: dark;
+}
+
+.hue-0 { --t: var(--tint-0); --i: var(--ink-0); --r: var(--ray-0); }
+.hue-1 { --t: var(--tint-1); --i: var(--ink-1); --r: var(--ray-1); }
+.hue-2 { --t: var(--tint-2); --i: var(--ink-2); --r: var(--ray-2); }
+.hue-3 { --t: var(--tint-3); --i: var(--ink-3); --r: var(--ray-3); }
+.hue-4 { --t: var(--tint-4); --i: var(--ink-4); --r: var(--ray-4); }
+.hue-5 { --t: var(--tint-5); --i: var(--ink-5); --r: var(--ray-5); }
+.hue-6 { --t: var(--tint-6); --i: var(--ink-6); --r: var(--ray-6); }
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-bone: var(--bone);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-charcoal: var(--charcoal);
+  --color-ember: var(--ember);
+  --color-ember-text: var(--ember-text);
+  --color-on-ember: var(--on-ember);
+  --color-banner: var(--banner-bg);
+  --color-on-banner: var(--banner-fg);
+  --color-tint: var(--t);
+  --color-hue: var(--i);
+  --color-hair: var(--hair);
+  --color-hair-soft: var(--hair-soft);
+
+  --color-mark: var(--mark);
+  --font-display: 'Rubik', 'Mulish', system-ui, sans-serif;
+  --font-text: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-tag: 9999px;
+  --radius-card: 16px;
+
+  --shadow-card: var(--shadow-card);
+}
+
+@theme {
+  --breakpoint-xs: 400px;
+}
+
+/* ——— База (в @layer base, чтобы утилиты Tailwind её перекрывали) ——— */
+@layer base {
+html {
+  background: var(--paper);
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--charcoal) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--ember);
+}
+
+::selection {
+  background: var(--mark);
+  color: #1a3300;
+}
+
+mark {
+  background: var(--mark);
+  color: #1a3300;
+  padding: 0 0.12em;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--charcoal); border-radius: 8px; border: 2px solid var(--paper); }
+::-webkit-scrollbar-track { background: transparent; }
+
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+  [id] { scroll-margin-top: 96px; }
+p { text-wrap: pretty; margin: 0; }
+
+a { color: inherit; }
+
+.tnum { font-variant-numeric: tabular-nums lining-nums; }
+
+}
+
+@layer components {
+/* ——— Типографика ——— */
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: 0.02em;
+}
+/* заголовки секций — Inter 700, как в оригинале */
+.t-heading {
+  font-family: var(--font-text);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.t-xl { font-size: clamp(40px, 5vw, 72px); letter-spacing: 0.02em; }
+.t-lg { font-size: clamp(34px, 5.4vw, 55px); }
+.t-md { font-size: clamp(24px, 3vw, 28px); }
+.t-sub { font-size: clamp(18px, 1.6vw, 20px); line-height: 1.45; letter-spacing: -0.01em; }
+.t-caption { font-size: 14px; line-height: 1.45; letter-spacing: 0; font-weight: 450; }
+.t-mono { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.3; letter-spacing: 0.02em; font-weight: 400; }
+
+.link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-underline-offset 0.2s var(--ease-out-expo);
+}
+.link:hover { text-underline-offset: 5px; }
+
+/* ——— Движение ——— */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.press { transition: transform 0.18s var(--ease-out-expo); }
+.press:active { transform: scale(0.98); }
+
+.lift { transition: box-shadow 0.3s var(--ease-out-expo), transform 0.3s var(--ease-out-expo); }
+.lift:hover { box-shadow: var(--shadow-card); transform: translateY(-2px); }
+
+/* пунктир «перфорации» как у марки */
+.perforated {
+  background-image: radial-gradient(circle at 6px 6px, var(--paper) 3px, transparent 3.5px);
+  background-size: 12px 12px;
+}
+
+.pb-safe { padding-bottom: calc(var(--safe-bottom) + 76px); }
+
+}

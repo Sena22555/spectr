@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+*.db
+*.db-journal
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
+.DS_Store
+.vite
+playwright-report
+test-results
+# Impeccable: платформенный бинарник и локальные хуки ставятся через `npx impeccable install`
+.claude/skills/impeccable/scripts/bin/
+.claude/settings.local.json
+.impeccable/config.local.json
