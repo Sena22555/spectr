@@ -22,7 +22,7 @@ export function TeacherCard({ t, className }: { t: Teacher; className?: string }
     >
       <div className="relative aspect-[5/4] w-full overflow-hidden rounded-[6px]">
         <Monogram name={t.user.name} hue={t.hue} photoUrl={t.photoUrl} size="fill" className="transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
-        <Tag hue={t.hue} className="absolute top-2.5 left-2.5 border border-ink/10 bg-paper/90 text-forest backdrop-blur-sm dark:text-ink">
+        <Tag hue={t.hue} className="absolute top-2.5 left-2.5 border border-ink/10 bg-paper/90 text-forest backdrop-blur-sm">
           {t.subject}
         </Tag>
       </div>

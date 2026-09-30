@@ -433,7 +433,7 @@ function Hero({ subjects }: { subjects?: Subject[] }) {
 /** Тёмно-зелёная полоса под «столом»: из неё выглядывает кабинет ученика. */
 function ProductBand() {
   return (
-    <section className="relative bg-forest-2 pb-28 text-cream dark:bg-banner">
+    <section className="relative bg-forest-2 pb-28 text-cream">
       <Container className="pt-14">
         <Reveal y={60}>
           <CabinetMock />
@@ -687,7 +687,7 @@ function ScheduleFeature() {
         <p className="mt-5 max-w-[52ch] text-[18px] text-muted">Кабинет одинаково открывается с сайта и из мессенджеров. Ученик всегда знает, когда следующее занятие и где ссылка.</p>
       </Reveal>
       <div className="mt-14 grid items-stretch gap-8 lg:grid-cols-[0.95fr_1.05fr]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-        <div role="tablist" aria-label="Возможности кабинета" className="flex flex-col border-l-[3px] border-forest dark:border-ink">
+        <div role="tablist" aria-label="Возможности кабинета" className="flex flex-col border-l-[3px] border-forest">
           {SCHEDULE_TABS.map(({ Icon, title, text }, i) => (
             <button
               key={title}
@@ -702,7 +702,7 @@ function ScheduleFeature() {
               {active === i && (
                 <motion.span
                   layoutId="sched-hl"
-                  className="absolute inset-y-2 right-0 left-2 -z-0 -rotate-[0.6deg] rounded-[6px] bg-[#d5f5c2] dark:bg-tint-3"
+                  className="absolute inset-y-2 right-0 left-2 -z-0 -rotate-[0.6deg] rounded-[6px] bg-[#d5f5c2]"
                   style={{ background: 'var(--tint-3)' }}
                   transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                 />

@@ -2,12 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import clsx from 'clsx';
-import { CalendarDays, Home, Menu, UserRound, UsersRound, X, Moon, Sun, MonitorSmartphone } from 'lucide-react';
+import { CalendarDays, Home, Menu, UserRound, UsersRound, X } from 'lucide-react';
 import { Logo } from './Logo';
 import { PencilBuddy } from './Doodles';
 import { Avatar, ButtonLink, Loading } from './ui';
 import { useAuth } from '../lib/auth';
-import { isMiniApp, setTelegramBack, getThemePref, setThemePref, type ThemePref } from '../lib/platform';
+import { isMiniApp, setTelegramBack } from '../lib/platform';
 import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
@@ -243,16 +243,13 @@ function MobileMenu({ onClose }: { onClose(): void }) {
           </motion.div>
         ))}
       </nav>
-      <div className="mt-auto p-4">
-        <ThemeSwitch />
-      </div>
     </motion.div>
   );
 }
 
 function SiteFooter() {
   return (
-    <footer className="mt-28 bg-forest-2 text-cream dark:bg-banner">
+    <footer className="mt-28 bg-forest-2 text-cream">
       <div className="relative mx-auto grid max-w-[1120px] gap-10 px-5 pt-16 pb-12 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
         <PencilBuddy className="pointer-events-none absolute -top-[150px] right-6 hidden w-[120px] text-cream md:block" />
         <div className="flex flex-col gap-4">
@@ -283,44 +280,12 @@ function SiteFooter() {
           <Link to="/app/support" className="link w-fit">
             Поддержка
           </Link>
-          <div className="mt-4">
-            <ThemeSwitch onDark />
-          </div>
         </div>
       </div>
       <div className="border-t border-dashed border-cream/20">
         <p className="t-mono mx-auto max-w-[1120px] px-5 py-5 text-[11px] text-cream/60 sm:px-8">© {new Date().getFullYear()} Спектр · разложим любой предмет на понятные части</p>
       </div>
     </footer>
-  );
-}
-
-export function ThemeSwitch({ onDark = false }: { onDark?: boolean }) {
-  const [pref, setPref] = useState<ThemePref>(getThemePref);
-  const options: { v: ThemePref; label: string; Icon: typeof Sun }[] = [
-    { v: 'light', label: 'Светлая', Icon: Sun },
-    { v: 'dark', label: 'Тёмная', Icon: Moon },
-    { v: 'system', label: 'Как в системе', Icon: MonitorSmartphone },
-  ];
-  return (
-    <div role="radiogroup" aria-label="Тема оформления" className={clsx('inline-flex rounded-full border border-current/30 p-0.5', onDark && 'text-cream')}>
-      {options.map(({ v, label, Icon }) => (
-        <button
-          key={v}
-          role="radio"
-          aria-checked={pref === v}
-          aria-label={label}
-          title={label}
-          onClick={() => {
-            setThemePref(v);
-            setPref(v);
-          }}
-          className={clsx('press grid h-9 w-11 place-items-center rounded-full', pref === v ? 'bg-mark text-forest' : 'text-current hover:bg-current/10')}
-        >
-          <Icon className="size-4" strokeWidth={1.7} />
-        </button>
-      ))}
-    </div>
   );
 }
 

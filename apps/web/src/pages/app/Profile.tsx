@@ -5,7 +5,6 @@ import { api, uploadImage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { STATUS_LABEL } from '../../lib/format';
 import { haptic, platform, platformLabel } from '../../lib/platform';
-import { ThemeSwitch } from '../../components/Layout';
 import { Badge, Button, Input, Monogram, PageHeader, SectionTitle } from '../../components/ui';
 
 export default function Profile() {
@@ -139,11 +138,6 @@ export default function Profile() {
           </div>
         </form>
       )}
-
-      <section className="flex flex-col gap-4">
-        <SectionTitle>Оформление</SectionTitle>
-        <ThemeSwitch />
-      </section>
 
       <div className="border-t border-charcoal pt-6">
         <Button variant="ghost" onClick={logout}>

@@ -62,52 +62,26 @@ function loadScript(src: string) {
 }
 
 // ——— Тема ———
-export type ThemePref = 'system' | 'light' | 'dark';
-const THEME_KEY = 'spectr.theme';
-let platformScheme: 'light' | 'dark' | null = null;
-
-export function getThemePref(): ThemePref {
-  try {
-    return (localStorage.getItem(THEME_KEY) as ThemePref) || 'system';
-  } catch {
-    return 'system';
-  }
-}
-
-export function setThemePref(pref: ThemePref) {
-  try {
-    localStorage.setItem(THEME_KEY, pref);
-  } catch {
-    /* ignore */
-  }
-  applyTheme();
-}
+// Оформление только светлое: тёмная тема Telegram и ВКонтакте не подхватывается.
+const PAPER = '#fbf8f0';
 
 export function applyTheme() {
-  const pref = getThemePref();
-  const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  const scheme = pref === 'system' ? (platformScheme ?? system) : pref;
-  document.documentElement.dataset.theme = scheme;
-  const bg = scheme === 'dark' ? '#15142a' : '#f4eedf';
+  document.documentElement.dataset.theme = 'light';
   if (tg) {
     try {
-      tg.setHeaderColor(bg);
-      tg.setBackgroundColor(bg);
+      tg.setHeaderColor(PAPER);
+      tg.setBackgroundColor(PAPER);
     } catch {
       /* старые клиенты */
     }
   }
   if (platform === 'vk') {
-    bridge
-      .send('VKWebAppSetViewSettings', { status_bar_style: scheme === 'dark' ? 'light' : 'dark', action_bar_color: bg })
-      .catch(() => undefined);
+    bridge.send('VKWebAppSetViewSettings', { status_bar_style: 'dark', action_bar_color: PAPER }).catch(() => undefined);
   }
 }
 
 // ——— Инициализация ———
 export async function initPlatform() {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-
   if (platform === 'telegram') {
     try {
       sessionStorage.setItem(TG_KEY, '1');
@@ -123,11 +97,6 @@ export async function initPlatform() {
         tg.ready();
         tg.expand();
         tg.disableVerticalSwipes?.();
-        platformScheme = tg.colorScheme;
-        tg.onEvent('themeChanged', () => {
-          platformScheme = tg!.colorScheme;
-          applyTheme();
-        });
       }
     } catch {
       /* SDK не загрузился — работаем как сайт */
@@ -143,15 +112,6 @@ export async function initPlatform() {
         /* ignore */
       }
     }
-    bridge.subscribe((e) => {
-      if (e.detail.type === 'VKWebAppUpdateConfig') {
-        const data = e.detail.data as { appearance?: 'light' | 'dark' };
-        if (data.appearance) {
-          platformScheme = data.appearance;
-          applyTheme();
-        }
-      }
-    });
     await bridge.send('VKWebAppInit').catch(() => undefined);
   }
 
