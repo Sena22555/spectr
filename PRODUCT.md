@@ -58,4 +58,4 @@ delegated: React + Vite + TypeScript + Tailwind v4 на фронтенде, Fast
 
 ## Accessibility & Inclusion
 
-Текст не ниже WCAG AA по контрасту; поддержка тёмной темы Telegram/VK; зона нажатия от 44px.
+Текст не ниже WCAG AA по контрасту; только светлая тема; зона нажатия от 44px.
