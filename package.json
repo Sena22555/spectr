@@ -1,0 +1,19 @@
+{
+  "name": "spectr",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Спектр — онлайн-школа: сайт и мини-приложения Telegram / VK",
+  "workspaces": ["apps/*"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "setup": "npm run db:push -w @spectr/api && npm run db:seed -w @spectr/api",
+    "dev": "concurrently -k -n api,web -c gray,blue \"npm run dev -w @spectr/api\" \"npm run dev -w @spectr/web\"",
+    "build": "npm run build -w @spectr/web && npm run build -w @spectr/api",
+    "start": "cd apps/api && SERVE_WEB=1 node --env-file=.env dist/server.js",
+    "typecheck": "npm run typecheck -w @spectr/api && npm run typecheck -w @spectr/web",
+    "design:detect": "npx impeccable detect apps/web/src"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

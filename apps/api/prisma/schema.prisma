@@ -1,0 +1,218 @@
+// Спектр — модель данных.
+// Прототип работает на SQLite. Для продакшена поменяйте provider на "postgresql"
+// и DATABASE_URL — схема совместима. Статусы и роли хранятся строками,
+// допустимые значения описаны в src/lib/enums.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  passwordHash String?
+  name         String
+  phone        String?
+  avatarUrl    String?
+  // STUDENT | TEACHER | ADMIN
+  role         String   @default("STUDENT")
+  telegramId   String?  @unique
+  vkId         String?  @unique
+  emailVerified Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teacher          Teacher?
+  memberships      GroupMember[]
+  lessonsAsStudent Lesson[]           @relation("LessonStudent")
+  bookings         Booking[]
+  reschedules      RescheduleRequest[]
+  tickets          SupportTicket[]
+  ticketMessages   TicketMessage[]
+  enrollments      Enrollment[]
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug       String   @unique
+  subject    String
+  headline   String
+  bio        String
+  experience Int      @default(0)
+  photoUrl   String?
+  // Индекс цвета спектра 0..6 — используется для плейсхолдера и акцентов
+  hue        Int      @default(0)
+  published  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  groups  Group[]
+  lessons Lesson[]
+  courses Course[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  summary     String
+  description String
+  // SCHOOL | UNIVERSITY — университетские курсы подключатся позже
+  source      String   @default("SCHOOL")
+  university  String?
+  // Кому: SCHOOL — школьникам, STUDENTS — студентам, ALL — всем
+  audience    String   @default("SCHOOL")
+  level       String   @default("Любой")
+  format      String   @default("Группа")
+  durationWeeks Int    @default(8)
+  priceFrom   Int      @default(0)
+  hue         Int      @default(0)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  teacherId   String?
+  teacher     Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  groups      Group[]
+  bookings    Booking[]
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  // PENDING | ACTIVE | DECLINED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  coverUrl    String?
+  hue         Int      @default(0)
+  schedule    String   @default("")
+  capacity    Int      @default(8)
+  createdAt   DateTime @default(now())
+
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  members GroupMember[]
+  photos  GroupPhoto[]
+  lessons Lesson[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  joinedAt DateTime @default(now())
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model GroupPhoto {
+  id        String   @id @default(cuid())
+  groupId   String
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  title       String
+  startsAt    DateTime
+  durationMin Int      @default(60)
+  link        String?
+  notes       String?
+  // SCHEDULED | DONE | CANCELLED
+  status      String   @default("SCHEDULED")
+  createdAt   DateTime @default(now())
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  // Групповое занятие — groupId; индивидуальное — studentId
+  groupId   String?
+  group     Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   User?   @relation("LessonStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  reschedules RescheduleRequest[]
+}
+
+model Booking {
+  id            String   @id @default(cuid())
+  name          String
+  contact       String
+  preferredTime String?
+  // INDIVIDUAL | GROUP
+  format        String?
+  comment       String?
+  // NEW | CONTACTED | SCHEDULED | CLOSED
+  status        String   @default("NEW")
+  createdAt     DateTime @default(now())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  teacherSlug String?
+}
+
+model RescheduleRequest {
+  id         String   @id @default(cuid())
+  reason     String
+  proposedAt DateTime?
+  // PENDING | APPROVED | DECLINED
+  status     String   @default("PENDING")
+  reply      String?
+  createdAt  DateTime @default(now())
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  subject   String
+  // OPEN | ANSWERED | CLOSED
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
