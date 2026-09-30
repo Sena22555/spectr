@@ -66,7 +66,7 @@ export default function Bookings() {
                   onClick={() => m.mutate({ id: b.id, status: s })}
                   aria-pressed={b.status === s}
                   className={clsx(
-                    'press h-9 rounded-[6px] border px-2.5 text-[14px]',
+                    'press h-9 rounded-ctl border px-2.5 text-[14px]',
                     b.status === s ? 'border-ink bg-ink text-paper' : 'border-ink/30 hover:border-ink',
                   )}
                 >

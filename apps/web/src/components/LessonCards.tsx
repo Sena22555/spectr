@@ -29,7 +29,7 @@ export function NextLesson({ lesson }: { lesson: Lesson }) {
   const state = linkState(lesson);
   const pending = lesson.reschedules?.some((r) => r.status === 'PENDING');
   return (
-    <article className={clsx(`hue-${hue}`, 'flex flex-col gap-5 rounded-[16px] bg-tint p-5 sm:p-8')}>
+    <article className={clsx(`hue-${hue}`, 'flex flex-col gap-5 rounded-card border-t-[4px] border-ray bg-tint p-5 sm:p-8')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="t-caption text-hue">Ближайшее занятие · {untilLabel(lesson.startsAt)}</p>
         {pending && <Badge tone="outline">Перенос на рассмотрении</Badge>}
@@ -48,15 +48,15 @@ export function NextLesson({ lesson }: { lesson: Lesson }) {
       </div>
       <div className="flex flex-wrap gap-3">
         {state === 'live' ? (
-          <a href={lesson.link!} target="_blank" rel="noreferrer" className="press inline-flex min-h-12 items-center gap-2 rounded-[6px] bg-ink px-5 text-paper no-underline" onClick={() => haptic('success')}>
+          <a href={lesson.link!} target="_blank" rel="noreferrer" className="press inline-flex min-h-12 items-center gap-2 rounded-ctl bg-ink px-5 text-paper no-underline" onClick={() => haptic('success')}>
             <Video className="size-5" strokeWidth={1.7} /> Подключиться
           </a>
         ) : state === 'later' ? (
-          <span className="inline-flex min-h-12 items-center gap-2 rounded-[6px] border border-ink/40 px-5 text-[16px] text-ink/80">
+          <span className="inline-flex min-h-12 items-center gap-2 rounded-ctl border border-ink/40 px-5 text-[16px] text-ink/80">
             <Clock className="size-4" strokeWidth={1.7} /> Ссылка откроется за 15 минут
           </span>
         ) : (
-          <span className="inline-flex min-h-12 items-center gap-2 rounded-[6px] border border-dashed border-ink/50 px-5 text-[16px] text-ink/80">
+          <span className="inline-flex min-h-12 items-center gap-2 rounded-ctl border border-dashed border-ink/50 px-5 text-[16px] text-ink/80">
             Преподаватель ещё не добавил ссылку
           </span>
         )}
@@ -85,7 +85,7 @@ export function LessonRow({ lesson, showDate = false, onReschedule }: { lesson: 
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-[4px] bg-hue" aria-hidden="true" />
+            <span className="size-2.5 shrink-0 rounded-[2px] bg-hue" aria-hidden="true" />
             <p className="truncate text-[18px] font-[450]">{lesson.group?.name ?? lesson.title}</p>
           </div>
           <p className="t-caption text-muted">
@@ -99,7 +99,7 @@ export function LessonRow({ lesson, showDate = false, onReschedule }: { lesson: 
         </div>
         <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-1 sm:justify-end">
           {!past && state === 'live' && (
-            <a href={lesson.link!} target="_blank" rel="noreferrer" className="press inline-flex min-h-11 items-center gap-2 rounded-[6px] bg-ink px-4 text-[16px] text-paper no-underline">
+            <a href={lesson.link!} target="_blank" rel="noreferrer" className="press inline-flex min-h-11 items-center gap-2 rounded-ctl bg-ink px-4 text-[16px] text-paper no-underline">
               <Video className="size-4" strokeWidth={1.7} /> Подключиться
             </a>
           )}
@@ -153,7 +153,7 @@ export function RescheduleForm({ lesson, onDone }: { lesson: Lesson; onDone(): v
   });
   return (
     <form
-      className="mb-5 grid gap-4 rounded-[16px] bg-tint p-5 sm:grid-cols-2"
+      className="mb-5 grid gap-4 rounded-card bg-tint p-5 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

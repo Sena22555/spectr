@@ -38,7 +38,7 @@ export default function Subject() {
             <section>
               <SectionTitle>Преподаватель</SectionTitle>
               <Link to={`/teachers/${s.teacher.slug}`} className="mt-5 flex items-center gap-5 no-underline">
-                <Monogram name={s.teacher.user.name} hue={s.teacher.hue} photoUrl={s.teacher.photoUrl} size="lg" className="rounded-[16px]" />
+                <Monogram name={s.teacher.user.name} hue={s.teacher.hue} photoUrl={s.teacher.photoUrl} size="lg" className="rounded-card" />
                 <span className="flex flex-col gap-1">
                   <span className="t-heading text-[28px] hover:underline">{s.teacher.user.name}</span>
                   <span className="text-[16px] text-muted">{s.teacher.headline}</span>
@@ -66,7 +66,7 @@ export default function Subject() {
             </section>
           )}
         </div>
-        <aside className="h-fit rounded-[16px] bg-bone p-5 sm:p-8 lg:sticky lg:top-24">
+        <aside className="h-fit rounded-card bg-bone p-5 sm:p-8 lg:sticky lg:top-24">
           <h2 className="t-heading mb-6 text-[32px]">Записаться</h2>
           <BookingForm subjectSlug={s.slug} teacherSlug={s.teacher?.slug} compact />
         </aside>

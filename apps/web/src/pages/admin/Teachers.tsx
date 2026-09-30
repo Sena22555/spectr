@@ -15,9 +15,9 @@ export function HuePicker({ value, onChange }: { value: number; onChange(h: numb
       <legend className="t-caption mb-1.5 p-0">Цвет в спектре</legend>
       <div className="flex gap-1.5">
         {HUE_NAMES.map((name, i) => (
-          <label key={name} className={clsx(`hue-${i}`, 'press relative grid size-11 cursor-pointer place-items-center rounded-[6px] bg-tint', value === i && 'ring-2 ring-ink ring-offset-2 ring-offset-paper')}>
+          <label key={name} className={clsx(`hue-${i}`, 'press relative grid size-11 cursor-pointer place-items-center rounded-ctl bg-tint', value === i && 'ring-2 ring-ink ring-offset-2 ring-offset-paper')}>
             <input type="radio" name="hue" className="sr-only" checked={value === i} onChange={() => onChange(i)} aria-label={name} />
-            <span className="size-3 rounded-[4px] bg-hue" aria-hidden="true" />
+            <span className="size-3 rounded-[2px] bg-hue" aria-hidden="true" />
           </label>
         ))}
       </div>
@@ -91,9 +91,9 @@ function TeacherEditor({ t }: { t: ATeacher }) {
   });
 
   return (
-    <section className={`hue-${form.hue} rounded-[16px] bg-tint`}>
+    <section className={`hue-${form.hue} rounded-card bg-tint`}>
       <div className="flex flex-wrap items-center gap-5 p-5 sm:p-6">
-        <button className="press group relative size-20 overflow-hidden rounded-[16px]" onClick={() => fileRef.current?.click()} aria-label={`Загрузить фото: ${t.user.name}`}>
+        <button className="press group relative size-20 overflow-hidden rounded-card" onClick={() => fileRef.current?.click()} aria-label={`Загрузить фото: ${t.user.name}`}>
           <Monogram name={t.user.name} hue={form.hue} photoUrl={form.photoUrl || null} size="fill" className="text-[30px]" />
           <span className="absolute inset-0 grid place-items-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100">
             <Camera className="size-6" strokeWidth={1.6} />

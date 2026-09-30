@@ -16,7 +16,7 @@ export function Thread({ messages, meId }: { messages: TicketMessage[]; meId?: s
         const mine = m.author.id === meId;
         return (
           <li key={m.id} className={clsx('flex flex-col gap-1.5', mine ? 'items-end' : 'items-start')}>
-            <div className={clsx('max-w-[46ch] rounded-[16px] px-4 py-3 text-[17px] leading-snug', mine ? 'bg-bone' : 'hue-4 bg-tint')}>{m.body}</div>
+            <div className={clsx('max-w-[46ch] rounded-card px-4 py-3 text-[17px] leading-snug', mine ? 'bg-bone' : 'hue-4 bg-tint')}>{m.body}</div>
             <p className="t-caption text-muted">
               {mine ? 'Вы' : m.author.role === 'STUDENT' ? m.author.name : `${m.author.name} · поддержка`} · {fmtFull(m.createdAt)}
             </p>

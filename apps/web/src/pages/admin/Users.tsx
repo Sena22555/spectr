@@ -38,7 +38,7 @@ export default function AdminUsers() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Имя или email"
-            className="h-11 w-full rounded-[6px] border border-ink bg-paper pr-3 pl-9 text-[16px] placeholder:text-muted"
+            className="h-11 w-full rounded-ctl border border-ink bg-paper pr-3 pl-9 text-[16px] placeholder:text-muted"
           />
         </label>
         <div className="flex gap-2 overflow-x-auto">
@@ -65,7 +65,7 @@ export default function AdminUsers() {
               </div>
             </div>
             <p className="t-caption text-muted">с {fmtDay(u.createdAt)}</p>
-            <div className="inline-flex rounded-[6px] border border-ink/40 p-0.5" role="radiogroup" aria-label={`Роль: ${u.name}`}>
+            <div className="inline-flex rounded-ctl border border-ink/40 p-0.5" role="radiogroup" aria-label={`Роль: ${u.name}`}>
               {ROLES.map((r) => (
                 <button
                   key={r}
@@ -73,7 +73,7 @@ export default function AdminUsers() {
                   aria-checked={u.role === r}
                   disabled={u.id === me?.id && r !== 'ADMIN'}
                   onClick={() => u.role !== r && m.mutate({ id: u.id, role: r })}
-                  className={`press h-9 rounded-[4px] px-3 text-[14px] disabled:opacity-40 ${u.role === r ? 'bg-ink text-paper' : 'hover:bg-ink/10'}`}
+                  className={`press h-9 rounded-[2px] px-3 text-[14px] disabled:opacity-40 ${u.role === r ? 'bg-ink text-paper' : 'hover:bg-ink/10'}`}
                 >
                   {STATUS_LABEL[r]}
                 </button>

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
 import { CalendarDays, Home, Menu, UserRound, UsersRound, X, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { Logo } from './Logo';
+import { SpectrumBar } from './Print';
 import { ButtonLink, Loading } from './ui';
 import { useAuth } from '../lib/auth';
 import { isMiniApp, setTelegramBack, getThemePref, setThemePref, type ThemePref } from '../lib/platform';
@@ -33,11 +34,25 @@ export function SiteLayout() {
   if (isMiniApp) return <MiniLayout />;
   return (
     <div className="flex min-h-dvh flex-col">
+      <SpectrumBar />
+      <Dateline />
       <SiteHeader />
       <main className="flex-1">
         <Outlet />
       </main>
       <SiteFooter />
+    </div>
+  );
+}
+
+function Dateline() {
+  const date = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return (
+    <div className="border-b border-hair-soft">
+      <div className="t-mono mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2 text-[11px] text-muted sm:px-8">
+        <span className="first-letter:uppercase">{date}</span>
+        <span className="hidden sm:block">Физика · Математика · ОГЭ · ЕГЭ · Занятия с репетитором</span>
+      </div>
     </div>
   );
 }
@@ -49,25 +64,28 @@ function SiteHeader() {
   useEffect(() => setOpen(false), [location.pathname]);
 
   return (
-    <header className="sticky top-0 z-30 px-3 pt-3 sm:px-6">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 rounded-[16px] border border-charcoal bg-paper pr-2 pl-4 shadow-[var(--shadow-glow)] sm:pr-3 sm:pl-5">
+    <header className="sticky top-0 z-30 bg-paper">
+      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
         <Link to="/" className="no-underline" aria-label="Спектр — на главную">
           <Logo />
         </Link>
-        <nav aria-label="Разделы" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Разделы" className="hidden items-stretch gap-7 self-stretch lg:flex">
           {PUBLIC_NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               className={({ isActive }) =>
-                clsx('rounded-[6px] px-3 py-2 text-[15px] font-[500] no-underline transition-colors', isActive ? 'bg-mark text-[#1a3300]' : 'hover:bg-bone')
+                clsx(
+                  'flex items-center border-y-[3px] border-transparent text-[15px] font-[600] no-underline transition-colors',
+                  isActive ? 'border-b-ink' : 'hover:border-b-hair-soft',
+                )
               }
             >
               {n.label}
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <span className="hidden sm:block">
               <ButtonLink to={homeFor(user.role)} className="min-h-10 px-4 text-[14px]">
@@ -89,7 +107,7 @@ function SiteHeader() {
             </>
           )}
           <button
-            className="press grid size-11 place-items-center rounded-[6px] lg:hidden"
+            className="press grid size-11 place-items-center rounded-ctl lg:hidden"
             onClick={() => setOpen(true)}
             aria-label="Открыть меню"
             aria-expanded={open}
@@ -98,6 +116,8 @@ function SiteHeader() {
           </button>
         </div>
       </div>
+      {/* двойная линейка под шапкой */}
+      <div className="border-y border-hair" style={{ height: 5 }} aria-hidden="true" />
       <AnimatePresence>{open && <MobileMenu onClose={() => setOpen(false)} />}</AnimatePresence>
     </header>
   );
@@ -155,16 +175,17 @@ function MobileMenu({ onClose }: { onClose(): void }) {
 
 function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-charcoal">
+    <footer className="mt-24 bg-banner text-on-banner">
+      <SpectrumBar />
       <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-12 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="flex flex-col gap-4">
-          <Logo />
-          <p className="max-w-[40ch] text-muted">
+          <Logo inverse />
+          <p className="t-sub max-w-[38ch] text-[17px] opacity-80">
             Онлайн-школа занятий с репетитором. Школьная программа, ОГЭ и ЕГЭ, вузовская математика и физика.
           </p>
         </div>
         <nav className="flex flex-col gap-2" aria-label="Разделы сайта">
-          <p className="t-caption text-muted">Школа</p>
+          <p className="t-mono mb-1 opacity-70">Школа</p>
           {PUBLIC_NAV.map((n) => (
             <Link key={n.to} to={n.to} className="link w-fit">
               {n.label}
@@ -175,7 +196,7 @@ function SiteFooter() {
           </Link>
         </nav>
         <div className="flex flex-col gap-2">
-          <p className="t-caption text-muted">Ученикам</p>
+          <p className="t-mono mb-1 opacity-70">Ученикам</p>
           <Link to="/app" className="link w-fit">
             Личный кабинет
           </Link>
@@ -183,18 +204,18 @@ function SiteFooter() {
             Поддержка
           </Link>
           <div className="mt-4">
-            <ThemeSwitch />
+            <ThemeSwitch onDark />
           </div>
         </div>
       </div>
-      <div className="border-t border-hair-soft">
-        <p className="t-caption mx-auto max-w-[1200px] px-4 py-5 text-muted sm:px-8">© {new Date().getFullYear()} Спектр</p>
+      <div className="border-t border-on-banner/20">
+        <p className="t-mono mx-auto max-w-[1200px] px-4 py-5 text-[11px] opacity-70 sm:px-8">© {new Date().getFullYear()} Спектр · Выпуск отпечатан красками спектра</p>
       </div>
     </footer>
   );
 }
 
-export function ThemeSwitch() {
+export function ThemeSwitch({ onDark = false }: { onDark?: boolean }) {
   const [pref, setPref] = useState<ThemePref>(getThemePref);
   const options: { v: ThemePref; label: string; Icon: typeof Sun }[] = [
     { v: 'light', label: 'Светлая', Icon: Sun },
@@ -202,7 +223,7 @@ export function ThemeSwitch() {
     { v: 'system', label: 'Как в системе', Icon: MonitorSmartphone },
   ];
   return (
-    <div role="radiogroup" aria-label="Тема оформления" className="inline-flex rounded-[6px] border border-ink/40 p-0.5">
+    <div role="radiogroup" aria-label="Тема оформления" className="inline-flex rounded-ctl border border-current/40 p-0.5">
       {options.map(({ v, label, Icon }) => (
         <button
           key={v}
@@ -214,7 +235,7 @@ export function ThemeSwitch() {
             setThemePref(v);
             setPref(v);
           }}
-          className={clsx('press grid h-9 w-11 place-items-center rounded-[4px]', pref === v ? 'bg-ink text-paper' : 'text-ink')}
+          className={clsx('press grid h-9 w-11 place-items-center rounded-[2px]', pref === v ? (onDark ? 'bg-on-banner text-banner' : 'bg-ink text-paper') : 'text-current')}
         >
           <Icon className="size-4" strokeWidth={1.7} />
         </button>
@@ -247,7 +268,7 @@ export function BottomTabs() {
   return (
     <nav
       aria-label="Вкладки"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-charcoal bg-paper"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-hair bg-paper"
       style={{ paddingBottom: 'var(--safe-bottom)' }}
     >
       <ul className="mx-auto grid max-w-xl grid-cols-4">
@@ -261,7 +282,7 @@ export function BottomTabs() {
                   {isActive && (
                     <motion.span
                       layoutId="tab-indicator"
-                      className="absolute top-0 h-[2px] w-10 bg-ink"
+                      className="absolute top-0 h-[3px] w-10 bg-ink"
                       transition={{ duration: 0.4, ease: [0.65, 0, 0.35, 1] }}
                     />
                   )}
@@ -350,7 +371,8 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
   return (
     <div className="flex min-h-dvh flex-col">
       {!isMiniApp && (
-        <header className="sticky top-0 z-30 border-b border-charcoal bg-paper">
+        <header className="sticky top-0 z-30 border-b border-hair bg-paper">
+          <SpectrumBar className="h-[4px]" />
           <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
             <Link to="/" className="no-underline" aria-label="На главную">
               <Logo compact />
@@ -365,7 +387,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
         </header>
       )}
       {/* мобильная навигация по разделам кабинета */}
-      <nav aria-label="Разделы кабинета" className="sticky top-0 z-20 border-b border-hair-soft bg-paper lg:hidden" style={isMiniApp ? undefined : { top: 64 }}>
+      <nav aria-label="Разделы кабинета" className="sticky top-0 z-20 border-b border-hair-soft bg-paper lg:hidden" style={isMiniApp ? undefined : { top: 68 }}>
         <ul className="flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none]">
           {flat.map((n) => (
             <li key={n.to} className="shrink-0">
@@ -373,7 +395,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
                 to={n.to}
                 end={n.end}
                 className={({ isActive }) =>
-                  clsx('press block rounded-full px-3.5 py-2 text-[14px] font-[500] leading-none whitespace-nowrap no-underline', isActive ? 'bg-mark text-[#1a3300]' : 'text-ink')
+                  clsx('press block rounded-full px-3.5 py-2 text-[14px] font-[500] leading-none whitespace-nowrap no-underline', isActive ? 'bg-ink text-paper' : 'text-ink')
                 }
               >
                 {n.label}
@@ -394,7 +416,7 @@ export function AppLayout({ roles }: { roles?: Role[] }) {
                     to={n.to}
                     end={n.end}
                     className={({ isActive }) =>
-                      clsx('my-0.5 rounded-[6px] px-2.5 py-2 text-[15px] no-underline transition-colors', isActive ? 'bg-mark font-[600] text-[#1a3300]' : 'text-muted hover:bg-bone hover:text-ink')
+                      clsx('my-0.5 rounded-ctl px-2.5 py-2 text-[15px] no-underline transition-colors', isActive ? 'bg-ink font-[600] text-paper' : 'text-muted hover:bg-bone hover:text-ink')
                     }
                   >
                     {n.label}

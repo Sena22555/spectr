@@ -75,7 +75,7 @@ function GroupAdmin({ g }: { g: AGroup }) {
   const memberIds = new Set(g.members.map((m) => m.user.id));
 
   return (
-    <section className={`hue-${g.hue} flex flex-col gap-5 rounded-[16px] bg-tint p-5 sm:p-6`}>
+    <section className={`hue-${g.hue} flex flex-col gap-5 rounded-card bg-tint p-5 sm:p-6`}>
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="t-caption text-hue">
@@ -96,9 +96,9 @@ function GroupAdmin({ g }: { g: AGroup }) {
         </p>
         <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
           {g.members.map((m) => (
-            <li key={m.user.id} className="flex items-center gap-1 rounded-[6px] bg-paper/70 py-1 pr-1 pl-2.5 text-[15px]">
+            <li key={m.user.id} className="flex items-center gap-1 rounded-ctl bg-paper/70 py-1 pr-1 pl-2.5 text-[15px]">
               {m.user.name}
-              <button className="grid size-7 place-items-center rounded-[4px] hover:bg-ink/10" onClick={() => remove.mutate(m.user.id)} aria-label={`Убрать ${m.user.name} из группы`}>
+              <button className="grid size-7 place-items-center rounded-[2px] hover:bg-ink/10" onClick={() => remove.mutate(m.user.id)} aria-label={`Убрать ${m.user.name} из группы`}>
                 <X className="size-3.5" />
               </button>
             </li>
@@ -115,7 +115,7 @@ function GroupAdmin({ g }: { g: AGroup }) {
         <label className="sr-only" htmlFor={`add-${g.id}`}>
           Добавить ученика
         </label>
-        <select id={`add-${g.id}`} value={adding} onChange={(e) => setAdding(e.target.value)} className="h-11 min-w-0 flex-1 rounded-[6px] border border-ink bg-paper px-3 text-[15px]">
+        <select id={`add-${g.id}`} value={adding} onChange={(e) => setAdding(e.target.value)} className="h-11 min-w-0 flex-1 rounded-ctl border border-ink bg-paper px-3 text-[15px]">
           <option value="">Добавить ученика…</option>
           {students.data
             ?.filter((s) => !memberIds.has(s.id))
@@ -155,7 +155,7 @@ function GroupForm({ onDone }: { onDone(): void }) {
   });
   return (
     <form
-      className={`hue-${form.hue} grid gap-5 rounded-[16px] bg-tint p-5 sm:grid-cols-2 sm:p-8`}
+      className={`hue-${form.hue} grid gap-5 rounded-card bg-tint p-5 sm:grid-cols-2 sm:p-8`}
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

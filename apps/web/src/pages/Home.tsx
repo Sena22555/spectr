@@ -11,7 +11,8 @@ import { BookingForm, useSubjects, useTeachers } from '../components/BookingForm
 import { GroupCard, SubjectRow, TeacherCard } from '../components/Cards';
 import { NextLesson } from '../components/LessonCards';
 import { LogoMark } from '../components/Logo';
-import { SketchArrow, SketchSpiral, SketchSquiggle, SketchStar } from '../components/Sketch';
+import { OverprintCircles, RegCorners, SpectrumBar } from '../components/Print';
+import clsx from 'clsx';
 import { ButtonLink, Monogram, SectionTitle, Skeleton } from '../components/ui';
 import type { GroupCard as Group, Lesson } from '../lib/types';
 
@@ -23,6 +24,31 @@ function useGroups() {
   return useQuery({ queryKey: ['groups'], queryFn: () => api<{ groups: Group[] }>('/groups').then((r) => r.groups) });
 }
 
+const CONTENTS = [
+  { n: '01', title: 'Преподаватели', text: 'Кто ведёт занятия', to: '/teachers' },
+  { n: '02', title: 'Предметы', text: 'Школа и вуз', to: '/subjects' },
+  { n: '03', title: 'Мини-группы', text: 'До восьми человек', to: '/groups' },
+  { n: '04', title: 'Первое занятие', text: 'Оставить заявку', to: '#book' },
+];
+
+const STEPS = [
+  {
+    hue: 0,
+    title: 'Запись',
+    text: 'Оставляете заявку на сайте или прямо в Telegram и ВКонтакте. Администратор подбирает преподавателя под класс или курс, цель и удобное время.',
+  },
+  {
+    hue: 3,
+    title: 'Занятие',
+    text: 'Урок идёт по видеосвязи. Ссылка появляется в карточке занятия в личном кабинете, так что искать её в переписке не придётся.',
+  },
+  {
+    hue: 5,
+    title: 'Всё в одном месте',
+    text: 'Расписание, заявка на перенос и связь с поддержкой — в кабинете. Он одинаково открывается с сайта и из мессенджеров.',
+  },
+];
+
 function Landing() {
   const { user } = useAuth();
   const subjects = useSubjects();
@@ -33,21 +59,23 @@ function Landing() {
 
   return (
     <>
-      {/* Hero: луч → призма → предметы */}
-      <Container className="relative grid items-center gap-10 pt-12 pb-10 md:grid-cols-[1.2fr_1fr] md:pt-20 md:pb-16">
-        <SketchStar className="absolute top-6 right-[46%] hidden size-12 md:block" />
-        <SketchSpiral className="absolute bottom-0 left-[38%] hidden size-16 lg:block" />
-        <div className="relative flex flex-col gap-7">
+      {/* Первая полоса: заголовок слева, Рис. 1 справа */}
+      <Container className="grid items-center gap-10 pt-10 pb-12 md:pt-14 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:pb-16 [&>*]:min-w-0">
+        <div className="flex flex-col gap-7">
+          <p className="t-mono flex items-center gap-2.5 text-muted">
+            <span className="inline-block h-2.5 w-10" style={{ background: 'var(--spectrum)' }} aria-hidden="true" />
+            Занятия с репетитором онлайн
+          </p>
           <h1 className="t-display t-xl">
             Разложим любой предмет на <mark>понятные части</mark>
           </h1>
           <p className="t-sub max-w-[36ch]">
-            Занятия с репетитором онлайн: школьная программа, ОГЭ и ЕГЭ, вузовская математика и физика. Один на один или в мини-группе.
+            Школьная программа, ОГЭ и ЕГЭ, вузовская математика и физика. Один на один или в мини-группе, с расписанием, ссылками на уроки и поддержкой в одном кабинете.
           </p>
           <div className="flex flex-col items-start gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <ButtonLink to="/book" className="min-h-14 px-8">
-                <ArrowRight className="size-4" strokeWidth={2} /> Записаться на занятие
+            <div className="flex flex-wrap items-center gap-4">
+              <ButtonLink to="/book" className="min-h-14 px-7">
+                Записаться на занятие <ArrowRight className="size-4" strokeWidth={2.2} />
               </ButtonLink>
               <ButtonLink to="/teachers" variant="secondary" className="min-h-14 px-6">
                 Выбрать преподавателя
@@ -55,47 +83,70 @@ function Landing() {
             </div>
             <p className="t-caption text-muted">Заявку можно оставить без регистрации.</p>
           </div>
-          <SketchArrow className="absolute -bottom-16 left-[52%] hidden w-28 rotate-6 md:block" />
         </div>
-        <div className="md:pl-4">
-          {subjects.data ? <PrismHero subjects={subjects.data} /> : <Skeleton className="aspect-[5/3]" />}
-        </div>
+        <div>{subjects.data ? <PrismHero subjects={subjects.data} /> : <Skeleton className="aspect-[5/3]" />}</div>
       </Container>
 
-      {/* Как проходят занятия — газетные колонки с буквицей */}
-      <Container className="py-6">
-        <h2 className="t-display t-lg mb-8 max-w-[18ch]">Как проходят <mark>занятия</mark></h2>
-        <div className="grid gap-8 md:grid-cols-3 md:gap-5">
-          <div className="rounded-[16px] border border-ink p-6">
-            <p className="t-mono mb-4 text-muted">шаг 1</p>
-            <h3 className="t-heading mb-2 text-[24px]">Запись</h3>
-            <p className="text-[17px] leading-[1.5]">
-              Оставляете заявку на сайте или прямо в Telegram и ВКонтакте. Администратор подбирает преподавателя под класс или курс, цель и удобное время.
-            </p>
-          </div>
-          <div className="rounded-[16px] border border-ink p-6">
-            <p className="t-mono mb-4 text-muted">шаг 2</p>
-            <h3 className="t-heading mb-2 text-[24px]">Занятие</h3>
-            <p className="text-[17px] leading-[1.45]">
-              Урок идёт по видеосвязи. Ссылка появляется в карточке занятия в личном кабинете, так что искать её в переписке не придётся.
-            </p>
-          </div>
-          <div className="rounded-[16px] border border-ink p-6">
-            <p className="t-mono mb-4 text-muted">шаг 3</p>
-            <h3 className="t-heading mb-2 text-[24px]">Всё в одном месте</h3>
-            <p className="text-[17px] leading-[1.45]">
-              Расписание, заявка на перенос и связь с поддержкой — в кабинете. Он одинаково открывается с сайта и из мессенджеров.
-            </p>
-          </div>
+      {/* Оглавление выпуска */}
+      <Container>
+        <nav aria-label="Оглавление" className="rule-thick border-b border-hair">
+          <ul className="m-0 grid list-none grid-cols-2 p-0 lg:grid-cols-4">
+            {CONTENTS.map((c, i) => {
+              const inner = (
+                <>
+                  <span className="t-mono flex items-center gap-2 text-[11px] text-muted">
+                    <span className="inline-block size-2" style={{ background: `var(--ray-${i * 2})` }} aria-hidden="true" />
+                    {c.n}
+                  </span>
+                  <span className="t-heading mt-2 block text-[22px] group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4 sm:text-[26px]">{c.title}</span>
+                  <span className="mt-1 block text-[14px] text-muted">{c.text}</span>
+                </>
+              );
+              const cls = clsx(
+                'group block py-5 pr-4 no-underline lg:pl-6',
+                i === 0 && 'lg:pl-0',
+                i % 2 === 1 && 'pl-4 border-l border-hair-soft lg:pl-6',
+                i > 0 && 'lg:border-l lg:border-hair-soft',
+                i >= 2 && 'border-t border-hair-soft lg:border-t-0',
+              );
+              return (
+                <li key={c.n}>
+                  {c.to.startsWith('#') ? (
+                    <a href={c.to} className={cls}>
+                      {inner}
+                    </a>
+                  ) : (
+                    <Link to={c.to} className={cls}>
+                      {inner}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </Container>
+
+      {/* Как проходят занятия — три колонки с линейками */}
+      <Container className="pt-20">
+        <SectionTitle>Как проходят занятия</SectionTitle>
+        <div className="grid gap-10 pt-8 md:grid-cols-3 md:gap-0 md:divide-x md:divide-[var(--hair-soft)]">
+          {STEPS.map((s, i) => (
+            <div key={s.title} className={clsx(`hue-${s.hue}`, 'flex flex-col gap-3', i > 0 && 'md:pl-8', i < 2 && 'md:pr-8')}>
+              <p className="t-display text-[76px] leading-[0.8] font-[800] text-ray italic">{i + 1}</p>
+              <h3 className="t-heading text-[26px]">{s.title}</h3>
+              <p className="text-[17px] leading-[1.55] text-ink/85">{s.text}</p>
+            </div>
+          ))}
         </div>
       </Container>
 
       {/* Преподаватели */}
-      <Container className="py-16">
+      <Container className="pt-20">
         <SectionTitle
           action={
-            <Link to="/teachers" className="link inline-flex items-center gap-1.5 text-[17px]">
-              Все преподаватели <ArrowRight className="size-4" strokeWidth={1.7} />
+            <Link to="/teachers" className="link inline-flex items-center gap-1.5 text-[16px] font-[500]">
+              Все преподаватели <ArrowRight className="size-4" strokeWidth={1.8} />
             </Link>
           }
         >
@@ -104,44 +155,55 @@ function Landing() {
         <Rail>
           {teachers.data
             ? teachers.data.slice(0, 6).map((t) => <TeacherCard key={t.id} t={t} className="h-full" />)
-            : Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[420px]" />)}
+            : Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[440px]" />)}
         </Rail>
       </Container>
 
-      {/* Школьникам / Студентам — цветные блоки */}
-      <Container className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
-        <section className="hue-2 rounded-[16px] bg-tint p-6 sm:p-10">
-          <h2 className="t-display t-lg mb-3">Школьникам</h2>
-          <p className="mb-6 max-w-[42ch] text-[17px] text-ink/80">Закрыть пробелы, подтянуть оценки, спокойно сдать ОГЭ и ЕГЭ.</p>
-          <div className="border-t border-[color-mix(in_oklab,var(--i)_45%,transparent)]">
-            {school.map((s) => (
-              <SubjectRow key={s.id} s={s} />
-            ))}
-          </div>
-        </section>
-        <section className="hue-6 rounded-[16px] bg-tint p-6 sm:p-10">
-          <h2 className="t-display t-lg mb-3">Студентам</h2>
-          <p className="mb-6 max-w-[42ch] text-[17px] text-ink/80">Разобраться в теории, решить домашние и закрыть сессию. Скоро — курсы от университета.</p>
-          <div className="border-t border-[color-mix(in_oklab,var(--i)_45%,transparent)]">
-            {uni.map((s) => (
-              <SubjectRow key={s.id} s={s} />
-            ))}
-          </div>
-        </section>
+      {/* Предметы: школьникам | студентам */}
+      <Container className="pt-20">
+        <SectionTitle
+          action={
+            <Link to="/subjects" className="link inline-flex items-center gap-1.5 text-[16px] font-[500]">
+              Все предметы <ArrowRight className="size-4" strokeWidth={1.8} />
+            </Link>
+          }
+        >
+          Предметы
+        </SectionTitle>
+        <div className="grid gap-12 pt-8 lg:grid-cols-2 lg:gap-0 [&>*]:min-w-0">
+          <section className="lg:pr-12">
+            <h3 className="t-display mb-2 text-[38px]">Школьникам</h3>
+            <p className="t-sub mb-5 max-w-[40ch] text-[18px] text-muted">Закрыть пробелы, подтянуть оценки, спокойно сдать ОГЭ и ЕГЭ.</p>
+            <div className="border-t border-hair">
+              {school.map((s, i) => (
+                <SubjectRow key={s.id} s={s} index={i + 1} />
+              ))}
+            </div>
+          </section>
+          <section className="lg:border-l lg:border-hair-soft lg:pl-12">
+            <h3 className="t-display mb-2 text-[38px]">Студентам</h3>
+            <p className="t-sub mb-5 max-w-[40ch] text-[18px] text-muted">Разобраться в теории, решить домашние и закрыть сессию. Скоро — курсы от университета.</p>
+            <div className="border-t border-hair">
+              {uni.map((s, i) => (
+                <SubjectRow key={s.id} s={s} index={i + 1} />
+              ))}
+            </div>
+          </section>
+        </div>
       </Container>
 
       {/* Группы */}
-      <Container className="py-16">
+      <Container className="pt-20">
         <SectionTitle
           action={
-            <Link to="/groups" className="link inline-flex items-center gap-1.5 text-[17px]">
-              Все группы <ArrowRight className="size-4" strokeWidth={1.7} />
+            <Link to="/groups" className="link inline-flex items-center gap-1.5 text-[16px] font-[500]">
+              Все группы <ArrowRight className="size-4" strokeWidth={1.8} />
             </Link>
           }
         >
           Мини-группы
         </SectionTitle>
-        <p className="mt-4 max-w-[60ch] text-[17px] text-muted">
+        <p className="t-sub mt-5 max-w-[56ch] text-muted">
           До восьми человек, один преподаватель, постоянное расписание. У каждой группы есть свой профиль с фотографиями.
         </p>
         <Rail>
@@ -151,54 +213,61 @@ function Landing() {
         </Rail>
       </Container>
 
-      {/* Мессенджеры */}
-      <Container>
-        <section className="hue-4 grid gap-8 rounded-[16px] bg-tint p-6 sm:p-10 md:grid-cols-[1.2fr_1fr] md:items-center">
-          <div className="flex flex-col gap-4">
-            <h2 className="t-display t-lg">Школа живёт и <mark>в мессенджере</mark></h2>
-            <p className="max-w-[48ch] text-[17px] text-ink/85">
-              Откройте «Спектр» как мини-приложение в Telegram или ВКонтакте. Там тот же кабинет: расписание, ссылки на уроки, перенос одним нажатием и поддержка.
+      {/* Плашка 1 — ультрамарин: мессенджеры */}
+      <section className="relative mt-24 overflow-hidden bg-plate-blue text-white [&_mark]:text-[#ffd21f]">
+        <SpectrumBar />
+        <OverprintCircles a="#ff5a8a" b="#19c3d6" blend="screen" className="absolute -right-24 -bottom-24 hidden w-[520px] opacity-80 md:block" />
+        <Container className="relative grid gap-10 py-16 md:grid-cols-[1.2fr_1fr] md:items-center">
+          <div className="flex flex-col gap-5">
+            <p className="t-mono text-white/80">Telegram · ВКонтакте</p>
+            <h2 className="t-display t-lg">
+              Школа живёт и <mark>в мессенджере</mark>
+            </h2>
+            <p className="t-sub max-w-[44ch] text-white/90">
+              Откройте «Спектр» как мини-приложение: тот же кабинет, расписание, ссылки на уроки, перенос одним нажатием и поддержка.
             </p>
             <div className="flex flex-wrap gap-3">
               <MessengerLink href={import.meta.env.VITE_TELEGRAM_APP_URL} label="Открыть в Telegram" />
               <MessengerLink href={import.meta.env.VITE_VK_APP_URL} label="Открыть во ВКонтакте" />
             </div>
           </div>
-          <ul className="m-0 grid list-none gap-0 p-0">
+          <ul className="m-0 grid list-none p-0">
             {[
               { Icon: CalendarDays, text: 'Расписание на неделю вперёд' },
               { Icon: RefreshCcw, text: 'Заявка на перенос из карточки урока' },
               { Icon: LifeBuoy, text: 'Поддержка без поиска контактов' },
             ].map(({ Icon, text }) => (
-              <li key={text} className="flex items-center gap-4 border-b border-[color-mix(in_oklab,var(--i)_35%,transparent)] py-4 text-[18px] last:border-0">
-                <Icon className="size-6 shrink-0 text-hue" strokeWidth={1.6} />
+              <li key={text} className="flex items-center gap-4 border-b border-white/30 py-4 text-[18px] first:border-t">
+                <Icon className="size-6 shrink-0" strokeWidth={1.6} />
                 {text}
               </li>
             ))}
           </ul>
-        </section>
-      </Container>
+        </Container>
+      </section>
 
-      {/* Запись — mint-стикер, без тёмных полос (правило DESIGN.md) */}
-      <Container className="mt-16">
-        <section id="book" className="hue-3 relative grid gap-10 overflow-hidden rounded-[16px] bg-tint p-6 sm:p-10 lg:grid-cols-[0.8fr_1.2fr] lg:p-14">
-          <SketchSquiggle className="absolute top-8 right-8 hidden w-40 md:block" />
+      {/* Плашка 2 — подсолнух: запись */}
+      <section id="book" className="relative mt-16 overflow-hidden bg-mark text-on-mark [&_mark]:text-[#b8391f]">
+        <OverprintCircles a="var(--ray-0)" b="var(--ray-5)" className="absolute -top-20 -right-28 hidden w-[460px] lg:block" />
+        <RegCorners className="text-[#1c1b33]/70" />
+        <Container className="relative grid gap-10 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:py-20">
           <div className="flex flex-col gap-5">
+            <p className="t-mono">Заявка без регистрации</p>
             <h2 className="t-display t-lg">
               Первое <mark>занятие</mark>
             </h2>
-            <p className="t-sub max-w-[34ch]">Оставьте контакт — подберём преподавателя и время. Если уже есть аккаунт, заявка появится в кабинете.</p>
+            <p className="t-sub max-w-[34ch]">Оставьте контакт — подберём преподавателя и время. Если аккаунт уже есть, заявка появится в кабинете.</p>
             {user && (
-              <Link to={homeFor(user.role)} className="link w-fit text-[17px]">
+              <Link to={homeFor(user.role)} className="link w-fit text-[17px] font-[500]">
                 Перейти в кабинет
               </Link>
             )}
           </div>
-          <div className="rounded-[16px] border border-ink bg-paper p-5 text-ink sm:p-8">
+          <div className="border border-[#1c1b33] bg-paper p-5 text-ink shadow-[7px_7px_0_#1c1b33] sm:p-8">
             <BookingForm compact />
           </div>
-        </section>
-      </Container>
+        </Container>
+      </section>
     </>
   );
 }
@@ -219,13 +288,13 @@ function Rail({ children }: { children: React.ReactNode[] }) {
 function MessengerLink({ href, label }: { href?: string; label: string }) {
   if (!href) {
     return (
-      <span className="inline-flex min-h-12 items-center rounded-[6px] border border-dashed border-ink/50 px-5 text-[16px] text-ink/75" title="Ссылка появится после публикации мини-приложения">
+      <span className="inline-flex min-h-12 items-center rounded-ctl border border-dashed border-white/60 px-5 text-[15px] font-[500] text-white/85" title="Ссылка появится после публикации мини-приложения">
         {label} — скоро
       </span>
     );
   }
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="press inline-flex min-h-12 items-center rounded-[6px] border border-ink px-5 text-[17px] no-underline hover:bg-ink hover:text-paper">
+    <a href={href} target="_blank" rel="noreferrer" className="press inline-flex min-h-12 items-center rounded-ctl border-[1.5px] border-white px-5 text-[15px] font-[600] text-white no-underline hover:bg-white hover:text-plate-blue">
       {label}
     </a>
   );
@@ -249,7 +318,7 @@ function MiniHome() {
       <header className="flex items-center justify-between">
         <span className="inline-flex items-center gap-2">
           <LogoMark className="h-7 w-9 text-ink" title="" />
-          <span className="t-display text-[22px] tracking-[0.02em]">Спектр</span>
+          <span className="t-display text-[24px] tracking-[-0.03em]">Спектр</span>
         </span>
         {user && <Monogram name={user.name} hue={5} photoUrl={user.avatarUrl} size="sm" className="rounded-full" />}
       </header>
@@ -266,7 +335,7 @@ function MiniHome() {
           ) : overview.isPending ? (
             <Skeleton className="h-64" />
           ) : (
-            <div className="hue-2 flex flex-col items-start gap-3 rounded-[16px] bg-tint p-5">
+            <div className="hue-2 flex flex-col items-start gap-3 rounded-card bg-tint p-5">
               <p className="t-heading text-[26px]">Занятий пока нет</p>
               <p className="text-[16px]">Запишитесь — администратор подберёт преподавателя и поставит урок в расписание.</p>
               <ButtonLink to="/book">Записаться</ButtonLink>
@@ -278,7 +347,7 @@ function MiniHome() {
               { to: '/app/requests', label: 'Переносы', n: overview.data?.pendingRequests },
               { to: '/app/support', label: 'Поддержка', n: overview.data?.openTickets },
             ].map((q) => (
-              <Link key={q.to} to={q.to} className="press flex min-h-20 flex-col justify-between rounded-[16px] border border-ink/20 bg-paper p-3 no-underline">
+              <Link key={q.to} to={q.to} className="press flex min-h-20 flex-col justify-between rounded-card border border-ink/20 bg-paper p-3 no-underline">
                 <span className="t-heading tnum text-[26px]">{q.n ?? '—'}</span>
                 <span className="text-[14px] leading-tight">{q.label}</span>
               </Link>
@@ -288,7 +357,7 @@ function MiniHome() {
       ) : (
         <section className="flex flex-col gap-5">
           <h1 className="t-display text-[38px]">Разложим любой предмет на <mark>понятные части</mark></h1>
-          {subjects.data && <PrismHero subjects={subjects.data} />}
+          {subjects.data && <PrismHero subjects={subjects.data} caption={false} />}
           <div className="flex flex-col gap-3">
             <ButtonLink to="/book">Записаться на занятие</ButtonLink>
             <ButtonLink to="/login" variant="secondary">
@@ -300,7 +369,7 @@ function MiniHome() {
 
       <section>
         <SectionTitle>Предметы</SectionTitle>
-        <div>{subjects.data?.map((s) => <SubjectRow key={s.id} s={s} />)}</div>
+        <div>{subjects.data?.map((s, i) => <SubjectRow key={s.id} s={s} index={i + 1} />)}</div>
       </section>
 
       <section className="pb-4">

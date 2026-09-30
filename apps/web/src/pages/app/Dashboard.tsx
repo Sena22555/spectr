@@ -62,13 +62,13 @@ export default function Dashboard() {
       {o && (o.pendingRequests > 0 || o.openTickets > 0) && (
         <div className="flex flex-wrap gap-3">
           {o.pendingRequests > 0 && (
-            <Link to="/app/requests" className="press inline-flex items-center gap-2 rounded-[6px] border border-ink/40 px-4 py-3 no-underline hover:border-ink">
+            <Link to="/app/requests" className="press inline-flex items-center gap-2 rounded-ctl border border-ink/40 px-4 py-3 no-underline hover:border-ink">
               <span className="size-2 rounded-full bg-ember" aria-hidden="true" />
               {o.pendingRequests} {plural(o.pendingRequests, 'заявка', 'заявки', 'заявок')} на перенос ждёт ответа
             </Link>
           )}
           {o.openTickets > 0 && (
-            <Link to="/app/support" className="press inline-flex items-center gap-2 rounded-[6px] border border-ink/40 px-4 py-3 no-underline hover:border-ink">
+            <Link to="/app/support" className="press inline-flex items-center gap-2 rounded-ctl border border-ink/40 px-4 py-3 no-underline hover:border-ink">
               Открытых обращений в поддержку: {o.openTickets}
             </Link>
           )}

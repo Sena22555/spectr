@@ -69,7 +69,7 @@ export default function AdminLessons() {
                 <span className="t-heading tnum text-[26px]">{fmtTime(l.startsAt)}</span>
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 truncate text-[17px] font-[450]">
-                    <span className="size-2.5 shrink-0 rounded-[4px] bg-hue" aria-hidden="true" />
+                    <span className="size-2.5 shrink-0 rounded-[2px] bg-hue" aria-hidden="true" />
                     {l.group?.name ?? l.student?.name ?? l.title}
                   </p>
                   <p className="t-caption text-muted">
@@ -80,7 +80,7 @@ export default function AdminLessons() {
                   {l.status !== 'SCHEDULED' && <Badge>{STATUS_LABEL[l.status]}</Badge>}
                   {confirmId === l.id ? (
                     <span className="flex items-center gap-2">
-                      <button className="press h-9 rounded-[6px] bg-ember px-3 text-[14px] text-on-ember" onClick={() => del.mutate(l.id)}>
+                      <button className="press h-9 rounded-ctl bg-ember px-3 text-[14px] text-on-ember" onClick={() => del.mutate(l.id)}>
                         Удалить
                       </button>
                       <button className="link text-[14px]" onClick={() => setConfirmId(null)}>
@@ -89,7 +89,7 @@ export default function AdminLessons() {
                     </span>
                   ) : (
                     <button
-                      className="press grid size-10 place-items-center rounded-[6px] text-muted hover:text-ember-text"
+                      className="press grid size-10 place-items-center rounded-ctl text-muted hover:text-ember-text"
                       onClick={() => setConfirmId(l.id)}
                       aria-label="Удалить занятие"
                     >
@@ -145,7 +145,7 @@ function CreateLesson({ onDone }: { onDone(): void }) {
 
   return (
     <form
-      className="hue-1 grid gap-5 rounded-[16px] bg-tint p-5 sm:grid-cols-2 sm:p-8"
+      className="hue-1 grid gap-5 rounded-card bg-tint p-5 sm:grid-cols-2 sm:p-8"
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

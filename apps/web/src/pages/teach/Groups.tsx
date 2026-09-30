@@ -58,7 +58,7 @@ function GroupBlock({ g }: { g: TGroup }) {
   });
 
   return (
-    <section className={`hue-${g.hue} flex flex-col gap-6 rounded-[16px] bg-tint p-5 sm:p-8`}>
+    <section className={`hue-${g.hue} flex flex-col gap-6 rounded-card bg-tint p-5 sm:p-8`}>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="t-caption text-hue">
@@ -103,7 +103,7 @@ function GroupBlock({ g }: { g: TGroup }) {
           <li className="aspect-square">
             <button
               onClick={() => fileRef.current?.click()}
-              className="press flex h-full w-full flex-col items-center justify-center gap-1 rounded-[6px] border border-dashed border-ink/50 text-[14px] hover:border-ink"
+              className="press flex h-full w-full flex-col items-center justify-center gap-1 rounded-ctl border border-dashed border-ink/50 text-[14px] hover:border-ink"
               disabled={add.isPending}
             >
               <ImagePlus className="size-6" strokeWidth={1.5} />
@@ -124,7 +124,7 @@ function GroupBlock({ g }: { g: TGroup }) {
           <input
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            className="h-11 rounded-[6px] border border-ink bg-paper px-3 text-[16px]"
+            className="h-11 rounded-ctl border border-ink bg-paper px-3 text-[16px]"
             placeholder="Например: опыт с линзами"
           />
         </label>

@@ -95,7 +95,7 @@ function CreateLesson({ onDone }: { onDone(): void }) {
 
   return (
     <form
-      className="hue-5 grid gap-5 rounded-[16px] bg-tint p-5 sm:grid-cols-2 sm:p-8"
+      className="hue-5 grid gap-5 rounded-card bg-tint p-5 sm:grid-cols-2 sm:p-8"
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

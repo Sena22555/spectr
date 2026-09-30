@@ -61,7 +61,7 @@ function PendingRequest({ r, endpoint }: { r: RescheduleRequest; endpoint: strin
   });
   const hue = r.lesson.group?.hue ?? 5;
   return (
-    <li className={clsx(`hue-${hue}`, 'grid gap-5 rounded-[16px] bg-tint p-5 sm:p-6 lg:grid-cols-[1fr_1fr]')}>
+    <li className={clsx(`hue-${hue}`, 'grid gap-5 rounded-card bg-tint p-5 sm:p-6 lg:grid-cols-[1fr_1fr]')}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <Avatar name={r.user?.name ?? '?'} url={r.user?.avatarUrl} className="bg-paper/70" />

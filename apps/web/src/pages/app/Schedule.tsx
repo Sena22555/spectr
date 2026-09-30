@@ -25,13 +25,13 @@ export function useWeek() {
 export function WeekNav({ week }: { week: ReturnType<typeof useWeek> }) {
   return (
     <div className="flex items-center gap-2">
-      <button className="press grid size-11 place-items-center rounded-[6px] border border-ink/40 hover:border-ink" onClick={() => week.setOffset(week.offset - 1)} aria-label="Предыдущая неделя">
+      <button className="press grid size-11 place-items-center rounded-ctl border border-ink/40 hover:border-ink" onClick={() => week.setOffset(week.offset - 1)} aria-label="Предыдущая неделя">
         <ChevronLeft className="size-5" strokeWidth={1.7} />
       </button>
       <p className="tnum min-w-[190px] text-center text-[17px]" aria-live="polite">
         {week.offset === 0 ? 'Эта неделя' : week.offset === 1 ? 'Следующая неделя' : week.label}
       </p>
-      <button className="press grid size-11 place-items-center rounded-[6px] border border-ink/40 hover:border-ink" onClick={() => week.setOffset(week.offset + 1)} aria-label="Следующая неделя">
+      <button className="press grid size-11 place-items-center rounded-ctl border border-ink/40 hover:border-ink" onClick={() => week.setOffset(week.offset + 1)} aria-label="Следующая неделя">
         <ChevronRight className="size-5" strokeWidth={1.7} />
       </button>
     </div>

@@ -12,13 +12,13 @@ export default function Book() {
         <ol className="m-0 mt-4 flex list-none flex-col p-0">
           {['Заявка', 'Подбор преподавателя и времени', 'Занятие в расписании и ссылка в кабинете'].map((step, i) => (
             <li key={step} className={`hue-${[1, 3, 5][i]} flex items-center gap-4 border-b border-hair-soft py-3`}>
-              <span className="grid size-8 place-items-center rounded-[6px] bg-tint text-[15px] font-[500] text-hue tnum">{i + 1}</span>
+              <span className="grid size-8 place-items-center rounded-ctl bg-tint text-[15px] font-[500] text-hue tnum">{i + 1}</span>
               <span className="text-[17px]">{step}</span>
             </li>
           ))}
         </ol>
       </div>
-      <div className="rounded-[16px] bg-bone p-5 sm:p-8">
+      <div className="rounded-card bg-bone p-5 sm:p-8">
         <BookingForm subjectSlug={params.get('subject') ?? undefined} teacherSlug={params.get('teacher') ?? undefined} />
       </div>
     </Container>

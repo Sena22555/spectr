@@ -63,7 +63,7 @@ export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { sub
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="hue-3 flex flex-col items-start gap-4 rounded-[16px] bg-tint p-6 sm:p-8"
+        className="hue-3 flex flex-col items-start gap-4 rounded-card bg-tint p-6 sm:p-8"
         role="status"
       >
         <span className="grid size-12 place-items-center rounded-full bg-ink text-paper">

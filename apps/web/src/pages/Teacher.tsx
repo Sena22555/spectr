@@ -25,7 +25,7 @@ export default function Teacher() {
     <div className={`hue-${t.hue}`}>
       <section className="bg-tint">
         <Container className="grid gap-8 py-10 md:grid-cols-[minmax(0,420px)_1fr] md:items-end md:py-16">
-          <div className="aspect-[4/5] w-full max-w-[420px] overflow-hidden rounded-[16px]">
+          <div className="aspect-[4/5] w-full max-w-[420px] overflow-hidden rounded-card">
             <Monogram name={t.user.name} hue={t.hue} photoUrl={t.photoUrl} size="fill" className="text-[120px]" />
           </div>
           <div className="flex flex-col gap-5">
@@ -87,7 +87,7 @@ export default function Teacher() {
             </section>
           )}
         </div>
-        <aside className="h-fit rounded-[16px] bg-bone p-5 sm:p-8 lg:sticky lg:top-24">
+        <aside className="h-fit rounded-card bg-bone p-5 sm:p-8 lg:sticky lg:top-24">
           <h2 className="t-heading text-[32px]">Записаться на занятие</h2>
           <p className="mt-2 mb-6 text-[16px] text-muted">Преподаватель: {t.user.name}</p>
           <BookingForm teacherSlug={t.slug} subjectSlug={t.courses[0]?.slug} compact />

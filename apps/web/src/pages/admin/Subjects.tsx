@@ -47,7 +47,7 @@ export default function AdminSubjects() {
             <div className="grid gap-2 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
               <div className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-[19px] font-[450]">
-                  <span className="size-2.5 rounded-[4px] bg-hue" aria-hidden="true" />
+                  <span className="size-2.5 rounded-[2px] bg-hue" aria-hidden="true" />
                   {c.title}
                   {!c.published && <span className="t-caption text-muted">· скрыт</span>}
                   {c.source === 'UNIVERSITY' && <span className="t-caption text-hue">· университет</span>}
@@ -104,7 +104,7 @@ function SubjectForm({ course, onDone }: { course?: ACourse; onDone(): void }) {
   });
   return (
     <form
-      className={`hue-${form.hue} mb-5 grid gap-5 rounded-[16px] bg-tint p-5 sm:grid-cols-2 sm:p-6`}
+      className={`hue-${form.hue} mb-5 grid gap-5 rounded-card bg-tint p-5 sm:grid-cols-2 sm:p-6`}
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

@@ -92,11 +92,11 @@ function DemoAccounts({ onPick }: { onPick(email: string, password: string): voi
     ['Администратор', 'admin@spectr.school', 'spectr-admin'],
   ] as const;
   return (
-    <div className="hue-2 flex flex-col gap-2 rounded-[16px] bg-tint p-4">
+    <div className="hue-2 flex flex-col gap-2 rounded-card bg-tint p-4">
       <p className="t-caption text-hue">Демо-аккаунты (видно только в режиме разработки)</p>
       <div className="flex flex-wrap gap-2">
         {list.map(([label, e, p]) => (
-          <button key={e} type="button" className="press rounded-[6px] border border-ink/50 px-3 py-2 text-[15px] hover:border-ink" onClick={() => onPick(e, p)}>
+          <button key={e} type="button" className="press rounded-ctl border border-ink/50 px-3 py-2 text-[15px] hover:border-ink" onClick={() => onPick(e, p)}>
             {label}
           </button>
         ))}

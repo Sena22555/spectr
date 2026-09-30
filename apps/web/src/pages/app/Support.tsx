@@ -30,7 +30,7 @@ export default function Support() {
 
       <section className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <form
-          className="hue-4 flex flex-col gap-5 rounded-[16px] bg-tint p-5 sm:p-8"
+          className="hue-4 flex flex-col gap-5 rounded-card bg-tint p-5 sm:p-8"
           onSubmit={(e) => {
             e.preventDefault();
             create.mutate();
@@ -43,7 +43,7 @@ export default function Support() {
                 key={t}
                 type="button"
                 onClick={() => setSubject(t)}
-                className="press rounded-[6px] border border-ink/35 bg-paper/50 px-3 py-2 text-[15px] hover:border-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
+                className="press rounded-ctl border border-ink/35 bg-paper/50 px-3 py-2 text-[15px] hover:border-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
                 aria-pressed={subject === t}
               >
                 {t}

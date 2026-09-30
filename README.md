@@ -73,7 +73,7 @@ npm start          # API раздаёт собранный сайт с того 
 
 ## Дизайн
 
-- `DESIGN.md` — дизайн-система: стиль Say Briefly (кремовая бумага, Forest Ink, жёлтый маркер под словами, пастельные «стикеры»). Он достроен до 7 цветов спектра, и у каждого предмета, преподавателя и группы свой тон. Шрифты с кириллицей: Rubik 800 для заголовков, Inter для текста, Roboto Mono для подписей. Первый вариант (газета Miranda) лежит в `docs/design/miranda.md`.
+- `DESIGN.md` — дизайн-система «Печатный лист»: газета, отпечатанная красками спектра с наложением (`mix-blend-mode`). Шрифты с кириллицей: Playfair Display (заголовки), Literata (подводки), Inter (интерфейс), IBM Plex Mono (рубрики). Семь красок спектра, у каждого предмета, преподавателя и группы свой тон. Прежние варианты лежат в `docs/design/` (`miranda.md`, `say-briefly.md`).
 - `PRODUCT.md` — продуктовые факты: для кого школа, что делает и чего не выдумывать.
 - `CLAUDE.md` — правила для Claude, включая раздел Frontend references.
 - `.claude/skills/impeccable` — навыки [Impeccable](https://impeccable.style) (polish, distill, audit и др.). Бинарник детектора в git не хранится. На своей машине выполните `npx impeccable install -y --providers=claude --scope=project`, затем `npm run design:detect`.

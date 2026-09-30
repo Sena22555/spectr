@@ -112,7 +112,7 @@ export default function Group() {
           )}
         </section>
         {!isMember && (
-          <aside className="h-fit rounded-[16px] bg-bone p-5 sm:p-8">
+          <aside className="h-fit rounded-card bg-bone p-5 sm:p-8">
             <h2 className="t-heading mb-6 text-[32px]">{free ? 'Хочу в эту группу' : 'Встать в лист ожидания'}</h2>
             <BookingForm subjectSlug={g.course?.slug} teacherSlug={g.teacher?.slug} compact />
           </aside>

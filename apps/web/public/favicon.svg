@@ -1,16 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96">
   <style>
-    .p { fill: #e2dedb; stroke: #1d1d1b; }
-    .b { stroke: #1d1d1b; }
-    @media (prefers-color-scheme: dark) { .p { fill: #1d1d1b; stroke: #e2dedb; } .b { stroke: #e2dedb; } }
+    .b { stroke: #1c1b33; fill: none; }
+    .l { stroke: #1c1b33; }
+    @media (prefers-color-scheme: dark) { .b, .l { stroke: #f4eedf; } }
   </style>
-  <polygon points="67.6,49.8 120,28 120,37" fill="#c03f13"/>
-  <polygon points="67.6,49.8 120,37 120,46" fill="#d9731a"/>
-  <polygon points="67.6,49.8 120,46 120,55" fill="#e0b224"/>
-  <polygon points="67.6,49.8 120,55 120,64" fill="#4f8a3c"/>
-  <polygon points="67.6,49.8 120,64 120,73" fill="#2f8f9d"/>
-  <polygon points="67.6,49.8 120,73 120,82" fill="#2b4c9b"/>
-  <polygon points="67.6,49.8 120,82 120,91" fill="#6b3fa0"/>
-  <line class="b" x1="0" y1="62" x2="30.8" y2="53.6" stroke-width="7" stroke-linecap="round"/>
-  <polygon class="p" points="50,8 18,84 82,84" stroke-width="9" stroke-linejoin="round"/>
+  <polygon points="67.6,49.8 120,24 120,39" fill="#e5432d"/>
+  <polygon points="67.6,49.8 120,37 120,48" fill="#f28a1e" fill-opacity=".9"/>
+  <polygon points="67.6,49.8 120,46 120,57" fill="#f5c400" fill-opacity=".9"/>
+  <polygon points="67.6,49.8 120,55 120,66" fill="#2fa568" fill-opacity=".9"/>
+  <polygon points="67.6,49.8 120,64 120,75" fill="#14a3b5" fill-opacity=".9"/>
+  <polygon points="67.6,49.8 120,73 120,84" fill="#2f52d0" fill-opacity=".9"/>
+  <polygon points="67.6,49.8 120,82 120,96" fill="#9b4fd1" fill-opacity=".9"/>
+  <line class="l" x1="0" y1="62" x2="30.8" y2="53.6" stroke-width="6" stroke-linecap="round"/>
+  <polygon points="50,8 18,84 82,84" transform="translate(4 3)" fill="#f5c400"/>
+  <polygon class="b" points="50,8 18,84 82,84" stroke-width="7" stroke-linejoin="round"/>
 </svg>

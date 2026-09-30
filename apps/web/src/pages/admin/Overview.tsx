@@ -34,7 +34,7 @@ export default function AdminOverview() {
       <PageHeader title="Сводка" lead="Что требует ответа прямо сейчас и как устроена школа." />
       <section className="grid gap-4 md:grid-cols-3">
         {inbox.map((i) => (
-          <Link key={i.to} to={i.to} className={`hue-${i.hue} lift group flex min-h-44 flex-col justify-between rounded-[16px] bg-tint p-5 no-underline sm:p-6`}>
+          <Link key={i.to} to={i.to} className={`hue-${i.hue} lift group flex min-h-44 flex-col justify-between rounded-card border-t-[4px] border-ray bg-tint p-5 no-underline sm:p-6`}>
             <span className="flex items-start justify-between">
               <span className="t-display tnum text-[72px] text-hue">{i.n}</span>
               <ArrowUpRight className="size-5 text-hue transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={1.7} />

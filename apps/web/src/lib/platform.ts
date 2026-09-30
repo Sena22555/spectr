@@ -88,7 +88,7 @@ export function applyTheme() {
   const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   const scheme = pref === 'system' ? (platformScheme ?? system) : pref;
   document.documentElement.dataset.theme = scheme;
-  const bg = scheme === 'dark' ? '#1d1d1b' : '#e2dedb';
+  const bg = scheme === 'dark' ? '#15142a' : '#f4eedf';
   if (tg) {
     try {
       tg.setHeaderColor(bg);

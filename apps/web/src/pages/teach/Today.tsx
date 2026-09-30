@@ -42,7 +42,7 @@ export default function Today() {
       />
 
       {todos.length > 0 && (
-        <section className="hue-0 flex flex-col gap-3 rounded-[16px] bg-tint p-5 sm:p-6">
+        <section className="hue-0 flex flex-col gap-3 rounded-card bg-tint p-5 sm:p-6">
           <p className="t-heading text-[24px]">Нужно ваше внимание</p>
           <ul className="m-0 flex list-none flex-wrap gap-x-6 gap-y-2 p-0">
             {todos.map((t) => (
