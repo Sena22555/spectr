@@ -9,7 +9,7 @@
 ```bash
 git clone https://github.com/Sena22555/spectr.git && cd spectr
 git checkout claude/optimistic-edison-ldty0p
-./deploy/deploy.sh root@31.77.12.134
+./deploy/deploy.sh avtomatik
 ```
 
 Пароль спросит ssh. Через 5–10 минут скрипт напишет адрес сайта.
