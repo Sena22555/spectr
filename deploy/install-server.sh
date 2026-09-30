@@ -87,6 +87,17 @@ VK_APP_SECRET=""
 ENV
   chmod 600 "$APP_DIR/.env"
 fi
+# Почта для кодов подтверждения: пустые строки, пароль приложения вписывается вручную
+if ! grep -q '^SMTP_HOST=' "$APP_DIR/.env"; then
+  cat >> "$APP_DIR/.env" <<'ENV'
+# Почта: Яндекс, пароль приложения (id.yandex.ru → Безопасность → Пароли приложений)
+SMTP_HOST="smtp.yandex.ru"
+SMTP_PORT=465
+SMTP_USER=""
+SMTP_PASS=""
+SMTP_FROM=""
+ENV
+fi
 ln -sf "$APP_DIR/.env" "$APP_DIR/app/apps/api/.env"
 
 say "Зависимости и сборка (несколько минут)"

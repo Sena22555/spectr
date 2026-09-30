@@ -216,3 +216,17 @@ model TicketMessage {
   authorId String
   author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }
+
+// Одноразовые коды из писем: подтверждение почты и смена пароля
+model EmailCode {
+  id        String   @id @default(cuid())
+  email     String
+  // VERIFY | RESET
+  purpose   String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose])
+}

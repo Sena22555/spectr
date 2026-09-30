@@ -94,6 +94,10 @@ function mutate(role: Role | null, method: string, path: string, body: Json): un
     Object.assign(user('fresh'), { name: body.name, email: body.email, phone: body.phone ?? null });
     return { token: 'demo.fresh', user: user('fresh') };
   }
+  if (method === 'POST' && (path === '/auth/reset/request' || path === '/auth/email/send')) return { ok: true };
+  if (method === 'POST' && (path === '/auth/reset/confirm' || path === '/auth/email/verify')) {
+    throw new HttpError(400, 'В демо-версии письма не отправляются — войдите через демо-аккаунт.');
+  }
   if (method === 'POST' && (path === '/auth/telegram' || path === '/auth/vk')) throw new HttpError(400, 'В демо-версии вход через мессенджер отключён');
   if (method === 'POST' && path === '/bookings') {
     const booking = { id: uid(), status: 'NEW', createdAt: now(), course: null, teacher: null, user: null, ...body };

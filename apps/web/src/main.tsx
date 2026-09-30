@@ -9,7 +9,7 @@ import { initPlatform } from './lib/platform';
 import { AppLayout, Root, SiteLayout } from './components/Layout';
 import { Loading } from './components/ui';
 import Home from './pages/Home';
-import { Login, Register } from './pages/Auth';
+import { Login, Register, ResetPassword } from './pages/Auth';
 import NotFound from './pages/NotFound';
 
 const Teachers = lazy(() => import('./pages/Teachers'));
@@ -73,6 +73,7 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'book', element: s(<Book />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },
+          { path: 'reset', element: <ResetPassword /> },
           { path: '*', element: <NotFound /> },
         ],
       },

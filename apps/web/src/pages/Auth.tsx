@@ -1,10 +1,11 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { haptic, isMiniApp, platform, platformLabel } from '../lib/platform';
 import { homeFor } from '../components/Layout';
 import { Button, Input } from '../components/ui';
 import { LogoMark } from '../components/Logo';
+import type { User } from '../lib/types';
 import { LaptopDoodle, PaperDoodle, PencilDoodle } from '../components/Doodles';
 
 function AuthFrame({ title, lead, children, footer }: { title: string; lead: string; children: ReactNode; footer: ReactNode }) {
@@ -77,6 +78,9 @@ export function Login() {
       <form className="flex flex-col gap-5" onSubmit={submit} noValidate={false}>
         <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
         <Input label="Пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+        <Link to={`/reset${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="link -mt-2 self-start text-[15px]">
+          Забыли пароль?
+        </Link>
         {error && (
           <p className="t-caption text-ember-text" role="alert">
             {error}
@@ -118,8 +122,12 @@ export function Register() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<'form' | 'code'>('form');
 
-  if (!loading && user) return <Navigate to={params.get('next') ?? homeFor(user.role)} replace />;
+  if (step === 'code' && user) {
+    return <VerifyEmail email={user.email ?? form.email} onDone={(u) => navigate(params.get('next') ?? homeFor(u.role), { replace: true })} />;
+  }
+  if (!loading && user && step === 'form') return <Navigate to={params.get('next') ?? homeFor(user.role)} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -128,7 +136,8 @@ export function Register() {
     try {
       const u = await register({ ...form, phone: form.phone || undefined });
       haptic('success');
-      navigate(params.get('next') ?? homeFor(u.role), { replace: true });
+      if (u.emailVerified || __DEMO__) navigate(params.get('next') ?? homeFor(u.role), { replace: true });
+      else setStep('code');
     } catch (err) {
       haptic('error');
       setError((err as Error).message);
@@ -173,6 +182,200 @@ export function Register() {
           Создать аккаунт
         </Button>
       </form>
+    </AuthFrame>
+  );
+}
+
+function useCooldown() {
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = setTimeout(() => setLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left]);
+  return [left, () => setLeft(60)] as const;
+}
+
+const codeInputProps = {
+  inputMode: 'numeric' as const,
+  autoComplete: 'one-time-code',
+  pattern: '\\d{6}',
+  maxLength: 6,
+  required: true,
+};
+
+/** Шаг после регистрации: код из письма. Аккаунт уже создан, код можно ввести и позже из профиля. */
+function VerifyEmail({ email, onDone }: { email: string; onDone(u: User): void }) {
+  const { verifyEmail, resendCode } = useAuth();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [left, startCooldown] = useCooldown();
+  useEffect(startCooldown, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const u = await verifyEmail(code);
+      haptic('success');
+      onDone(u);
+    } catch (err) {
+      haptic('error');
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    setError(null);
+    setNote(null);
+    try {
+      await resendCode();
+      setNote('Отправили новый код.');
+      startCooldown();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  return (
+    <AuthFrame
+      title="Проверьте почту"
+      lead={`Мы отправили шестизначный код на ${email}. Если письма нет, загляните в «Спам».`}
+      footer={
+        <p>
+          Не приходит?{' '}
+          {left > 0 ? (
+            <span className="text-muted">Новый код можно запросить через {left} с</span>
+          ) : (
+            <button type="button" className="link" onClick={resend}>
+              Отправить ещё раз
+            </button>
+          )}
+        </p>
+      }
+    >
+      <form className="flex flex-col gap-5" onSubmit={submit}>
+        <Input label="Код из письма" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} {...codeInputProps} autoFocus />
+        {note && <p className="t-caption text-muted">{note}</p>}
+        {error && (
+          <p className="t-caption text-ember-text" role="alert">
+            {error}
+          </p>
+        )}
+        <Button type="submit" loading={busy}>
+          Подтвердить
+        </Button>
+      </form>
+    </AuthFrame>
+  );
+}
+
+export function ResetPassword() {
+  const { confirmReset, requestReset } = useAuth();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState(params.get('email') ?? '');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [left, startCooldown] = useCooldown();
+
+  const send = async (e?: FormEvent) => {
+    e?.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await requestReset(email);
+      setSent(true);
+      startCooldown();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const u = await confirmReset({ email, code, password });
+      haptic('success');
+      navigate(homeFor(u.role), { replace: true });
+    } catch (err) {
+      haptic('error');
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const errorNote = error && (
+    <p className="t-caption text-ember-text" role="alert">
+      {error}
+    </p>
+  );
+
+  return (
+    <AuthFrame
+      title="Смена пароля"
+      lead={sent ? `Если аккаунт с почтой ${email} есть, код уже в пути. Введите его и новый пароль.` : 'Пришлём код на почту, с которой вы регистрировались.'}
+      footer={
+        <p>
+          Вспомнили?{' '}
+          <Link to="/login" className="link">
+            Войти
+          </Link>
+          {sent && (
+            <>
+              {' · '}
+              {left > 0 ? (
+                <span className="text-muted">новый код через {left} с</span>
+              ) : (
+                <button type="button" className="link" onClick={() => send()}>
+                  отправить код ещё раз
+                </button>
+              )}
+            </>
+          )}
+        </p>
+      }
+    >
+      {!sent ? (
+        <form className="flex flex-col gap-5" onSubmit={send}>
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+          {errorNote}
+          <Button type="submit" loading={busy}>
+            Получить код
+          </Button>
+        </form>
+      ) : (
+        <form className="flex flex-col gap-5" onSubmit={confirm}>
+          <Input label="Код из письма" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} {...codeInputProps} autoFocus />
+          <Input
+            label="Новый пароль"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+            minLength={8}
+            hint="Минимум 8 символов"
+          />
+          {errorNote}
+          <Button type="submit" loading={busy}>
+            Сменить пароль и войти
+          </Button>
+        </form>
+      )}
     </AuthFrame>
   );
 }

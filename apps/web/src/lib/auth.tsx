@@ -9,6 +9,10 @@ interface AuthState {
   loading: boolean;
   login(email: string, password: string): Promise<User>;
   register(data: { name: string; email: string; password: string; phone?: string }): Promise<User>;
+  verifyEmail(code: string): Promise<User>;
+  resendCode(): Promise<void>;
+  requestReset(email: string): Promise<void>;
+  confirmReset(data: { email: string; code: string; password: string }): Promise<User>;
   logout(): void;
   refresh(): void;
 }
@@ -66,6 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: (email, password) =>
         api<{ token: string; user: User }>('/auth/login', { method: 'POST', json: { email, password } }).then(accept),
       register: (data) => api<{ token: string; user: User }>('/auth/register', { method: 'POST', json: data }).then(accept),
+      verifyEmail: (code) =>
+        api<{ user: User }>('/auth/email/verify', { method: 'POST', json: { code } }).then((r) => {
+          qc.setQueryData(['me', token], r.user);
+          return r.user;
+        }),
+      resendCode: () => api('/auth/email/send', { method: 'POST', json: {} }).then(() => undefined),
+      requestReset: (email) => api('/auth/reset/request', { method: 'POST', json: { email } }).then(() => undefined),
+      confirmReset: (data) => api<{ token: string; user: User }>('/auth/reset/confirm', { method: 'POST', json: data }).then(accept),
       logout: () => {
         setToken(null);
         setTokenState(null);

@@ -5,6 +5,8 @@ import { prisma } from '../lib/prisma.js';
 import { authenticate, publicUser } from '../lib/auth.js';
 import { verifyTelegramInitData, verifyVkLaunchParams } from '../lib/miniapp.js';
 import type { Role } from '../lib/enums.js';
+import { consumeCode, issueCode } from '../lib/codes.js';
+import { LETTERS, sendMail } from '../lib/mail.js';
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, 'Имя слишком короткое').max(80),
@@ -12,6 +14,9 @@ const registerSchema = z.object({
   password: z.string().min(8, 'Пароль — минимум 8 символов').max(128),
   phone: z.string().trim().max(32).optional(),
 });
+
+const emailField = z.email('Некорректный email').transform((v) => v.toLowerCase());
+const codeField = z.string().trim().regex(/^\d{6}$/, 'Код — 6 цифр');
 
 const loginSchema = z.object({
   email: z.email('Некорректный email').transform((v) => v.toLowerCase()),
@@ -35,7 +40,58 @@ export async function authRoutes(app: FastifyInstance) {
       },
       include: { teacher: true },
     });
-    // TODO: письмо с подтверждением — подключим почтовый сервис позже
+    const code = await issueCode(body.email, 'VERIFY');
+    if (code) await sendMail(body.email, LETTERS.verify(user.name, code)).catch((err) => app.log.error(err, 'письмо с кодом не ушло'));
+    return { token: sign(user.id, user.role), user: publicUser(user) };
+  });
+
+  // Повторно отправить код подтверждения на почту аккаунта
+  app.post('/auth/email/send', { preHandler: authenticate }, async (req, reply) => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user.sub } });
+    if (!user.email) return reply.code(400).send({ error: 'У аккаунта нет почты' });
+    if (user.emailVerified) return { ok: true, verified: true };
+    const code = await issueCode(user.email, 'VERIFY');
+    if (!code) return reply.code(429).send({ error: 'Код уже отправлен. Новый можно запросить через минуту.' });
+    await sendMail(user.email, LETTERS.verify(user.name, code));
+    return { ok: true };
+  });
+
+  app.post('/auth/email/verify', { preHandler: authenticate }, async (req, reply) => {
+    const { code } = z.object({ code: codeField }).parse(req.body);
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user.sub } });
+    if (!user.email) return reply.code(400).send({ error: 'У аккаунта нет почты' });
+    if (!user.emailVerified) {
+      const error = await consumeCode(user.email, 'VERIFY', code);
+      if (error) return reply.code(400).send({ error });
+    }
+    const updated = await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true }, include: { teacher: true } });
+    return { user: publicUser(updated) };
+  });
+
+  // Забыли пароль: код на почту. Ответ одинаковый, есть аккаунт или нет, чтобы не раскрывать адреса.
+  app.post('/auth/reset/request', async (req, reply) => {
+    const { email } = z.object({ email: emailField }).parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const code = await issueCode(email, 'RESET');
+      if (!code) return reply.code(429).send({ error: 'Код уже отправлен. Новый можно запросить через минуту.' });
+      await sendMail(email, LETTERS.reset(user.name, code));
+    }
+    return { ok: true };
+  });
+
+  app.post('/auth/reset/confirm', async (req, reply) => {
+    const body = z
+      .object({ email: emailField, code: codeField, password: z.string().min(8, 'Пароль — минимум 8 символов').max(128) })
+      .parse(req.body);
+    const error = await consumeCode(body.email, 'RESET', body.code);
+    if (error) return reply.code(400).send({ error });
+    const user = await prisma.user.update({
+      where: { email: body.email },
+      // код пришёл на эту почту, значит она заодно подтверждена
+      data: { passwordHash: await bcrypt.hash(body.password, 10), emailVerified: true },
+      include: { teacher: true },
+    });
     return { token: sign(user.id, user.role), user: publicUser(user) };
   });
 
