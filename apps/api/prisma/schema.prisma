@@ -104,7 +104,7 @@ model Group {
   coverUrl    String?
   hue         Int      @default(0)
   schedule    String   @default("")
-  capacity    Int      @default(8)
+  capacity    Int      @default(6)
   createdAt   DateTime @default(now())
 
   courseId  String?

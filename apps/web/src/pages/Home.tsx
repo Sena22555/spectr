@@ -2,7 +2,7 @@ import type React from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AnimatePresence, motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
+import { AnimatePresence, animate, motion, useInView, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
 import clsx from 'clsx';
 import {
   ArrowRight,
@@ -20,6 +20,7 @@ import {
   Video,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { plural } from '../lib/format';
 import { useAuth } from '../lib/auth';
 import { isMiniApp } from '../lib/platform';
 import { Container, homeFor } from '../components/Layout';
@@ -65,7 +66,7 @@ const FLOW = [
 const AUDIENCE = [
   { hue: 2, Doodle: BackpackDoodle, label: 'школьникам', title: 'Школьникам', text: 'Закрыть пробелы, подтянуть оценки, спокойно сдать ОГЭ и ЕГЭ.', rot: -5 },
   { hue: 6, Doodle: CapDoodle, label: 'студентам', title: 'Студентам', text: 'Разобраться в теории, решить домашние и закрыть сессию. Скоро — курсы от университета.', rot: 6 },
-  { hue: 4, Doodle: GroupDoodle, label: 'мини-группы', title: 'Мини-группы', text: 'До восьми человек, один преподаватель, постоянное расписание и профиль группы с фото.', rot: 5 },
+  { hue: 4, Doodle: GroupDoodle, label: 'мини-группы', title: 'Мини-группы', text: 'До шести человек, один преподаватель, постоянное расписание и профиль группы с фото.', rot: 5 },
   { hue: 3, Doodle: DuoDoodle, label: 'один на один', title: 'Индивидуально', text: 'Свой темп и свой план: преподаватель занимается только с вами.', rot: -4 },
 ];
 
@@ -88,7 +89,7 @@ const FAQ = [
   },
   {
     q: 'Сколько человек в мини-группе?',
-    a: 'До восьми. У группы один преподаватель и постоянное расписание, а на странице группы — её профиль с фотографиями.',
+    a: 'До шести. У группы один преподаватель и постоянное расписание, а на странице группы — её профиль с фотографиями.',
   },
   {
     q: 'Какие предметы есть?',
@@ -135,6 +136,7 @@ function Landing() {
       <LessonFeature />
       <ScheduleFeature />
       <Audience />
+      <FactsWheel teachers={teachers.data?.length} subjects={subjects.data?.length} groups={groups.data?.length} />
 
       {/* Преподаватели */}
       <Container className="pt-28">
@@ -207,7 +209,7 @@ function Landing() {
         >
           Мини-группы
         </SectionTitle>
-        <p className="t-sub mt-6 max-w-[56ch] text-muted">До восьми человек, один преподаватель, постоянное расписание. У каждой группы есть свой профиль с фотографиями.</p>
+        <p className="t-sub mt-6 max-w-[56ch] text-muted">До шести человек, один преподаватель, постоянное расписание. У каждой группы есть свой профиль с фотографиями.</p>
         <Rail>
           {groups.data
             ? groups.data.slice(0, 3).map((g, i) => (
@@ -406,7 +408,7 @@ function Hero({ subjects }: { subjects?: Subject[] }) {
           transition={{ type: 'spring', stiffness: 260, damping: 26, delay: 0.7 }}
         >
           <div className="flex flex-wrap justify-center gap-3">
-            <ButtonLink to="/book" className="min-h-14 px-7 text-[16px]">
+            <ButtonLink to="/book" className="shine min-h-14 px-7 text-[16px]">
               Записаться на занятие <ArrowRight className="size-4" strokeWidth={2.4} />
             </ButtonLink>
             <ButtonLink to="/teachers" variant="secondary" className="min-h-14 px-6 text-[16px]">
@@ -938,6 +940,148 @@ function Faq() {
         </Link>
       </p>
     </Container>
+  );
+}
+
+
+/** Число, которое «набегает» от нуля, когда блок попадает в кадр. */
+function CountUp({ to, prefix = '', suffix = '' }: { to?: number; prefix?: string; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' });
+  const reduce = useReducedMotion();
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (to === undefined || !inView) return;
+    if (reduce) return setN(to);
+    const c = animate(0, to, { duration: 1.4, ease: [0.16, 1, 0.3, 1], onUpdate: (v) => setN(Math.round(v)) });
+    return () => c.stop();
+  }, [inView, to, reduce]);
+  return (
+    <span ref={ref} className="tnum">
+      {prefix}
+      {to === undefined ? '–' : n}
+      {suffix}
+    </span>
+  );
+}
+
+/**
+ * Колесо фактов: цветовой круг медленно вращается на заднем фоне, по ободу едут стикеры с фактами
+ * (они поворачиваются в обратную сторону и всегда стоят прямо), внутри крутится колёсико со спицами.
+ * Только то, что есть в продукте и в данных; выдуманных цифр нет.
+ */
+function FactsWheel({ teachers, subjects, groups }: { teachers?: number; subjects?: number; groups?: number }) {
+  const facts = [
+    { hue: 2, n: 6, prefix: 'до ', text: 'человек в мини-группе' },
+    { hue: 4, n: teachers, text: teachers === undefined ? 'преподавателей' : plural(teachers, 'преподаватель', 'преподавателя', 'преподавателей') },
+    { hue: 6, n: subjects, text: 'предметов для школы и вуза' },
+    { hue: 3, n: groups, text: 'мини-групп с постоянным расписанием' },
+    { hue: 0, n: 15, suffix: ' мин', text: 'до урока открывается ссылка' },
+    { hue: 5, n: 1, suffix: ' кнопка', text: 'чтобы попросить перенос' },
+    { hue: 1, n: 3, suffix: ' места', text: 'сайт, Telegram и ВКонтакте' },
+    { hue: 4, n: 1, suffix: ' минута', text: 'на заявку без регистрации' },
+  ];
+  const R = 372;
+  return (
+    <section className="relative mt-28 overflow-hidden" aria-label="Спектр в фактах">
+      {/* телефон и планшет: спокойная сетка без вращения */}
+      <Container className="md:hidden">
+        <Reveal>
+          <Chip hue={2} icon={<Sparkles />}>
+            школа в фактах
+          </Chip>
+          <h2 className="t-display t-lg mt-4">
+            Всё, что уже <mark>работает.</mark>
+          </h2>
+        </Reveal>
+        <ul className="mt-8 grid list-none grid-cols-2 gap-4 p-0">
+          {facts.map((f, i) => (
+            <Reveal as="li" key={f.text} delay={(i % 2) * 0.06} rotate={i % 2 ? 1.2 : -1.2}>
+              <div className={clsx(`hue-${f.hue}`, 'sticker flex h-full flex-col gap-1 p-4')}>
+                <span className="t-display text-[30px] leading-none">
+                  <CountUp to={f.n} prefix={f.prefix} suffix={f.suffix} />
+                </span>
+                <span className="text-[14px] leading-snug">{f.text}</span>
+              </div>
+            </Reveal>
+          ))}
+        </ul>
+      </Container>
+
+      {/* широкие экраны: колесо */}
+      <div className="wheel relative hidden h-[760px] md:block lg:h-[940px]">
+        <div className="absolute top-1/2 left-1/2 size-[940px] origin-center -translate-x-1/2 -translate-y-1/2 scale-[0.8] lg:scale-100">
+          {/* цветовой круг: тонкое кольцо из семи красок */}
+          <div
+            className="wheel-spin absolute inset-[110px] rounded-full opacity-70"
+            style={{
+              ['--dur' as string]: '140s',
+              background: 'conic-gradient(var(--ray-0), var(--ray-1), var(--ray-2), var(--ray-3), var(--ray-4), var(--ray-5), var(--ray-6), var(--ray-0))',
+              WebkitMask: 'radial-gradient(closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px))',
+              mask: 'radial-gradient(closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px))',
+            }}
+            aria-hidden="true"
+          />
+          {/* пунктирный обод, едет в обратную сторону */}
+          <div className="wheel-spin absolute inset-[40px] rounded-full border-[1.5px] border-dashed border-ink/25" style={{ ['--dur' as string]: '110s', ['--dir' as string]: 'reverse' }} aria-hidden="true" />
+          <div className="wheel-spin absolute inset-[190px] rounded-full border border-ink/15" style={{ ['--dur' as string]: '90s' }} aria-hidden="true" />
+
+          {/* колёсико со спицами в центре */}
+          <svg viewBox="-100 -100 200 200" className="wheel-spin absolute inset-[250px] text-ink/12" style={{ ['--dur' as string]: '46s', ['--dir' as string]: 'reverse' }} aria-hidden="true">
+            <g fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+              <circle r="96" />
+              <circle r="84" strokeDasharray="2 6" />
+              <circle r="14" />
+              {Array.from({ length: 12 }, (_, i) => (
+                <line key={i} x1="14" y1="0" x2="84" y2="0" transform={`rotate(${i * 30})`} />
+              ))}
+              {Array.from({ length: 12 }, (_, i) => (
+                <line key={`t${i}`} x1="90" y1="0" x2="98" y2="0" transform={`rotate(${i * 30 + 15})`} strokeWidth="2.4" stroke={`var(--ray-${i % 7})`} />
+              ))}
+            </g>
+          </svg>
+
+          {/* стикеры по ободу */}
+          <ul className="wheel-spin absolute inset-0 m-0 list-none p-0" style={{ ['--dur' as string]: '90s' }}>
+            {facts.map((f, i) => {
+              const a = i * 45;
+              return (
+                <li
+                  key={f.text}
+                  className="absolute top-1/2 left-1/2 -mt-[52px] -ml-[92px] h-[104px] w-[184px]"
+                  style={{ transform: `rotate(${a}deg) translateY(-${R}px)` }}
+                >
+                  <div style={{ transform: `rotate(${-a}deg)` }}>
+                    <div className="wheel-counter" style={{ ['--dur' as string]: '90s' }}>
+                      <div className={clsx(`hue-${f.hue}`, 'sticker flex h-[104px] w-[184px] flex-col justify-center gap-1 px-4 py-3', i % 2 ? 'rotate-[2deg]' : '-rotate-[2deg]')}>
+                        <span className="t-display text-[32px] leading-none">
+                          <CountUp to={f.n} prefix={f.prefix} suffix={f.suffix} />
+                        </span>
+                        <span className="text-[13.5px] leading-tight">{f.text}</span>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* центр не вращается: заголовок */}
+          <Reveal className="absolute top-1/2 left-1/2 flex w-[400px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4 text-center">
+            <Chip hue={2} icon={<Sparkles />}>
+              школа в фактах
+            </Chip>
+            <h2 className="t-display text-[clamp(34px,3.4vw,46px)] leading-[1.06]">
+              Всё, что уже <mark>работает.</mark>
+            </h2>
+            <p className="max-w-[32ch] text-[16.5px] leading-snug text-muted">Расписание, ссылки на уроки, переносы и поддержка. Наведите курсор, колесо остановится.</p>
+            <ButtonLink to="/book" className="mt-1">
+              Записаться на занятие <ArrowRight className="size-4" strokeWidth={2.4} />
+            </ButtonLink>
+          </Reveal>
+        </div>
+      </div>
+    </section>
   );
 }
 

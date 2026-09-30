@@ -140,7 +140,7 @@ function GroupForm({ onDone }: { onDone(): void }) {
     queryFn: () => api<{ teachers: { id: string; subject: string; user: { name: string } }[] }>('/admin/teachers').then((r) => r.teachers),
   });
   const courses = useQuery({ queryKey: ['admin', 'courses'], queryFn: () => api<{ courses: { id: string; title: string }[] }>('/admin/courses').then((r) => r.courses) });
-  const [form, setForm] = useState({ name: '', description: '', schedule: '', capacity: '8', hue: 0, teacherId: '', courseId: '' });
+  const [form, setForm] = useState({ name: '', description: '', schedule: '', capacity: '6', hue: 0, teacherId: '', courseId: '' });
   const m = useMutation({
     mutationFn: () =>
       api('/admin/groups', {
@@ -179,7 +179,7 @@ function GroupForm({ onDone }: { onDone(): void }) {
           </option>
         ))}
       </Select>
-      <Input label="Мест в группе" type="number" min={1} max={200} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
+      <Input label="Мест в группе" type="number" min={1} max={6} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
       <HuePicker value={form.hue} onChange={(hue) => setForm({ ...form, hue })} />
       <Textarea label="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="sm:col-span-2" />
       {m.error && <p className="t-caption text-ember-text sm:col-span-2">{(m.error as Error).message}</p>}

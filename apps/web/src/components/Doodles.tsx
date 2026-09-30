@@ -1,4 +1,5 @@
 import { useId, type CSSProperties, type ReactNode } from 'react';
+import { BEAM, PRISM } from './Logo';
 import clsx from 'clsx';
 
 /**
@@ -136,45 +137,40 @@ export function DeskScene({ className }: { className?: string }) {
   );
 }
 
-/** Стеклянная призма для сцены: та же, что в логотипе, крупнее. Лучи слегка «дышат», сама призма парит. */
+/** Призма для сцены: та же, что в логотипе, крупнее. Каждые несколько секунд опыт повторяется: луч, стекло, веер цветов. */
 function ScenePrism() {
   const id = useId().replace(/:/g, '');
-  const front = 'M42 12 L12 82 L72 82 Z';
-  const side = 'M42 12 L60 4 L90 74 L72 82 Z';
-  const BEAM = ['#e8674a', '#f29a3c', '#f4cf3a', '#68b544', '#28aeb0', '#5f6fe0', '#a865d8'];
+  const { apex, left, right, depth, entry, exit } = PRISM;
+  const front = `M${apex[0]} ${apex[1]} L${left[0]} ${left[1]} L${right[0]} ${right[1]} Z`;
+  const side = `M${apex[0]} ${apex[1]} L${apex[0] + depth[0]} ${apex[1] + depth[1]} L${right[0] + depth[0]} ${right[1] + depth[1]} L${right[0]} ${right[1]} Z`;
+  const band = 8.4;
   return (
-    <g transform="translate(742 168) scale(2.1)" strokeWidth="1.6">
+    <g transform="translate(742 176) scale(2.05)" strokeWidth="1.5">
       <defs>
-        <linearGradient id={`${id}f`} x1="0.1" y1="0" x2="0.9" y2="1">
+        <linearGradient id={`${id}f`} x1="0.05" y1="0" x2="0.95" y2="1">
           <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.45" stopColor="#d9f5f0" />
-          <stop offset="1" stopColor="#8fd8d4" />
+          <stop offset="0.55" stopColor="#e3f7f4" />
+          <stop offset="1" stopColor="#b9e6e2" />
         </linearGradient>
         <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#4fb9b6" />
-          <stop offset="1" stopColor="#1a6f73" />
+          <stop offset="0" stopColor="#cdeeea" />
+          <stop offset="1" stopColor="#7cc9c6" />
         </linearGradient>
       </defs>
-      <g style={{ mixBlendMode: 'var(--blend)' as never }} stroke="none">
+      <g stroke="none">
         {BEAM.map((c, i) => (
-          <polygon
-            key={c}
-            points={`80,46 124,${20 + i * 8.6} 124,${20 + i * 8.6 + 11}`}
-            fill={c}
-            style={{ transformOrigin: '80px 46px', transformBox: 'view-box', animation: `ray-in 0.9s ${0.5 + i * 0.07}s var(--ease-out-expo) both, ray-breathe 4.5s ${i * 0.35}s ease-in-out infinite` }}
-          />
+          <polygon key={c} className="scene-ray" style={{ ['--i' as string]: i }} points={`${exit[0]},${exit[1]} 124,${12 + i * band} 124,${12 + i * band + band + 1.2}`} fill={c} />
         ))}
       </g>
-      <ellipse cx="46" cy="87" rx="36" ry="4.5" fill="var(--ink)" fillOpacity="0.14" stroke="none" />
-      <line x1="0" y1="62" x2="30" y2="52" strokeWidth="3.2" />
-      <g style={{ animation: 'float-a 7s ease-in-out infinite', ['--rot' as string]: '0deg' }}>
-        <path d={side} fill={`url(#${id}s)`} stroke="none" />
-        <path d={front} fill={`url(#${id}f)`} stroke="none" />
-        <line x1="30" y1="52" x2="74" y2="47" stroke="#fff" strokeWidth="3" />
-        <path d="M42 12 L15 76" stroke="#fff" strokeWidth="2.2" />
-        <ellipse cx="34" cy="38" rx="3.4" ry="9" transform="rotate(20 34 38)" fill="#fff" fillOpacity="0.55" stroke="none" />
-        <path d={front} strokeWidth="2.6" />
-        <path d="M42 12 L60 4 L90 74 L72 82" strokeWidth="2.6" />
+      <path d={`M${apex[0] + depth[0]} ${apex[1] + depth[1]} L${left[0] + depth[0]} ${left[1] + depth[1]} L${right[0] + depth[0]} ${right[1] + depth[1]} M${left[0] + depth[0]} ${left[1] + depth[1]} L${left[0]} ${left[1]}`} strokeOpacity="0.4" strokeWidth="1" />
+      <g style={{ animation: 'float-a 8s ease-in-out infinite', ['--rot' as string]: '0deg' }}>
+        <path d={side} fill={`url(#${id}s)`} fillOpacity="0.92" stroke="none" />
+        <path d={front} fill={`url(#${id}f)`} fillOpacity="0.9" stroke="none" />
+        <path d={`M${apex[0] + 1} ${apex[1] + 6} L${left[0] + 7} ${left[1] - 12}`} stroke="#fff" strokeWidth="2.4" />
+        <path d={front} strokeWidth="2.4" />
+        <path d={`M${apex[0]} ${apex[1]} L${apex[0] + depth[0]} ${apex[1] + depth[1]} L${right[0] + depth[0]} ${right[1] + depth[1]} L${right[0]} ${right[1]}`} strokeWidth="2.4" />
+        <line className="scene-in" x1="0" y1="62" x2={entry[0]} y2={entry[1]} strokeWidth="3.2" pathLength="1" />
+        <line className="scene-glass" x1={entry[0]} y1={entry[1]} x2={exit[0]} y2={exit[1]} stroke="#fff" strokeWidth="3" pathLength="1" />
       </g>
     </g>
   );

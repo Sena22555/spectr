@@ -125,9 +125,9 @@ async function main() {
       description: 'Группа, в которой каждую неделю ставим домашний эксперимент и решаем вторую часть.' },
     { slug: 'calculus-1', name: 'Матанализ · 1 курс', course: 'higher-math', teacher: pavel, hue: 6, schedule: 'Пн · 19:30', days: [1], hour: 19, minute: 30, capacity: 5,
       description: 'Пределы, производные, интегралы — к коллоквиуму без паники.' },
-    { slug: 'python-juniors', name: 'Python · Juniors', course: 'informatics', teacher: ilya, hue: 3, schedule: 'Вт, Сб · 16:00', days: [2, 6], hour: 16, capacity: 8,
+    { slug: 'python-juniors', name: 'Python · Juniors', course: 'informatics', teacher: ilya, hue: 3, schedule: 'Вт, Сб · 16:00', days: [2, 6], hour: 16, capacity: 6,
       description: 'Пишем первые программы и собираем телеграм-бота к концу семестра.' },
-    { slug: 'speaking-club', name: 'Speaking Club', course: 'english', teacher: mark, hue: 2, schedule: 'Пн, Пт · 18:30', days: [1, 5], hour: 18, minute: 30, capacity: 8,
+    { slug: 'speaking-club', name: 'Speaking Club', course: 'english', teacher: mark, hue: 2, schedule: 'Пн, Пт · 18:30', days: [1, 5], hour: 18, minute: 30, capacity: 6,
       description: 'Живые обсуждения и мини-презентации на английском.' },
   ];
 

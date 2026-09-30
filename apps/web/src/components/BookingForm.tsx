@@ -123,7 +123,7 @@ export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { sub
           onChange={(v) => set('format', v)}
           options={[
             { value: 'INDIVIDUAL', label: 'Индивидуально', hint: 'один на один' },
-            { value: 'GROUP', label: 'Мини-группа', hint: 'до 8 человек' },
+            { value: 'GROUP', label: 'Мини-группа', hint: 'до 6 человек' },
           ]}
         />
       </div>

@@ -294,9 +294,54 @@
   from { background-position: 0% 50%; }
   to { background-position: 200% 50%; }
 }
-@keyframes prism-glint {
-  from { transform: translateX(0); }
-  to { transform: translateX(160px); }
+/* Логотип: при наведении луч летит в призму, потом радуга раскрывается веером */
+.lg-ray { transform-box: view-box; transform-origin: 68px 44px; }
+.group:hover .lg-in { animation: lg-fly 0.45s cubic-bezier(0.3, 0, 0.5, 1) both; }
+.group:hover .lg-glass { animation: lg-fly 0.3s 0.4s cubic-bezier(0.3, 0, 0.5, 1) both; }
+.group:hover .lg-ray { animation: lg-fan 0.8s calc(0.7s + var(--i) * 0.07s) cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+@keyframes lg-fly {
+  from { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  to { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+}
+@keyframes lg-fan {
+  from { transform: scaleY(0.04); opacity: 0.3; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+/* На столе в сцене луч повторяет опыт сам, раз в несколько секунд */
+.scene-in { animation: scene-fly 7s ease-out infinite; }
+.scene-glass { animation: scene-glass 7s ease-out infinite; }
+.scene-ray { transform-box: view-box; transform-origin: 68px 44px; animation: scene-fan 7s calc(var(--i) * 0.07s) cubic-bezier(0.2, 1.1, 0.4, 1) infinite; }
+@keyframes scene-fly {
+  0% { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  10%, 100% { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+}
+@keyframes scene-glass {
+  0%, 8% { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  15%, 100% { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+}
+@keyframes scene-fan {
+  0%, 15% { transform: scaleY(0.04); opacity: 0.2; }
+  30%, 92% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(0.04); opacity: 0.2; }
+}
+@keyframes wheel-spin { to { transform: rotate(360deg); } }
+@keyframes wheel-counter { to { transform: rotate(-360deg); } }
+.wheel-spin { animation: wheel-spin var(--dur, 90s) linear infinite var(--dir, normal); }
+.wheel-counter { animation: wheel-counter var(--dur, 90s) linear infinite; }
+.wheel:hover .wheel-spin, .wheel:hover .wheel-counter { animation-play-state: paused; }
+@keyframes shine {
+  0%, 55% { transform: translateX(-130%); }
+  100% { transform: translateX(130%); }
+}
+.shine { position: relative; overflow: hidden; }
+.shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.3) 50%, transparent 65%);
+  transform: translateX(-130%);
+  animation: shine 5.5s 2.4s ease-in-out infinite;
 }
 @keyframes marquee {
   to { transform: translateX(-50%); }

@@ -175,7 +175,7 @@ export async function adminRoutes(app: FastifyInstance) {
     name: z.string().trim().min(2).max(120),
     description: z.string().trim().max(3000).default(''),
     schedule: z.string().max(200).optional(),
-    capacity: z.coerce.number().int().min(1).max(200).optional(),
+    capacity: z.coerce.number().int().min(1).max(6).optional(),
     hue: z.coerce.number().int().min(0).max(6).optional(),
     coverUrl: optionalUrl,
     courseId: z.string().nullable().optional(),
