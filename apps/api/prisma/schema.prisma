@@ -230,3 +230,55 @@ model EmailCode {
 
   @@index([email, purpose])
 }
+
+// ─── Telegram-бот ───
+
+// Каждый, кто запускал бота: прогресс в игре «Радуга знаний», приглашения, настройки
+model BotPlayer {
+  chatId     String   @id
+  firstName  String
+  username   String?
+  // собранные цвета радуги, по биту на цвет (7 бит)
+  colors     Int      @default(0)
+  rainbows   Int      @default(0)
+  streak     Int      @default(0)
+  bestStreak Int      @default(0)
+  // день по Москве (YYYY-MM-DD), когда играл последний раз, и сколько вопросов в этот день
+  lastDay    String?
+  todayCount Int      @default(0)
+  // лишние вопросы за приглашённых друзей
+  bonus      Int      @default(0)
+  invitedBy  String?
+  invited    Int      @default(0)
+  colorTest  String?
+  reminders  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+// Отправленные напоминания о занятиях, чтобы не слать дважды
+model BotReminder {
+  id       String   @id @default(cuid())
+  lessonId String
+  chatId   String
+  sentAt   DateTime @default(now())
+
+  @@unique([lessonId, chatId])
+}
+
+// Вопрос ученика, пересланный администратору: ответ на это сообщение уходит ученику
+model BotRelay {
+  id             String   @id @default(cuid())
+  adminChatId    String
+  adminMessageId Int
+  userChatId     String
+  createdAt      DateTime @default(now())
+
+  @@unique([adminChatId, adminMessageId])
+}
+
+// Одноразовая ссылка «привязать Telegram» из профиля на сайте
+model TelegramLinkCode {
+  code      String   @id
+  userId    String
+  expiresAt DateTime
+}

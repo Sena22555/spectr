@@ -432,6 +432,11 @@ function Hero({ subjects }: { subjects?: Subject[] }) {
 
 /** Тёмно-зелёная полоса под «столом»: из неё выглядывает кабинет ученика. */
 function ProductBand() {
+  const links = useQuery({
+    queryKey: ['config'],
+    queryFn: () => api<{ telegramUrl: string | null; vkUrl: string | null }>('/config'),
+    staleTime: Infinity,
+  });
   return (
     <section className="relative bg-forest-2 pb-28 text-cream">
       <Container className="pt-14">
@@ -453,8 +458,8 @@ function ProductBand() {
           ))}
         </div>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <MessengerLink href={import.meta.env.VITE_TELEGRAM_APP_URL} label="Открыть в Telegram" />
-          <MessengerLink href={import.meta.env.VITE_VK_APP_URL} label="Открыть во ВКонтакте" />
+          <MessengerLink href={links.data?.telegramUrl ?? import.meta.env.VITE_TELEGRAM_APP_URL} label="Открыть в Telegram" />
+          <MessengerLink href={links.data?.vkUrl ?? import.meta.env.VITE_VK_APP_URL} label="Открыть во ВКонтакте" />
         </div>
       </Container>
     </section>

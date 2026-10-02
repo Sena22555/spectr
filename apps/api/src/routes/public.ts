@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { getBotUsername, notifyNewBooking } from '../bot/index.js';
 
 const teacherCard = {
   id: true,
@@ -14,6 +15,15 @@ const teacherCard = {
 } as const;
 
 export async function publicRoutes(app: FastifyInstance) {
+  // Ссылки на мини-приложения: кнопки «Открыть в Telegram / ВКонтакте» на сайте
+  app.get('/config', async () => {
+    const bot = getBotUsername();
+    return {
+      telegramUrl: process.env.TELEGRAM_APP_URL || (bot ? `https://t.me/${bot}` : null),
+      vkUrl: process.env.VK_APP_URL || null,
+    };
+  });
+
   app.get('/stats', async () => {
     const [teachers, courses, groups, students] = await Promise.all([
       prisma.teacher.count({ where: { published: true } }),
@@ -121,6 +131,7 @@ export async function publicRoutes(app: FastifyInstance) {
       })
       .parse(req.body);
     const booking = await prisma.booking.create({ data: { ...body, userId } });
+    void notifyNewBooking(booking);
     return { booking };
   });
 }

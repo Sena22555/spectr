@@ -7,6 +7,8 @@ import { verifyTelegramInitData, verifyVkLaunchParams } from '../lib/miniapp.js'
 import type { Role } from '../lib/enums.js';
 import { consumeCode, issueCode } from '../lib/codes.js';
 import { LETTERS, sendMail } from '../lib/mail.js';
+import { getBotUsername } from '../bot/index.js';
+import { randomBytes } from 'node:crypto';
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, 'Имя слишком короткое').max(80),
@@ -160,6 +162,16 @@ export async function authRoutes(app: FastifyInstance) {
       include: { teacher: true },
     });
     return { user: publicUser(user) };
+  });
+
+  // Привязать Telegram через бота: одноразовая ссылка t.me/<бот>?start=l_<код>, живёт 15 минут
+  app.post('/auth/link/telegram/start', { preHandler: authenticate }, async (req, reply) => {
+    const bot = getBotUsername();
+    if (!bot) return reply.code(501).send({ error: 'Telegram-бот ещё не подключён' });
+    const code = randomBytes(12).toString('base64url');
+    await prisma.telegramLinkCode.deleteMany({ where: { OR: [{ userId: req.user.sub }, { expiresAt: { lt: new Date() } }] } });
+    await prisma.telegramLinkCode.create({ data: { code, userId: req.user.sub, expiresAt: new Date(Date.now() + 15 * 60_000) } });
+    return { url: `https://t.me/${bot}?start=l_${code}` };
   });
 
   app.get('/auth/me', { preHandler: authenticate }, async (req, reply) => {

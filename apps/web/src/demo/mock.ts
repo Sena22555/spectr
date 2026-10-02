@@ -58,6 +58,7 @@ function user(role: Role) {
 
 function get(role: Role | null, path: string, params: URLSearchParams): unknown {
   if (path in db.public) return db.public[path];
+  if (path === '/config') return { telegramUrl: null, vkUrl: null };
   if (!role) throw new HttpError(401, 'Войдите, чтобы продолжить');
   const data = db.roles[role][path];
   if (data === undefined) {
@@ -95,6 +96,7 @@ function mutate(role: Role | null, method: string, path: string, body: Json): un
     return { token: 'demo.fresh', user: user('fresh') };
   }
   if (method === 'POST' && (path === '/auth/reset/request' || path === '/auth/email/send')) return { ok: true };
+  if (method === 'POST' && path === '/auth/link/telegram/start') throw new HttpError(400, 'В демо-версии бот не подключён');
   if (method === 'POST' && (path === '/auth/reset/confirm' || path === '/auth/email/verify')) {
     throw new HttpError(400, 'В демо-версии письма не отправляются — войдите через демо-аккаунт.');
   }

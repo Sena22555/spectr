@@ -13,6 +13,7 @@ import { meRoutes } from './routes/me.js';
 import { teacherRoutes } from './routes/teacher.js';
 import { adminRoutes } from './routes/admin.js';
 import { uploadRoutes, UPLOAD_DIR } from './routes/uploads.js';
+import { startBot } from './bot/index.js';
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
 
@@ -64,3 +65,4 @@ if (process.env.SERVE_WEB === '1' && existsSync(webDist)) {
 
 const port = Number(process.env.PORT ?? 4000);
 await app.listen({ port, host: '0.0.0.0' });
+startBot(app.log);

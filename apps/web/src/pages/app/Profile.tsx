@@ -30,6 +30,13 @@ export default function Profile() {
       setTimeout(() => setSaved(false), 2500);
     },
   });
+  // Открываем бота с одноразовым кодом: бот привяжет этот Telegram к аккаунту
+  const linkTg = useMutation({
+    mutationFn: () => api<{ url: string }>('/auth/link/telegram/start', { method: 'POST', json: {} }),
+    onSuccess: ({ url }) => {
+      window.location.href = url;
+    },
+  });
   const avatar = useMutation({
     mutationFn: async (file: File) => {
       const { url } = await uploadImage(file);
@@ -115,6 +122,16 @@ export default function Profile() {
             </li>
           ))}
         </ul>
+        {!user.telegramLinked && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="secondary" loading={linkTg.isPending} onClick={() => linkTg.mutate()}>
+              Привязать Telegram
+            </Button>
+            <span className="t-caption text-muted">
+              {linkTg.error ? (linkTg.error as Error).message : 'Бот пришлёт расписание и ссылку на урок за 15 минут до начала'}
+            </span>
+          </div>
+        )}
         <p className="t-caption text-muted">Сейчас вы в: {platformLabel[platform]}</p>
       </section>
 
