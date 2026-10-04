@@ -25,7 +25,8 @@ interface TAssignment {
   group: { id: string; name: string; hue: number } | null;
   student: { id: string; name: string } | null;
   problems: { id: string; text: string; topic: { title: string } }[];
-  students: { id: string; name: string; avatarUrl: string | null; solved: number; done: boolean; answer: string; comment: string }[];
+  trainers: { id: string; title: string; count: number }[];
+  students: { id: string; name: string; avatarUrl: string | null; solved: number; trainerDone: Record<string, number>; complete: boolean; done: boolean; answer: string; comment: string }[];
 }
 
 export default function TeachHomework() {
@@ -70,7 +71,7 @@ function AssignmentRow({ a }: { a: TAssignment }) {
   const [open, setOpen] = useState(false);
   const del = useMutation({ mutationFn: () => api(`/teacher/assignments/${a.id}`, { method: 'DELETE' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher', 'assignments'] }) });
   const total = a.problems.length;
-  const complete = a.students.filter((s) => (total === 0 || s.solved === total) && (!a.note || s.done)).length;
+  const complete = a.students.filter((s) => s.complete).length;
   const hue = a.group?.hue ?? 5;
   return (
     <article className={clsx(`hue-${hue}`, 'rounded-[14px] border-[1.5px] border-ink/15 bg-paper')}>
@@ -79,7 +80,7 @@ function AssignmentRow({ a }: { a: TAssignment }) {
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="t-heading text-[22px] leading-tight">{a.title}</span>
           <span className="t-caption text-muted">
-            {a.group?.name ?? a.student?.name} · {total ? `${total} ${plural(total, 'задача', 'задачи', 'задач')}` : 'своё задание'}
+            {a.group?.name ?? a.student?.name} · {[total ? `${total} ${plural(total, 'задача', 'задачи', 'задач')}` : '', ...a.trainers.map((t) => `${t.title} × ${t.count}`), a.note ? 'своё задание' : ''].filter(Boolean).join(' · ')}
             {a.dueAt ? ` · до ${fmtFull(a.dueAt)}` : ''}
           </span>
         </span>
@@ -107,7 +108,7 @@ function AssignmentRow({ a }: { a: TAssignment }) {
           )}
           <ul className="m-0 flex list-none flex-col p-0">
             {a.students.map((s) => (
-              <StudentMark key={s.id} assignmentId={a.id} s={s} total={total} needsNote={Boolean(a.note)} />
+              <StudentMark key={s.id} assignmentId={a.id} s={s} total={total} trainers={a.trainers} needsNote={Boolean(a.note)} />
             ))}
           </ul>
           <button type="button" className="link inline-flex w-fit items-center gap-1.5 text-[14px] text-ember-text" onClick={() => confirm('Удалить задание?') && del.mutate()}>
@@ -119,7 +120,7 @@ function AssignmentRow({ a }: { a: TAssignment }) {
   );
 }
 
-function StudentMark({ assignmentId, s, total, needsNote }: { assignmentId: string; s: TAssignment['students'][number]; total: number; needsNote: boolean }) {
+function StudentMark({ assignmentId, s, total, trainers, needsNote }: { assignmentId: string; s: TAssignment['students'][number]; total: number; trainers: TAssignment['trainers']; needsNote: boolean }) {
   const qc = useQueryClient();
   const [comment, setComment] = useState(s.comment);
   const save = useMutation({
@@ -129,7 +130,7 @@ function StudentMark({ assignmentId, s, total, needsNote }: { assignmentId: stri
       qc.invalidateQueries({ queryKey: ['teacher', 'assignments'] });
     },
   });
-  const ok = (total === 0 || s.solved === total) && (!needsNote || s.done);
+  const ok = s.complete;
   return (
     <li className="flex flex-col gap-2 border-b border-hair-soft py-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -140,6 +141,11 @@ function StudentMark({ assignmentId, s, total, needsNote }: { assignmentId: stri
             задачи {s.solved}/{total}
           </span>
         )}
+        {trainers.map((t) => (
+          <span key={t.id} className="t-mono tnum text-[12px] text-muted">
+            🏋️ {s.trainerDone[t.id] ?? 0}/{t.count}
+          </span>
+        ))}
         {needsNote && <span className={clsx('t-mono text-[12px]', s.done ? 'text-hue' : 'text-muted')}>{s.done ? 'отметил «сделал»' : 'не отметил'}</span>}
         {ok && <Check className="size-5 text-hue" strokeWidth={2.4} />}
       </div>
@@ -164,7 +170,13 @@ function CreateAssignment({ onDone }: { onDone(): void }) {
   const qc = useQueryClient();
   const groups = useQuery({ queryKey: ['teacher', 'groups'], queryFn: () => api<{ groups: { id: string; name: string }[] }>('/teacher/groups').then((r) => r.groups) });
   const students = useQuery({ queryKey: ['teacher', 'students'], queryFn: () => api<{ students: { user: { id: string; name: string } }[] }>('/teacher/students').then((r) => r.students) });
-  const catalog = useQuery({ queryKey: ['teacher', 'practice-problems'], queryFn: () => api<{ subjects: PickerSubject[] }>('/teacher/practice-problems').then((r) => r.subjects), staleTime: Infinity });
+  const catalog = useQuery({
+    queryKey: ['teacher', 'practice-problems'],
+    queryFn: () => api<{ subjects: PickerSubject[]; trainers: { id: string; title: string; subject: string; grades: [number, number] }[] }>('/teacher/practice-problems'),
+    staleTime: Infinity,
+  });
+  const [trainers, setTrainers] = useState<{ id: string; count: number }[]>([]);
+  const [trainerPick, setTrainerPick] = useState('');
   const [form, setForm] = useState({ title: '', note: '', target: '', dueAt: '' });
   const [picked, setPicked] = useState<string[]>([]);
   const [subject, setSubject] = useState('physics');
@@ -176,6 +188,7 @@ function CreateAssignment({ onDone }: { onDone(): void }) {
           title: form.title,
           note: form.note,
           problemIds: picked,
+          trainers,
           dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
           groupId: form.target.startsWith('g:') ? form.target.slice(2) : null,
           studentId: form.target.startsWith('s:') ? form.target.slice(2) : null,
@@ -188,7 +201,7 @@ function CreateAssignment({ onDone }: { onDone(): void }) {
     },
   });
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  const current = catalog.data?.find((s) => s.slug === subject);
+  const current = catalog.data?.subjects.find((s) => s.slug === subject);
 
   return (
     <form
@@ -230,7 +243,7 @@ function CreateAssignment({ onDone }: { onDone(): void }) {
           Задачи из практикума {picked.length > 0 && <span className="text-muted">· выбрано {picked.length}</span>}
         </legend>
         <div className="flex flex-wrap gap-2">
-          {catalog.data?.map((s) => (
+          {catalog.data?.subjects.map((s) => (
             <button key={s.slug} type="button" onClick={() => setSubject(s.slug)} className={clsx('press rounded-full px-3.5 py-1.5 text-[14px]', subject === s.slug ? 'bg-ink text-paper' : 'border border-ink/30 hover:bg-ink/[0.06]')}>
               {s.title}
             </button>
@@ -253,9 +266,64 @@ function CreateAssignment({ onDone }: { onDone(): void }) {
           ))}
         </div>
       </fieldset>
+      <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
+        <legend className="t-caption mb-2 p-0 font-[550]">Тренажёр: «решить N задач» — числа у каждого ученика свои, списать не выйдет</legend>
+        <div className="flex flex-wrap items-end gap-2">
+          <Select label="Тренажёр" value={trainerPick} onChange={(e) => setTrainerPick(e.target.value)} className="min-w-[260px] flex-1">
+            <option value="">Выберите тренажёр</option>
+            {(['math', 'physics', 'informatics'] as const).map((sub) => (
+              <optgroup key={sub} label={{ math: 'Математика', physics: 'Физика', informatics: 'Информатика' }[sub]}>
+                {catalog.data?.trainers
+                  .filter((t) => t.subject === sub)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title} · {t.grades[0] === t.grades[1] ? t.grades[0] : `${t.grades[0]}–${t.grades[1]}`} кл.
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </Select>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!trainerPick || trainers.some((t) => t.id === trainerPick)}
+            onClick={() => {
+              setTrainers((list) => [...list, { id: trainerPick, count: 10 }]);
+              setTrainerPick('');
+            }}
+          >
+            Добавить
+          </Button>
+        </div>
+        {trainers.length > 0 && (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {trainers.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-3 rounded-[10px] bg-paper px-3 py-2">
+                <span className="flex-1 text-[15px]">🏋️ {catalog.data?.trainers.find((x) => x.id === t.id)?.title}</span>
+                <label className="flex items-center gap-2 text-[14px]">
+                  решить
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={t.count}
+                    onChange={(e) => setTrainers((list) => list.map((x) => (x.id === t.id ? { ...x, count: Math.max(1, Math.min(50, Number(e.target.value) || 1)) } : x)))}
+                    className="h-9 w-16 rounded-ctl border border-ink/30 bg-paper px-2 text-center"
+                    aria-label="Сколько задач решить"
+                  />
+                  задач
+                </label>
+                <button type="button" className="link text-[14px] text-muted" onClick={() => setTrainers((list) => list.filter((x) => x.id !== t.id))}>
+                  убрать
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </fieldset>
       {create.error && <p className="t-caption text-ember-text">{(create.error as Error).message}</p>}
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" loading={create.isPending} disabled={!form.title || !form.target || (!form.note && !picked.length)}>
+        <Button type="submit" loading={create.isPending} disabled={!form.title || !form.target || (!form.note && !picked.length && !trainers.length)}>
           Задать
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>

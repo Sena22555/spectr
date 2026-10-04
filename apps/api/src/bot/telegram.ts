@@ -104,6 +104,7 @@ export function startTelegram(token: string, webAppUrl: string, log: FastifyBase
       commands: [
         { command: 'menu', description: 'Главное меню' },
         { command: 'daily', description: 'Задача дня' },
+        { command: 'train', description: 'Тренажёр по классам' },
         { command: 'quiz', description: 'Радуга знаний' },
         { command: 'formulas', description: 'Шпаргалки с формулами' },
         { command: 'lessons', description: 'Мои занятия' },

@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, TrendingUp } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowUpRight, ShieldAlert, TrendingUp } from 'lucide-react';
 import { api } from '../../lib/api';
 import { plural } from '../../lib/format';
-import { ErrorNote, Loading, PageHeader } from '../../components/ui';
+import { Button, ErrorNote, Loading, PageHeader } from '../../components/ui';
 
 interface Overview {
   users: number;
@@ -15,6 +16,7 @@ interface Overview {
   pendingRequests: number;
   openTickets: number;
   upcoming: number;
+  demoAccounts?: { email: string; role: string }[];
 }
 
 interface Week {
@@ -38,6 +40,7 @@ export default function AdminOverview() {
   return (
     <div className="flex flex-col gap-12">
       <PageHeader title="Сводка" lead="Что требует ответа прямо сейчас и как устроена школа." />
+      {o.demoAccounts && o.demoAccounts.length > 0 && <DemoWarning list={o.demoAccounts} />}
       <section className="grid gap-4 md:grid-cols-3">
         {inbox.map((i) => (
           <Link key={i.to} to={i.to} className={`hue-${i.hue} lift group flex min-h-44 flex-col justify-between rounded-[14px] bg-tint p-5 no-underline hover:-translate-y-1 hover:-rotate-1 sm:p-6`}>
@@ -100,5 +103,44 @@ export default function AdminOverview() {
         </dl>
       </section>
     </div>
+  );
+}
+
+function DemoWarning({ list }: { list: { email: string; role: string }[] }) {
+  const qc = useQueryClient();
+  const [sure, setSure] = useState(false);
+  const lock = useMutation({
+    mutationFn: () => api<{ locked: number }>('/admin/security/lock-demo', { method: 'POST', json: {} }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'overview'] }),
+  });
+  return (
+    <section role="alert" className="flex flex-col gap-4 rounded-[14px] border-[1.5px] border-ember-text/60 bg-[color-mix(in_oklab,var(--tint-raw-0)_45%,var(--paper))] p-5 sm:p-6">
+      <p className="t-heading flex items-center gap-2 text-[22px]">
+        <ShieldAlert className="size-6 text-ember-text" strokeWidth={1.8} /> Открыт вход в демо-аккаунты
+      </p>
+      <p className="max-w-[70ch] text-[16px]">
+        Пароли этих аккаунтов опубликованы в README, поэтому под ними может войти кто угодно, в том числе как администратор, и увидеть контакты учеников:{' '}
+        <b>{list.map((d) => d.email).join(', ')}</b>. Закройте вход: пароли снимутся, а все, кто сейчас вошёл под ними, выйдут. Карточки демо-преподавателей на сайте останутся.
+      </p>
+      {lock.isSuccess ? (
+        <p className="text-[16px]">Готово: закрыто аккаунтов — {lock.data.locked}.</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          {sure ? (
+            <>
+              <Button loading={lock.isPending} onClick={() => lock.mutate()}>
+                Да, закрыть вход
+              </Button>
+              <Button variant="ghost" onClick={() => setSure(false)}>
+                Отмена
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setSure(true)}>Закрыть демо-доступ</Button>
+          )}
+          {lock.error && <span className="t-caption text-ember-text">{(lock.error as Error).message}</span>}
+        </div>
+      )}
+    </section>
   );
 }

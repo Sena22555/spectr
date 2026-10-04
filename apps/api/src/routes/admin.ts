@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { publicUser, requireRole } from '../lib/auth.js';
 import { notifyTicketReply } from '../bot/index.js';
+import { demoAccounts, lockDemoAccounts } from '../lib/security.js';
 import { BOOKING_STATUS, COURSE_SOURCE, ENROLLMENT_STATUS, LESSON_STATUS, ROLES, TICKET_STATUS } from '../lib/enums.js';
 
 const slugify = (s: string) =>
@@ -43,7 +44,16 @@ export async function adminRoutes(app: FastifyInstance) {
       prisma.supportTicket.count({ where: { status: 'OPEN' } }),
       prisma.lesson.count({ where: { status: 'SCHEDULED', startsAt: { gte: new Date() } } }),
     ]);
-    return { users, teachers, students, groups, courses, newBookings, pendingRequests, openTickets, upcoming };
+    const demo = await demoAccounts();
+    return { users, teachers, students, groups, courses, newBookings, pendingRequests, openTickets, upcoming, demoAccounts: demo.map((d) => ({ email: d.email, role: d.role })) };
+  });
+
+  // Закрыть вход в демо-аккаунты со стандартными паролями
+  app.post('/admin/security/lock-demo', async (req, reply) => {
+    const me = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    const demo = await demoAccounts(true);
+    if (demo.some((d) => d.id === me?.id)) return reply.code(400).send({ error: 'Вы сейчас вошли под демо-аккаунтом. Войдите под своим аккаунтом администратора и нажмите ещё раз.' });
+    return { locked: await lockDemoAccounts() };
   });
 
   // ——— Пользователи и роли ———

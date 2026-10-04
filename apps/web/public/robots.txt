@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /parents/
+Disallow: /app
+Disallow: /teach
+Disallow: /admin
+Disallow: /reset

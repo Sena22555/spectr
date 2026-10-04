@@ -8,7 +8,8 @@ export interface PracticeProblem {
   kind: 'number' | 'text' | 'choice';
   unit: string | null;
   options: string[] | null;
-  level: 1 | 2 | 3;
+  /** 0 — без уровня (задачи тренажёров) */
+  level: 0 | 1 | 2 | 3;
   self: boolean;
   hint: string;
 }
@@ -79,10 +80,58 @@ export function useProgress() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['practice-progress', user?.id ?? 'guest'],
-    queryFn: () => api<{ solved: string[]; tried: string[] }>('/practice/progress').then((r) => ({ solved: new Set(r.solved), tried: new Set(r.tried) })),
+    queryFn: () =>
+      api<{ solved: string[]; tried: string[]; trainers?: Record<string, { solved: number; tries: number }> }>('/practice/progress').then((r) => ({
+        solved: new Set(r.solved),
+        tried: new Set(r.tried),
+        trainers: r.trainers ?? {},
+      })),
     staleTime: 30_000,
   });
 }
+
+export interface ExamTag {
+  exam: 'ОГЭ' | 'ЕГЭ';
+  subject: string;
+  task: number;
+}
+
+export interface Trainer {
+  id: string;
+  title: string;
+  subject: 'math' | 'physics' | 'informatics';
+  grades: [number, number];
+  skill: string;
+  exams: ExamTag[];
+  theory: string | null;
+}
+
+export function useTrainers() {
+  return useQuery({ queryKey: ['trainers'], queryFn: () => api<{ trainers: Trainer[] }>('/practice/trainers').then((r) => r.trainers), staleTime: Infinity });
+}
+
+export const SUBJECT_NAME: Record<Trainer['subject'], string> = { math: 'Математика', physics: 'Физика', informatics: 'Информатика' };
+export const SUBJECT_HUE: Record<Trainer['subject'], number> = { math: 1, physics: 5, informatics: 3 };
+
+/** Названия заданий экзаменов, для которых есть тренажёры (по демоверсиям ФИПИ последних лет). */
+export const EXAM_TASKS: Record<string, { title: string; tasks: Record<number, string> }> = {
+  'ОГЭ|математика': {
+    title: 'ОГЭ · математика',
+    tasks: { 6: 'Вычисления с дробями', 8: 'Степени и корни', 9: 'Уравнения', 10: 'Теория вероятностей', 12: 'Расчёты по формулам', 13: 'Неравенства', 14: 'Прогрессии', 15: 'Треугольники' },
+  },
+  'ЕГЭ|профильная математика': {
+    title: 'ЕГЭ · профильная математика',
+    tasks: { 1: 'Планиметрия', 4: 'Теория вероятностей', 6: 'Простейшие уравнения', 7: 'Вычисления и преобразования', 8: 'Производная', 9: 'Задачи с прикладным содержанием', 12: 'Наибольшее и наименьшее значение' },
+  },
+  'ОГЭ|информатика': { title: 'ОГЭ · информатика', tasks: { 1: 'Объём информации', 3: 'Значение логического выражения', 10: 'Системы счисления' } },
+  'ЕГЭ|информатика': {
+    title: 'ЕГЭ · информатика',
+    tasks: { 2: 'Таблицы истинности', 7: 'Кодирование изображений', 8: 'Комбинаторика', 11: 'Объём паролей', 14: 'Системы счисления' },
+  },
+  'ОГЭ|физика': { title: 'ОГЭ · физика', tasks: { 0: 'Расчётные задачи' } },
+};
+
+export const gradesLabel = (g: [number, number]) => (g[0] === g[1] ? `${g[0]} класс` : `${g[0]}–${g[1]} класс`);
 
 export function useCheck() {
   const qc = useQueryClient();

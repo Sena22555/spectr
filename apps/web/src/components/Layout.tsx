@@ -9,6 +9,7 @@ import { Avatar, ButtonLink, Loading } from './ui';
 import { useAuth } from '../lib/auth';
 import { isMiniApp, setTelegramBack, startPath } from '../lib/platform';
 import { trackView } from '../lib/track';
+import { titleFor } from '../lib/title';
 import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
@@ -37,7 +38,11 @@ export function Root() {
     const roots = ['/', '/app', '/app/schedule', '/practice', '/teach', '/admin'];
     setTelegramBack(!roots.includes(location.pathname), () => navigate(-1));
   }, [location.pathname, location.hash, navigate]);
-  useEffect(() => trackView(location.pathname), [location.pathname]);
+  useEffect(() => {
+    trackView(location.pathname);
+    const title = titleFor(location.pathname);
+    if (title) document.title = title;
+  }, [location.pathname]);
   return (
     <>
       <Outlet />
@@ -369,6 +374,7 @@ function sectionsFor(role: Role, hasTeacher: boolean) {
         { to: '/app', label: 'Обзор', end: true },
         { to: '/app/schedule', label: 'Расписание' },
         { to: '/app/homework', label: 'Домашка' },
+        { to: '/practice/progress', label: 'Мой прогресс' },
         { to: '/practice', label: 'Практикум' },
         { to: '/app/requests', label: 'Переносы' },
         { to: '/app/support', label: 'Поддержка' },

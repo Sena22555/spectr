@@ -5,13 +5,13 @@ import { authenticate, requireRole } from '../lib/auth.js';
 import { findProblem, publicProblem } from '../practice/content.js';
 import { notifyUser } from '../bot/index.js';
 import { fmtWhen } from '../lib/time.js';
+import { parseTasks, statuses } from '../lib/homework.js';
+import { GENERATORS, findGenerator } from '../practice/generators.js';
 
 // Домашние задания: задачи практикума с автопроверкой и/или своё задание преподавателя.
 
-const ids = (s: string) => s.split(',').filter(Boolean);
-
 function problemsOf(problemIds: string) {
-  return ids(problemIds).flatMap((pid) => {
+  return parseTasks(problemIds).problems.flatMap((pid) => {
     const f = findProblem(pid);
     return f ? [{ ...publicProblem(f.problem), topic: { subject: f.subject.slug, slug: f.topic.slug, title: f.topic.title } }] : [];
   });
@@ -28,17 +28,6 @@ async function targetsOf(a: { groupId: string | null; studentId: string | null }
     return members.map((m) => m.user);
   }
   return [];
-}
-
-async function solvedBy(userIds: string[], problemIds: string[]) {
-  if (!userIds.length || !problemIds.length) return new Map<string, Set<string>>();
-  const attempts = await prisma.practiceAttempt.findMany({
-    where: { userId: { in: userIds }, problemId: { in: problemIds }, correct: true },
-    select: { userId: true, problemId: true },
-  });
-  const map = new Map<string, Set<string>>();
-  for (const a of attempts) map.set(a.userId!, (map.get(a.userId!) ?? new Set()).add(a.problemId));
-  return map;
 }
 
 export async function homeworkRoutes(app: FastifyInstance) {
@@ -60,17 +49,27 @@ export async function homeworkRoutes(app: FastifyInstance) {
       const result = [];
       for (const a of list) {
         const targets = await targetsOf(a);
-        const pids = ids(a.problemIds);
-        const solved = await solvedBy(
+        const st = await statuses(
+          [a],
           targets.map((x) => x.id),
-          pids,
         );
+        const tasks = parseTasks(a.problemIds);
         result.push({
           ...a,
           problems: problemsOf(a.problemIds),
+          trainers: tasks.trainers,
           students: targets.map((s) => {
             const mark = a.marks.find((m) => m.userId === s.id);
-            return { ...s, solved: solved.get(s.id)?.size ?? 0, done: mark?.done ?? false, answer: mark?.answer ?? '', comment: mark?.comment ?? '' };
+            const status = st.get(`${a.id}:${s.id}`);
+            return {
+              ...s,
+              solved: status?.solvedProblems.size ?? 0,
+              trainerDone: status?.trainerDone ?? {},
+              complete: status?.complete ?? false,
+              done: mark?.done ?? false,
+              answer: mark?.answer ?? '',
+              comment: mark?.comment ?? '',
+            };
           }),
         });
       }
@@ -85,23 +84,35 @@ export async function homeworkRoutes(app: FastifyInstance) {
           title: z.string().trim().min(2, 'Назовите задание').max(140),
           note: z.string().trim().max(4000).default(''),
           problemIds: z.array(z.string()).max(30).default([]),
+          trainers: z.array(z.object({ id: z.string(), count: z.coerce.number().int().min(1).max(50) })).max(10).default([]),
           dueAt: z.coerce.date().optional().nullable(),
           groupId: z.string().optional().nullable(),
           studentId: z.string().optional().nullable(),
         })
         .parse(req.body);
       if (!body.groupId && !body.studentId) return reply.code(400).send({ error: 'Выберите группу или ученика' });
-      if (!body.note && !body.problemIds.length) return reply.code(400).send({ error: 'Добавьте задачи из практикума или опишите задание' });
+      if (!body.note && !body.problemIds.length && !body.trainers.length) return reply.code(400).send({ error: 'Добавьте задачи, тренажёр или опишите задание' });
       if (body.groupId && req.user.role !== 'ADMIN') {
         const g = await prisma.group.findFirst({ where: { id: body.groupId, teacherId: teacher.id } });
         if (!g) return reply.code(403).send({ error: 'Это не ваша группа' });
       }
+      if (!body.groupId && body.studentId && req.user.role !== 'ADMIN') {
+        // задавать можно только своим ученикам: из своих уроков или групп
+        const mine = await prisma.user.findFirst({
+          where: {
+            id: body.studentId,
+            OR: [{ lessonsAsStudent: { some: { teacherId: teacher.id } } }, { memberships: { some: { group: { teacherId: teacher.id } } } }],
+          },
+        });
+        if (!mine) return reply.code(403).send({ error: 'Это не ваш ученик' });
+      }
       const valid = body.problemIds.filter((p) => findProblem(p));
+      const trainerTokens = body.trainers.filter((t) => findGenerator(t.id)).map((t) => `tr:${t.id}:${t.count}`);
       const assignment = await prisma.assignment.create({
         data: {
           title: body.title,
           note: body.note,
-          problemIds: valid.join(','),
+          problemIds: [...valid, ...trainerTokens].join(','),
           dueAt: body.dueAt ?? null,
           teacherId: teacher.id,
           groupId: body.groupId || null,
@@ -115,6 +126,7 @@ export async function homeworkRoutes(app: FastifyInstance) {
           s.id,
           `📝 <b>Новое домашнее задание</b>\n${assignment.title}\n\nОт: ${teacherUser?.name ?? 'преподаватель'}` +
             (valid.length ? `\nЗадач с автопроверкой: ${valid.length}` : '') +
+            (trainerTokens.length ? `\nТренажёр: ${body.trainers.map((t) => `${findGenerator(t.id)?.title} × ${t.count}`).join(', ')}` : '') +
             (assignment.dueAt ? `\nСдать до: ${fmtWhen(assignment.dueAt)}` : ''),
           { app: '/app/homework', label: '📝 Открыть домашку' },
         );
@@ -151,6 +163,7 @@ export async function homeworkRoutes(app: FastifyInstance) {
     t.get('/teacher/practice-problems', async () => {
       const { PRACTICE } = await import('../practice/content.js');
       return {
+        trainers: GENERATORS.map((g) => ({ id: g.id, title: g.title, subject: g.subject, grades: g.grades })),
         subjects: PRACTICE.map((s) => ({
           slug: s.slug,
           title: s.title,
@@ -174,11 +187,13 @@ export async function homeworkRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
         take: 60,
       });
-      const solved = (await solvedBy([userId], list.flatMap((a) => ids(a.problemIds)))).get(userId) ?? new Set<string>();
+      const st = await statuses(list, [userId]);
       return {
         assignments: list.map((a) => {
           const problems = problemsOf(a.problemIds);
           const mark = a.marks[0];
+          const status = st.get(`${a.id}:${userId}`);
+          const solved = status?.solvedProblems ?? new Set<string>();
           const solvedHere = problems.filter((p) => solved.has(p.id)).length;
           return {
             id: a.id,
@@ -189,11 +204,12 @@ export async function homeworkRoutes(app: FastifyInstance) {
             teacher: a.teacher,
             group: a.group,
             problems: problems.map((p) => ({ ...p, solved: solved.has(p.id) })),
+            trainers: parseTasks(a.problemIds).trainers.map((t) => ({ ...t, done: status?.trainerDone[t.id] ?? 0 })),
             solved: solvedHere,
             done: mark?.done ?? false,
             answer: mark?.answer ?? '',
             comment: mark?.comment ?? '',
-            complete: (problems.length === 0 || solvedHere === problems.length) && (!a.note || (mark?.done ?? false)),
+            complete: status?.complete ?? false,
           };
         }),
       };

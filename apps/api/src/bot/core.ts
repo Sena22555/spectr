@@ -2,9 +2,13 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Booking, BotPlayer, User } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { track } from '../lib/track.js';
-import { fmtDate, fmtTime, fmtWhen, schoolDay, schoolHour } from '../lib/time.js';
+import { fmtDate, fmtTime, fmtWhen, schoolDay, schoolHour, schoolWeekday } from '../lib/time.js';
+import { progressFor, schoolFor } from '../lib/progress.js';
+import { parseTasks, statuses } from '../lib/homework.js';
 import { PRACTICE, answerText, checkAnswer, dailyProblem, findProblem, texToPlain } from '../practice/content.js';
 import { ALL_COLORS, COLORS, COLOR_TEST } from './quiz.js';
+import { GENERATORS, checkGen, genAnswerText, genProblemId, makeProblem, parseGenId } from '../practice/generators.js';
+import { randomInt } from 'node:crypto';
 import type { Adapter, Btn, Inbound, Platform, Screen } from './types.js';
 
 // Ядро ботов «Спектра»: одна логика для Telegram и MAX.
@@ -32,7 +36,8 @@ type Flow =
   | { kind: 'ask' }
   | { kind: 'daily'; problemId: string }
   | { kind: 'admin_reply'; ticketId: string }
-  | { kind: 'teacher_link'; lessonId: string };
+  | { kind: 'teacher_link'; lessonId: string }
+  | { kind: 'train'; problemId: string; wrong: number };
 
 const flows = new Map<string, Flow>();
 const quizPending = new Map<string, { color: number; qi: number }>();
@@ -143,6 +148,7 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
       `Привет, ${name}! Это <b>«Спектр»</b> — онлайн-школа занятий с репетитором 🌈`,
       '',
       '🧩 каждый день — задача с разбором',
+      '🏋️ тренажёр по классам 5–11 и ОГЭ/ЕГЭ — задачи не кончаются',
       '🌈 «Радуга знаний»: собери семь цветов',
       '📚 шпаргалки с формулами по физике, математике и информатике',
       '📅 расписание и ссылка на урок за 15 минут',
@@ -187,16 +193,15 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
 
   const rows: Btn[][] = [];
   rows.push([{ text: '🚀 Открыть Спектр', app: '/' }]);
-  rows.push([cb('🧩 Задача дня', 'daily'), cb('🌈 Радуга знаний', 'quiz')]);
+  rows.push([cb('🧩 Задача дня', 'daily'), cb('🏋️ Тренажёр', 'tr')]);
+  rows.push([cb('🌈 Радуга знаний', 'quiz'), cb('📚 Шпаргалки', 'f')]);
   if (user && (isStudent || user.role === 'ADMIN')) {
     rows.push([cb('📅 Расписание', 'lessons'), cb(homework ? `📝 Домашка · ${homework}` : '📝 Домашка', 'hw')]);
-    rows.push([cb('📚 Шпаргалки', 'f'), cb('✍️ Записаться', 'book')]);
   } else {
-    rows.push([cb('📚 Шпаргалки', 'f'), cb('✍️ Записаться', 'book')]);
     rows.push([cb('🎨 Какой ты цвет?', 'test'), cb('📅 Расписание', 'lessons')]);
   }
-  rows.push([cb('💬 Написать в школу', 'ask'), cb('🎁 Позвать друга', 'invite')]);
-  const extra: Btn[] = [cb('⚙️ Настройки', 'settings')];
+  rows.push([cb('✍️ Записаться', 'book'), cb('💬 Написать в школу', 'ask')]);
+  const extra: Btn[] = [cb('🎁 Друзья', 'invite'), cb('⚙️ Настройки', 'settings')];
   if (user?.teacher) extra.unshift(cb('👩‍🏫 Мои уроки', 't'));
   if (user?.role === 'ADMIN') extra.unshift(cb('🛠 Админка', 'adm'));
   rows.push(extra);
@@ -206,22 +211,13 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
 async function pendingHomework(userId: string) {
   const memberships = await prisma.groupMember.findMany({ where: { userId }, select: { groupId: true } });
   const list = await prisma.assignment.findMany({
-    where: { OR: [{ studentId: userId }, { groupId: { in: memberships.map((m) => m.groupId) } }] },
+    where: { OR: [{ studentId: userId }, { group: { id: { in: memberships.map((m) => m.groupId) } } }] },
     include: { marks: { where: { userId } } },
     take: 30,
     orderBy: { createdAt: 'desc' },
   });
-  if (!list.length) return 0;
-  const pids = list.flatMap((a) => a.problemIds.split(',').filter(Boolean));
-  const solved = new Set(
-    (await prisma.practiceAttempt.findMany({ where: { userId, correct: true, problemId: { in: pids } }, select: { problemId: true } })).map((a) => a.problemId),
-  );
-  return list.filter((a) => {
-    const p = a.problemIds.split(',').filter(Boolean);
-    const problemsDone = p.every((id) => solved.has(id));
-    const noteDone = !a.note || a.marks[0]?.done;
-    return !(problemsDone && noteDone);
-  }).length;
+  const st = await statuses(list, [userId]);
+  return list.filter((a) => !st.get(`${a.id}:${userId}`)?.complete).length;
 }
 
 function rainbowBar(colors: number) {
@@ -243,7 +239,7 @@ async function dailyScreen(player: BotPlayer, opts: { hint?: boolean; result?: {
     const solution = problem.solution.map((s) => `• ${esc(texToPlain(s))}`).join('\n');
     const status = correct
       ? `✅ <b>Верно!</b> Ответ: ${esc(answerText(problem))}\n🔥 Серия: ${player.dailyStreak} ${player.dailyStreak === 1 ? 'день' : 'дн.'} · решено всего: ${player.dailySolved}`
-      : `❌ Правильный ответ: <b>${esc(answerText(problem))}</b>`;
+      : `🟡 <b>Ничего страшного!</b> Правильный ответ: <b>${esc(answerText(problem))}</b> — разбор ниже.`;
     return {
       text: `${head}\n\n${esc(problem.text)}\n\n${status}\n\n<b>Решение</b>\n${solution}\n\n<i>Новая задача — завтра. А пока можно потренироваться в практикуме.</i>`,
       rows: [[theory], [cb('✍️ Разобрать тему с репетитором', 'book')], MENU],
@@ -277,10 +273,10 @@ async function answerDaily(m: Inbound, player: BotPlayer, raw: string, giveUp = 
   }
   void track({ type: 'bot_daily', playerId: m.chatId, userId: user?.id, path: `/practice/${subject.slug}/${topic.slug}`, label: correct ? 'верно' : giveUp ? 'сдался' : 'ошибка' });
   if (!correct && !giveUp) {
-    if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, 'Не то 🙈 Попробуйте ещё раз или возьмите подсказку');
+    if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, 'Почти! Подсказка уже на экране 🟡');
     flows.set(m.chatId, { kind: 'daily', problemId: problem.id });
     const screen = await dailyScreen(player, { hint: true });
-    screen.text = `❌ <b>${esc(raw)}</b> — не то. Подсказка уже ниже, попробуйте ещё раз.\n\n${screen.text}`;
+    screen.text = `🟡 <b>Почти!</b> «${esc(raw)}» — чуть-чуть не так. Подсказка ниже, попробуйте ещё раз.\n\n${screen.text}`;
     return show(m, player, screen);
   }
   flows.delete(m.chatId);
@@ -290,8 +286,77 @@ async function answerDaily(m: Inbound, player: BotPlayer, raw: string, giveUp = 
     where: { chatId: m.chatId },
     data: { dailyDay: today, dailyStreak: streak, dailySolved: correct ? { increment: 1 } : undefined },
   });
-  if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, correct ? 'Верно! 🎉' : 'Вот разбор 👇');
+  if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, correct ? 'Верно! 🎉' : 'Смотрите разбор — так и учатся 👇');
   return show(m, player, await dailyScreen(player, { result: { correct } }));
+}
+
+// ─── тренажёр по классам ───
+
+const SUBJECT_TITLE: Record<string, string> = { math: '📐 Математика', physics: '🔭 Физика', informatics: '💻 Информатика' };
+
+function gradeScreen(): Screen {
+  return {
+    text: '🏋️ <b>Тренажёр</b>\n\nЗадачи не кончаются: числа каждый раз новые, ответ проверяется сразу, а если не получилось — покажем решение по шагам.\n\nВ каком вы классе?',
+    rows: [[5, 6, 7, 8].map((g) => cb(`${g}`, `tg:${g}`)), [9, 10, 11].map((g) => cb(`${g}`, `tg:${g}`)), MENU],
+  };
+}
+
+function subjectScreen(grade: number): Screen {
+  const subjects = (['math', 'physics', 'informatics'] as const).filter((sub) => GENERATORS.some((g) => g.subject === sub && g.grades[0] <= grade && grade <= g.grades[1]));
+  return {
+    text: `🏋️ <b>Тренажёр · ${grade} класс</b>\n\nВыберите предмет — задачи будут из разных тем вашего класса.`,
+    rows: [...subjects.map((sub) => [cb(SUBJECT_TITLE[sub]!, `ts:${sub}`)]), [cb(`🎓 Сменить класс (${grade})`, 'tr0'), ...MENU]],
+  };
+}
+
+function problemBody(text: string) {
+  if (!text.includes('\n')) return esc(text);
+  const [first, ...rest] = text.split('\n');
+  return `${esc(first!)}\n<code>${esc(rest.join('\n'))}</code>`;
+}
+
+async function trainNext(m: Inbound, player: BotPlayer, subject: string, note = '') {
+  const grade = player.grade ?? 7;
+  const pool = GENERATORS.filter((g) => g.subject === subject && g.grades[0] <= grade && grade <= g.grades[1]);
+  if (!pool.length) return show(m, player, subjectScreen(grade));
+  const gen = pool[randomInt(0, pool.length)]!;
+  const seed = randomInt(1, 2_000_000_000);
+  const { problem } = makeProblem(gen.id, seed)!;
+  flows.set(m.chatId, { kind: 'train', problemId: genProblemId(gen.id, seed), wrong: 0 });
+  return show(m, player, {
+    text: `${note ? `${note}\n\n` : ''}🏋️ <b>${esc(gen.title)}</b> · ${grade} класс\n\n${problemBody(problem.text)}\n\n✍️ <b>Напишите ответ сообщением</b>${problem.unit ? ` (в ${esc(problem.unit)})` : ''}${player.trainSolved ? `\n\n🏅 Решено в тренажёре: ${player.trainSolved}` : ''}`,
+    rows: [[cb('💡 Подсказка', 'th'), cb('🙈 Показать решение', 'tv')], [cb('➡️ Другая задача', `ts:${subject}`)], [cb('◀️ Предметы', 'tr'), ...MENU]],
+  });
+}
+
+async function trainAnswer(m: Inbound, player: BotPlayer, raw: string, reveal = false) {
+  const flow = flows.get(m.chatId);
+  const parsed = flow?.kind === 'train' ? parseGenId(flow.problemId) : null;
+  if (flow?.kind !== 'train' || !parsed) return show(m, player, player.grade ? subjectScreen(player.grade) : gradeScreen());
+  const { gen } = parsed;
+  const { problem } = makeProblem(gen.id, parsed.seed)!;
+  const correct = !reveal && checkGen(problem, raw);
+  const user = await linkedUser(m.chatId);
+  if (!reveal) {
+    await prisma.practiceAttempt.create({ data: { problemId: flow.problemId, topic: `trainer/${gen.id}`, playerId: m.chatId, userId: user?.id ?? null, correct, answer: raw.slice(0, 200) } });
+    void track({ type: 'bot_train', playerId: m.chatId, userId: user?.id, label: `${gen.id}:${correct ? 'верно' : 'почти'}` });
+  }
+  const steps = problem.steps.map((x) => `• ${esc(texToPlain(x))}`).join('\n');
+  const nextRows: Btn[][] = [[cb('➡️ Следующая задача', `ts:${gen.subject}`)], ...(gen.theory ? [[{ text: '📖 Теория по теме', app: `/practice/${gen.theory}` } as Btn]] : []), [cb('◀️ Предметы', 'tr'), ...MENU]];
+  if (correct) {
+    flows.delete(m.chatId);
+    player = await prisma.botPlayer.update({ where: { chatId: m.chatId }, data: { trainSolved: { increment: 1 } } });
+    return show(m, player, { text: `✅ <b>Верно!</b> Ответ: ${esc(genAnswerText(problem))}\n\n${steps}\n\n🏅 Решено в тренажёре: ${player.trainSolved}`, rows: nextRows });
+  }
+  flow.wrong++;
+  if (!reveal && flow.wrong < 2) {
+    return show(m, player, {
+      text: `🟡 <b>Почти!</b> «${esc(raw)}» — чуть-чуть не так.\n💡 <i>${esc(problem.hint)}</i>\n\n🏋️ <b>${esc(gen.title)}</b>\n\n${problemBody(problem.text)}\n\n✍️ Попробуйте ещё раз — напишите ответ сообщением`,
+      rows: [[cb('🙈 Показать решение', 'tv')], [cb('➡️ Другая задача', `ts:${gen.subject}`)], MENU],
+    });
+  }
+  flows.delete(m.chatId);
+  return show(m, player, { text: `🟡 <b>Ничего страшного!</b> Правильный ответ: <b>${esc(genAnswerText(problem))}</b>\n\n<b>Решение</b>\n${steps}\n\nСледующая получится 💪`, rows: nextRows });
 }
 
 // ─── «Радуга знаний» ───
@@ -364,10 +429,10 @@ async function answerQuiz(m: Inbound, player: BotPlayer) {
     data: { colors, rainbows, todayCount: { increment: 1 }, bonus: useBonus ? { decrement: 1 } : undefined },
   });
   void track({ type: 'bot_quiz', playerId: m.chatId, label: `${c.subject}:${right ? 'верно' : 'ошибка'}` });
-  if (m.callbackId) await a.toast(m.callbackId, right ? `Верно! ${c.emoji}` : 'Мимо 🙈');
+  if (m.callbackId) await a.toast(m.callbackId, right ? `Верно! ${c.emoji}` : 'Почти! 🟡');
   let text = right
     ? `✅ <b>Верно!</b> ${c.emoji} ${c.name} цвет ваш.\n\n💡 ${esc(q.fact)}`
-    : `❌ Правильный ответ: <b>${esc(q.options[0]!)}</b>\n\n💡 ${esc(q.fact)}`;
+    : `🟡 <b>Почти!</b> Правильный ответ: <b>${esc(q.options[0]!)}</b>\n\n💡 ${esc(q.fact)}`;
   text = completed
     ? `${text}\n\n🌈🌈🌈 <b>Радуга собрана!</b> ${COLORS.map((x) => x.emoji).join('')}\nЭто уже ${rainbows}-я. Вы в зале славы — начинаем новую радугу.`
     : `${text}\n\n${rainbowBar(player.colors)}`;
@@ -506,13 +571,13 @@ async function homeworkScreen(chatId: string): Promise<Screen> {
     take: 8,
   });
   if (!list.length) return { text: '📝 <b>Домашка</b>\n\nЗаданий пока нет. Можно размяться в практикуме 👇', rows: [[{ text: '🧩 Практикум', app: '/practice' }], MENU] };
-  const pids = list.flatMap((a) => a.problemIds.split(',').filter(Boolean));
-  const solved = new Set((await prisma.practiceAttempt.findMany({ where: { userId: user.id, correct: true, problemId: { in: pids } }, select: { problemId: true } })).map((a) => a.problemId));
+  const st = await statuses(list, [user.id]);
   const lines = list.map((a) => {
-    const p = a.problemIds.split(',').filter(Boolean);
-    const got = p.filter((id) => solved.has(id)).length;
-    const done = got === p.length && (!a.note || a.marks[0]?.done);
-    return `${done ? '✅' : '▫️'} <b>${esc(a.title)}</b>\n    ${esc(a.teacher.user.name)}${p.length ? ` · задач ${got}/${p.length}` : ''}${a.dueAt ? ` · до ${fmtWhen(a.dueAt)}` : ''}`;
+    const tasks = parseTasks(a.problemIds);
+    const status = st.get(`${a.id}:${user.id}`);
+    const got = status?.solvedProblems.size ?? 0;
+    const trainer = tasks.trainers.map((t) => `${t.title} ${status?.trainerDone[t.id] ?? 0}/${t.count}`).join(', ');
+    return `${status?.complete ? '✅' : '▫️'} <b>${esc(a.title)}</b>\n    ${esc(a.teacher.user.name)}${tasks.problems.length ? ` · задач ${got}/${tasks.problems.length}` : ''}${trainer ? ` · 🏋️ ${esc(trainer)}` : ''}${a.dueAt ? ` · до ${fmtWhen(a.dueAt)}` : ''}`;
   });
   return { text: `📝 <b>Домашка</b>\n\n${lines.join('\n\n')}`, rows: [[{ text: '📝 Решать в приложении', app: '/app/homework' }], MENU] };
 }
@@ -812,6 +877,27 @@ function inviteScreen(m: Inbound, player: BotPlayer): Screen {
   };
 }
 
+const maskEmail = (e: string) => e.replace(/^(.)(.*)(@.*)$/, (_m, a: string, b: string, c: string) => `${a}${'•'.repeat(Math.min(6, Math.max(2, b.length)))}${c}`);
+
+/** Шаг 1: показать, к какому аккаунту привязываемся, и спросить подтверждение (защита от подсунутых чужих ссылок). */
+async function linkAsk(m: Inbound, player: BotPlayer, code: string) {
+  const row = await prisma.telegramLinkCode.findUnique({ where: { code } });
+  if (!row || row.expiresAt.getTime() < Date.now()) {
+    return show(m, player, { text: 'Ссылка для привязки устарела. Нажмите «Привязать» в профиле на сайте ещё раз.', rows: [MENU] });
+  }
+  const target = await prisma.user.findUnique({ where: { id: row.userId } });
+  if (!target) return show(m, player, { text: 'Аккаунт не найден.', rows: [MENU] });
+  return show(m, player, {
+    text: `🔗 <b>Привязать ${m.platform === 'max' ? 'этот MAX' : 'этот Telegram'} к аккаунту школы?</b>
+
+👤 ${esc(target.name)}${target.email ? `
+✉️ ${esc(maskEmail(target.email))}` : ''}
+
+Привязывайте, только если это ваш аккаунт: сюда будут приходить его расписание, домашка и сообщения школы.`,
+    rows: [[cb('✅ Да, это мой аккаунт', `lk:${code}`)], [cb('✖️ Нет, не мой', 'menu')]],
+  });
+}
+
 async function linkAccount(m: Inbound, player: BotPlayer, code: string) {
   const row = await prisma.telegramLinkCode.findUnique({ where: { code } });
   if (!row || row.expiresAt.getTime() < Date.now()) {
@@ -837,6 +923,68 @@ async function linkAccount(m: Inbound, player: BotPlayer, code: string) {
       moved,
     rows: [[cb('↩️ В меню', 'menu')]],
   });
+}
+
+// ─── отчёт для родителей ───
+
+const siteUrl = () =>
+  ((process.env.WEB_ORIGIN ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .find((x) => x.startsWith('https://')) ?? '').replace(/\/$/, '');
+
+async function parentReport(token: string): Promise<Screen | null> {
+  const link = await prisma.parentLink.findUnique({ where: { token } });
+  if (!link || link.revokedAt) return null;
+  const [p, school] = await Promise.all([progressFor({ userId: link.userId }), schoolFor(link.userId)]);
+  const name = esc((p.name ?? 'Ученик').split(' ')[0]!);
+  const diff = p.solvedWeek - p.solvedPrevWeek;
+  const lines = [
+    `👨‍👩‍👧 <b>Отчёт за неделю: ${name}</b>`,
+    '',
+    `🧩 Решено задач: <b>${p.solvedWeek}</b>${p.solvedPrevWeek || p.solvedWeek ? (diff > 0 ? ` (на ${diff} больше, чем неделей раньше)` : diff < 0 ? ` (неделей раньше — ${p.solvedPrevWeek})` : '') : ''}`,
+    `📅 Дней с занятиями: <b>${p.activeDays7}</b> из 7${p.streak > 1 ? ` · серия 🔥${p.streak}` : ''}`,
+  ];
+  if (p.bySubject.length) lines.push(`📚 ${p.bySubject.map((x) => `${x.title} — ${x.solved}`).join(', ')}`);
+  if (p.mastered.length) lines.push(`✅ Освоено: ${esc(p.mastered.slice(0, 3).map((x) => x.title).join(', '))}`);
+  if (p.weak.length) lines.push(`🟡 Стоит подтянуть: ${esc(p.weak.slice(0, 3).map((x) => x.title).join(', '))}`);
+  if (school.isStudent) {
+    lines.push('', `🎓 Занятий с преподавателем за месяц: <b>${school.lessonsDone30}</b>`);
+    if (school.homework.total) lines.push(`📝 Домашка: сдано ${school.homework.complete} из ${school.homework.total}`);
+    if (school.nextLesson) lines.push(`⏭ Следующее занятие: ${fmtWhen(school.nextLesson.startsAt)}`);
+  }
+  if (!p.solvedWeek && !school.isStudent) lines.push('', 'На этой неделе задач пока не было — самое время для задачи дня 🙂');
+  const rows: Btn[][] = [];
+  if (siteUrl()) rows.push([{ text: '📊 Подробный отчёт', url: `${siteUrl()}/parents/${token}` }]);
+  rows.push([cb('🔕 Отписаться от отчётов', `pu:${token}`)]);
+  return { text: lines.join('\n'), rows };
+}
+
+async function parentSubscribe(m: Inbound, player: BotPlayer, token: string) {
+  const report = await parentReport(token);
+  if (!report) return show(m, player, { text: 'Ссылка на отчёт больше не действует. Попросите ребёнка поделиться новой в «Моём прогрессе».', rows: [MENU] });
+  await prisma.parentSub.upsert({ where: { token_chatId: { token, chatId: m.chatId } }, create: { token, chatId: m.chatId }, update: {} });
+  void track({ type: 'parent_subscribe', playerId: m.chatId });
+  return show(m, player, {
+    text: `✅ <b>Вы подписаны на отчёт.</b> Каждое воскресенье вечером здесь будет короткая сводка: сколько решено, что получается, что подтянуть.\n\n${report.text}`,
+    rows: [...report.rows, MENU],
+  });
+}
+
+async function weeklyParentReports() {
+  if (schoolWeekday() !== 0 || schoolHour() !== Number(process.env.BOT_REPORT_HOUR ?? 19)) return;
+  const today = schoolDay();
+  const subs = await prisma.parentSub.findMany({ where: { OR: [{ lastSent: null }, { lastSent: { not: today } }] } });
+  for (const sub of subs) {
+    await prisma.parentSub.update({ where: { id: sub.id }, data: { lastSent: today } });
+    const report = await parentReport(sub.token);
+    if (!report) {
+      await prisma.parentSub.delete({ where: { id: sub.id } }).catch(() => {});
+      continue;
+    }
+    await sendTo(sub.chatId, report);
+    await new Promise((r) => setTimeout(r, 60));
+  }
 }
 
 // ─── входящие ───
@@ -869,7 +1017,8 @@ async function route(m: Inbound) {
       }
     }
     if (!existed && payload.startsWith('src_')) await prisma.botPlayer.update({ where: { chatId: m.chatId }, data: { source: payload.slice(4, 60) } });
-    if (payload.startsWith('l_')) return linkAccount(m, player, payload.slice(2));
+    if (payload.startsWith('l_')) return linkAsk(m, player, payload.slice(2));
+    if (payload.startsWith('p_')) return parentSubscribe(m, player, payload.slice(2));
     if (payload === 'book') return bookStart(m, player);
     if (payload === 'daily') return show(m, player, await dailyScreen(player));
     if (payload === 'quiz') return show(m, player, await quizScreen(m, player));
@@ -899,6 +1048,8 @@ async function route(m: Inbound) {
         return show(m, player, await homeScreen(player, false));
       case '/daily':
         return show(m, player, await dailyScreen(player));
+      case '/train':
+        return show(m, player, player.grade ? subjectScreen(player.grade) : gradeScreen());
       case '/quiz':
         return show(m, player, await quizScreen(m, player));
       case '/lessons':
@@ -938,6 +1089,7 @@ async function route(m: Inbound) {
   }
   if (flow?.kind === 'ask' && text) return askSend(m, player, text);
   if (flow?.kind === 'daily' && text) return answerDaily(m, player, text);
+  if (flow?.kind === 'train' && text) return trainAnswer(m, player, text);
   if (flow?.kind === 'admin_reply' && text) return adminReplySend(m, player, flow.ticketId, text);
   if (flow?.kind === 'teacher_link' && text) {
     flows.delete(m.chatId);
@@ -959,6 +1111,15 @@ async function route(m: Inbound) {
 async function onCallback(m: Inbound, player: BotPlayer) {
   const a = adapters.get(m.platform)!;
   const data = m.data ?? '';
+  if (data.startsWith('pu:')) {
+    await prisma.parentSub.deleteMany({ where: { token: data.slice(3), chatId: m.chatId } });
+    if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, 'Отписали от отчётов');
+    return show(m, player, { text: '🔕 Больше не будем присылать отчёты. Подписаться снова можно по ссылке от ребёнка.', rows: [MENU] });
+  }
+  if (data.startsWith('lk:')) {
+    if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId);
+    return linkAccount(m, player, data.slice(3));
+  }
   if (data.startsWith('qa:')) return answerQuiz(m, player);
   if (data.startsWith('ta:')) return testAnswer(m, player);
   if (data.startsWith('da:')) {
@@ -998,6 +1159,29 @@ async function onCallback(m: Inbound, player: BotPlayer) {
     const contact = m.platform === 'telegram' && m.who.username ? `Telegram @${m.who.username}` : `MAX: ${[m.who.firstName, m.who.lastName].filter(Boolean).join(' ')} (написать через бота)`;
     return bookFinish(m, player, contact);
   }
+
+  // тренажёр
+  if (data === 'tr0') return show(m, player, gradeScreen());
+  if (data === 'tr') return show(m, player, player.grade ? subjectScreen(player.grade) : gradeScreen());
+  if (data.startsWith('tg:')) {
+    const grade = Number(data.slice(3));
+    if (grade >= 5 && grade <= 11) player = await prisma.botPlayer.update({ where: { chatId: m.chatId }, data: { grade } });
+    return show(m, player, subjectScreen(player.grade ?? 7));
+  }
+  if (data.startsWith('ts:')) return trainNext(m, player, data.slice(3));
+  if (data === 'th') {
+    const flow = flows.get(m.chatId);
+    const parsed = flow?.kind === 'train' ? parseGenId(flow.problemId) : null;
+    if (parsed) {
+      const { problem } = makeProblem(parsed.gen.id, parsed.seed)!;
+      return show(m, player, {
+        text: `💡 <i>${esc(problem.hint)}</i>\n\n🏋️ <b>${esc(parsed.gen.title)}</b>\n\n${problemBody(problem.text)}\n\n✍️ <b>Напишите ответ сообщением</b>`,
+        rows: [[cb('🙈 Показать решение', 'tv')], [cb('➡️ Другая задача', `ts:${parsed.gen.subject}`)], MENU],
+      });
+    }
+    return show(m, player, player.grade ? subjectScreen(player.grade) : gradeScreen());
+  }
+  if (data === 'tv') return trainAnswer(m, player, '', true);
 
   // шпаргалки
   if (data === 'f') {
@@ -1147,6 +1331,7 @@ export function startLoops() {
   loopsStarted = true;
   setInterval(() => lessonReminders().catch((err) => log.error({ err }, 'бот: напоминания')), 60_000);
   setInterval(() => dailyPush().catch((err) => log.error({ err }, 'бот: задача дня')), 10 * 60_000);
+  setInterval(() => weeklyParentReports().catch((err) => log.error({ err }, 'бот: отчёты родителям')), 10 * 60_000);
 }
 
 export { findProblem };

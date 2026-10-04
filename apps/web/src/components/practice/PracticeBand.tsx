@@ -1,4 +1,4 @@
-import { ArrowRight, FlaskConical, Gauge, Puzzle, Sparkles } from 'lucide-react';
+import { ArrowRight, Dumbbell, FlaskConical, Gauge, Puzzle, Sparkles, Target } from 'lucide-react';
 import { Container } from '../Layout';
 import { Reveal } from '../Reveal';
 import { ButtonLink, Chip, Skeleton } from '../ui';
@@ -27,9 +27,11 @@ export function PracticeBand() {
           <p className="t-sub max-w-[44ch] text-muted">Бесплатный практикум «Спектра»: короткая теория, формулы, живые опыты и задачи с мгновенной проверкой и разбором.</p>
           <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[17px]">
             {[
-              { Icon: Puzzle, text: `${topics ?? '13'} тем и ${problems ?? '65'} задач по физике, информатике и математике` },
-              { Icon: FlaskConical, text: 'Опыты-тренажёры: призма Ньютона, цепь, парабола, двоичный код' },
-              { Icon: Gauge, text: 'Диагностика за 5 минут: покажет, какие темы подтянуть' },
+              { Icon: Dumbbell, text: 'Сборник для 5–11 класса: бесконечные тренажёры, ответ проверяется сразу' },
+              { Icon: Target, text: 'ОГЭ и ЕГЭ по номерам заданий: математика, информатика, физика' },
+              { Icon: Puzzle, text: `${topics ?? '13'} тем с теорией и ${problems ?? '65'} задачами с разбором` },
+              { Icon: FlaskConical, text: 'Опыты: призма Ньютона, цепь, парабола, двоичный код' },
+              { Icon: Gauge, text: 'Проверка уровня за 5 минут — без оценок, с советом, что подтянуть' },
             ].map(({ Icon, text }) => (
               <li key={text} className="flex items-start gap-3">
                 <span className="hue-3 mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-hue">
@@ -43,8 +45,8 @@ export function PracticeBand() {
             <ButtonLink to="/practice">
               Открыть практикум <ArrowRight className="size-4" />
             </ButtonLink>
-            <ButtonLink to="/practice/check/physics" variant="secondary">
-              Проверить уровень
+            <ButtonLink to="/practice/trainers" variant="secondary">
+              Сборник задач
             </ButtonLink>
           </div>
           {links.data?.telegramUrl && (

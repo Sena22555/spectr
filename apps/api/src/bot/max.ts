@@ -140,6 +140,7 @@ export function startMax(token: string, log: FastifyBaseLogger) {
       commands: [
         { name: 'menu', description: 'Главное меню' },
         { name: 'daily', description: 'Задача дня' },
+        { name: 'train', description: 'Тренажёр по классам' },
         { name: 'quiz', description: 'Радуга знаний' },
         { name: 'formulas', description: 'Шпаргалки' },
         { name: 'lessons', description: 'Мои занятия' },

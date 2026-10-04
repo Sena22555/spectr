@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { usePageTitle } from '../../lib/title';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, Clock, PartyPopper, TriangleAlert, Lightbulb } from 'lucide-react';
@@ -15,6 +16,7 @@ export default function PracticeTopic() {
   const { subject = '', topic = '' } = useParams();
   const q = useTopic(subject, topic);
   const progress = useProgress();
+  usePageTitle(q.data ? `${q.data.topic.title} — ${q.data.subject.title}` : null);
 
   if (q.isPending)
     return (

@@ -48,6 +48,10 @@ const AdminPerson = lazy(() => import('./pages/admin/Person'));
 const PracticeCatalog = lazy(() => import('./pages/practice/Catalog'));
 const PracticeTopic = lazy(() => import('./pages/practice/Topic'));
 const PracticeDiagnostic = lazy(() => import('./pages/practice/Diagnostic'));
+const PracticeTrainers = lazy(() => import('./pages/practice/Trainers'));
+const PracticeTrain = lazy(() => import('./pages/practice/Train'));
+const PracticeProgress = lazy(() => import('./pages/practice/Progress'));
+const Parents = lazy(() => import('./pages/Parents'));
 const Homework = lazy(() => import('./pages/app/Homework'));
 const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
@@ -81,6 +85,10 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'book', element: s(<Book />) },
           { path: 'practice', element: s(<PracticeCatalog />) },
           { path: 'practice/check/:subject', element: s(<PracticeDiagnostic />) },
+          { path: 'practice/trainers', element: s(<PracticeTrainers />) },
+          { path: 'practice/train/:id', element: s(<PracticeTrain />) },
+          { path: 'practice/progress', element: s(<PracticeProgress />) },
+          { path: 'parents/:token', element: s(<Parents />) },
           { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },

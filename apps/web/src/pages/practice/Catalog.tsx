@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, Check, Clock, FlaskConical, Gauge, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, Clock, Dumbbell, FlaskConical, Gauge, Sparkles, Target, Trophy } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { Reveal } from '../../components/Reveal';
 import { DailyTask } from '../../components/practice/DailyTask';
@@ -47,6 +47,34 @@ export default function PracticeCatalog() {
         </dl>
       </header>
 
+      <nav aria-label="Разделы практикума" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {[
+          { to: '/practice/trainers', title: 'Сборник 5–11 класс', text: 'Бесконечные тренажёры по классам', hue: 1, Icon: Dumbbell },
+          { to: '/practice/trainers?tab=exams', title: 'ОГЭ и ЕГЭ', text: 'Задания по номерам экзамена', hue: 5, Icon: Target },
+          { to: '#topics', title: 'Темы с теорией', text: 'Коротко, с формулами и опытами', hue: 3, Icon: BookOpen },
+          { to: '/practice/check/math', title: 'Проверить уровень', text: '5 минут, без оценок', hue: 2, Icon: Gauge },
+          { to: '/practice/progress', title: 'Мой прогресс', text: 'Достижения и отчёт для родителей', hue: 6, Icon: Trophy },
+        ].map(({ to, title, text, hue, Icon }) =>
+          to.startsWith('#') ? (
+            <a key={to} href={to} className={`hue-${hue} lift group flex items-start gap-3 rounded-[12px] bg-tint p-4 no-underline hover:-translate-y-0.5`}>
+              <Icon className="mt-0.5 size-5 shrink-0 text-hue" />
+              <span className="flex flex-col">
+                <span className="lift-title text-[17px] font-[650]">{title}</span>
+                <span className="text-[14px] text-ink/75">{text}</span>
+              </span>
+            </a>
+          ) : (
+            <Link key={to} to={to} className={`hue-${hue} lift group flex items-start gap-3 rounded-[12px] bg-tint p-4 no-underline hover:-translate-y-0.5`}>
+              <Icon className="mt-0.5 size-5 shrink-0 text-hue" />
+              <span className="flex flex-col">
+                <span className="lift-title text-[17px] font-[650]">{title}</span>
+                <span className="text-[14px] text-ink/75">{text}</span>
+              </span>
+            </Link>
+          ),
+        )}
+      </nav>
+
       {solved > 0 && (
         <p className="-mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-mark px-4 py-2 text-[15px] text-forest">
           <Check className="size-4" strokeWidth={2.4} /> Вы уже решили {solved} {plural(solved, 'задачу', 'задачи', 'задач')} — прогресс сохраняется
@@ -56,6 +84,7 @@ export default function PracticeCatalog() {
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {q.data ? <DailyTask daily={q.data.daily} /> : <Skeleton className="h-72" />}
 
+      <span id="topics" className="-mb-8 scroll-mt-28" aria-hidden="true" />
       {q.isPending
         ? Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-80" />)
         : subjects.map((s) => <SubjectBlock key={s.slug} s={s} solved={progress.data?.solved} />)}

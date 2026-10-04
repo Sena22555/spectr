@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Camera } from 'lucide-react';
-import { api, uploadImage } from '../../lib/api';
+import { api, setToken, uploadImage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { STATUS_LABEL } from '../../lib/format';
 import { haptic, platform, platformLabel } from '../../lib/platform';
@@ -47,11 +47,17 @@ export default function Profile() {
 
   const [pw, setPw] = useState({ current: '', next: '' });
   const password = useMutation({
-    mutationFn: () => api('/auth/password', { method: 'POST', json: pw }),
-    onSuccess: () => {
+    mutationFn: () => api<{ ok: true; token?: string }>('/auth/password', { method: 'POST', json: pw }),
+    onSuccess: (r) => {
+      // другие устройства вышли из аккаунта, это получило новый токен
+      if (r.token) setToken(r.token);
       setPw({ current: '', next: '' });
       haptic('success');
     },
+  });
+  const logoutAll = useMutation({
+    mutationFn: () => api('/auth/logout-all', { method: 'POST', json: {} }),
+    onSuccess: () => logout(),
   });
 
   if (!user) return null;
@@ -160,15 +166,18 @@ export default function Profile() {
             <Button type="submit" variant="secondary" loading={password.isPending}>
               Сменить пароль
             </Button>
-            {password.isSuccess && <span className="t-caption text-muted">Пароль обновлён</span>}
+            {password.isSuccess && <span className="t-caption text-muted">Пароль обновлён, на других устройствах нужно войти заново</span>}
             {password.error && <span className="t-caption text-ember-text">{(password.error as Error).message}</span>}
           </div>
         </form>
       )}
 
-      <div className="border-t border-charcoal pt-6">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-charcoal pt-6">
         <Button variant="ghost" onClick={logout}>
           Выйти из аккаунта
+        </Button>
+        <Button variant="ghost" className="text-muted" loading={logoutAll.isPending} onClick={() => logoutAll.mutate()}>
+          Выйти на всех устройствах
         </Button>
       </div>
     </div>

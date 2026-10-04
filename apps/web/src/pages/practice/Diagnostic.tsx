@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
+import { usePageTitle } from '../../lib/title';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, Check, Gauge, X } from 'lucide-react';
+import { ArrowRight, Check, Gauge, Sparkles } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { RichText } from '../../components/Tex';
 import { Button, ButtonLink, ErrorNote, Loading } from '../../components/ui';
@@ -17,15 +18,28 @@ interface Diagnostic {
   problems: (PracticeProblem & { topic: { slug: string; title: string } })[];
 }
 
-/** Диагностика: по задаче из каждой темы, без подсказок, в конце — разбор слабых мест. */
+interface Answer {
+  correct: boolean;
+  skipped: boolean;
+  answer: string | null;
+  solution: string[] | null;
+}
+
+/**
+ * Диагностика: по одной простой задаче из каждой темы.
+ * Это не контрольная: ошибаться можно. После ответа сразу показываем правильный ответ,
+ * дальше человек сам нажимает «Дальше». В конце — что уже знаешь и что подтянуть.
+ */
 export default function PracticeDiagnostic() {
   const { subject = '' } = useParams();
   const q = useQuery({ queryKey: ['diagnostic', subject], queryFn: () => api<Diagnostic>(`/practice/diagnostic/${subject}`), staleTime: Infinity });
   const check = useCheck();
+  usePageTitle(q.data ? `Проверка уровня: ${q.data.subject.title}` : null);
   const [step, setStep] = useState(-1);
-  const [answers, setAnswers] = useState<{ correct: boolean; answer: string | null }[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
   const [value, setValue] = useState('');
-  const [flash, setFlash] = useState<boolean | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [current, setCurrent] = useState<Answer | null>(null);
 
   if (q.isPending)
     return (
@@ -42,46 +56,67 @@ export default function PracticeDiagnostic() {
   const { subject: s, problems } = q.data;
   const done = step >= problems.length;
   const score = answers.filter((a) => a.correct).length;
+  const problem = problems[step];
 
-  const answer = async (raw: string) => {
-    if (!raw.trim() || check.isPending) return;
-    const r = await check.mutateAsync({ problemId: problems[step]!.id, answer: raw });
-    haptic(r.correct ? 'success' : 'error');
-    setFlash(r.correct);
-    const next = [...answers, { correct: r.correct, answer: r.answer }];
-    setAnswers(next);
-    setTimeout(() => {
-      setFlash(null);
-      setValue('');
-      setStep((n) => n + 1);
-      if (step + 1 >= problems.length) {
-        void api(`/practice/diagnostic/${subject}/done`, { method: 'POST', json: { score: next.filter((a) => a.correct).length, total: problems.length } }).catch(() => undefined);
-      }
-    }, 650);
+  const answer = async (raw: string, skipped = false) => {
+    if (!problem || check.isPending || current) return;
+    let r = skipped ? null : await check.mutateAsync({ problemId: problem.id, answer: raw });
+    // не угадали — сразу показываем ответ и короткий разбор, чтобы было чему научиться
+    if (!r?.correct) r = { ...(await check.mutateAsync({ problemId: problem.id, answer: '', reveal: true })), correct: false };
+    haptic(r.correct ? 'success' : 'tap');
+    setCurrent({ correct: r.correct, skipped, answer: r.answer, solution: r.solution });
   };
+
+  const next = () => {
+    if (!current) return;
+    const all = [...answers, current];
+    setAnswers(all);
+    setCurrent(null);
+    setValue('');
+    setPicked(null);
+    setStep((n) => n + 1);
+    if (step + 1 >= problems.length) {
+      void api(`/practice/diagnostic/${subject}/done`, { method: 'POST', json: { score: all.filter((a) => a.correct).length, total: problems.length } }).catch(() => undefined);
+    }
+  };
+
+  const weak = problems.filter((_, i) => answers[i] && !answers[i]!.correct);
 
   return (
     <Container className="max-w-[780px] py-8 sm:py-12">
       <div className={`hue-${s.hue} flex flex-col gap-8`}>
         <header className="flex flex-col gap-3">
           <p className="t-mono inline-flex items-center gap-2 text-[12px] text-hue">
-            <Gauge className="size-4" /> диагностика · {s.title.toLowerCase()}
+            <Gauge className="size-4" /> проверка уровня · {s.title.toLowerCase()}
           </p>
-          <h1 className="t-display t-lg">{done ? 'Ваш результат' : step < 0 ? `Проверьте уровень по предмету «${s.title}»` : `Вопрос ${step + 1} из ${problems.length}`}</h1>
+          <h1 className="t-display t-lg">{done ? 'Вот что получилось' : step < 0 ? `Что вы уже знаете по предмету «${s.title}»?` : `Задача ${step + 1} из ${problems.length}`}</h1>
           {step >= 0 && !done && (
             <div className="flex gap-1.5" aria-hidden="true">
               {problems.map((_, i) => (
-                <span key={i} className={clsx('h-1.5 flex-1 rounded-full', i < answers.length ? (answers[i]!.correct ? 'bg-ray' : 'bg-ember-text/60') : i === step ? 'bg-ink' : 'bg-ink/15')} />
+                <span
+                  key={i}
+                  className={clsx('h-2 flex-1 rounded-full transition-colors', i < answers.length ? (answers[i]!.correct ? 'bg-ray' : 'bg-[var(--ray-2)]') : i === step ? 'bg-ink' : 'bg-ink/15')}
+                />
               ))}
             </div>
           )}
         </header>
 
         {step < 0 && (
-          <div className="flex flex-col gap-5">
-            <p className="t-sub text-muted">
-              {problems.length} {plural(problems.length, 'задача', 'задачи', 'задач')} — по одной из каждой темы. Без подсказок и без таймера. В конце покажем, какие темы уже в порядке, а какие стоит подтянуть.
-            </p>
+          <div className="flex flex-col gap-6">
+            <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[17px]">
+              {[
+                `${problems.length} ${plural(problems.length, 'простая задача', 'простые задачи', 'простых задач')} — по одной из каждой темы. Займёт минут пять.`,
+                'Это не контрольная и не оценка. Ошибаться можно: после каждого ответа сразу покажем правильный и коротко объясним.',
+                'Не знаете — жмите «Пропустить», это тоже честный ответ.',
+                'В конце увидите, какие темы уже в порядке, а какие стоит подтянуть, — со ссылками на теорию и задачи.',
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <Check className="mt-1 size-5 shrink-0 text-hue" strokeWidth={2.2} />
+                  {t}
+                </li>
+              ))}
+            </ul>
             <Button className="w-fit" onClick={() => setStep(0)}>
               Начать <ArrowRight className="size-4" />
             </Button>
@@ -89,16 +124,31 @@ export default function PracticeDiagnostic() {
         )}
 
         <AnimatePresence mode="wait">
-          {step >= 0 && !done && (
+          {problem && !done && (
             <motion.div key={step} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} className="flex flex-col gap-5 rounded-[14px] border-[1.5px] border-ink/15 bg-paper p-6">
-              <p className="t-mono text-[12px] text-muted">тема: {problems[step]!.topic.title}</p>
+              <p className="t-mono text-[12px] text-muted">тема: {problem.topic.title}</p>
               <p className="text-[19px] leading-relaxed">
-                <RichText text={problems[step]!.text} />
+                <RichText text={problem.text} />
               </p>
-              {problems[step]!.kind === 'choice' ? (
+
+              {problem.kind === 'choice' ? (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {problems[step]!.options!.map((o, i) => (
-                    <button key={i} type="button" disabled={flash !== null} onClick={() => answer(String(i))} className="press min-h-12 rounded-ctl border-[1.5px] border-ink/25 px-4 py-2.5 text-left text-[16px] hover:border-ink hover:bg-mark/40">
+                  {problem.options!.map((o, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={Boolean(current) || check.isPending}
+                      onClick={() => {
+                        setPicked(i);
+                        void answer(String(i));
+                      }}
+                      className={clsx(
+                        'press min-h-12 rounded-ctl border-[1.5px] px-4 py-2.5 text-left text-[16px] disabled:cursor-default',
+                        picked === i && current?.correct && 'border-ink bg-ink text-paper',
+                        picked === i && current && !current.correct && 'border-[var(--ray-2)] bg-butter',
+                        !(picked === i && current) && 'border-ink/25 hover:border-ink hover:bg-mark/40',
+                      )}
+                    >
                       {o}
                     </button>
                   ))}
@@ -114,68 +164,98 @@ export default function PracticeDiagnostic() {
                   <input
                     autoFocus
                     value={value}
+                    disabled={Boolean(current)}
                     onChange={(e) => setValue(e.target.value)}
-                    inputMode={problems[step]!.kind === 'number' ? 'decimal' : 'text'}
-                    placeholder={problems[step]!.unit ? `Ответ, ${problems[step]!.unit}` : 'Ответ'}
+                    inputMode={problem.kind === 'number' ? 'decimal' : 'text'}
+                    placeholder={problem.unit ? `Ответ, ${problem.unit}` : 'Ответ'}
                     aria-label="Ответ"
-                    className="h-12 min-w-0 flex-1 basis-48 rounded-ctl border-[1.5px] border-ink/25 bg-paper px-3.5 text-[17px] focus-visible:border-ink focus-visible:shadow-[0_0_0_4px_var(--mark)] focus-visible:outline-none"
+                    className="h-12 min-w-0 flex-1 basis-48 rounded-ctl border-[1.5px] border-ink/25 bg-paper px-3.5 text-[17px] focus-visible:border-ink focus-visible:shadow-[0_0_0_4px_var(--mark)] focus-visible:outline-none disabled:opacity-70"
                   />
-                  <Button type="submit" disabled={!value.trim() || flash !== null}>
-                    Ответить
-                  </Button>
-                  <button type="button" className="link px-2 text-[15px] text-muted" onClick={() => answer('—')}>
-                    Не знаю
-                  </button>
+                  {!current && (
+                    <Button type="submit" disabled={!value.trim()} loading={check.isPending}>
+                      Ответить
+                    </Button>
+                  )}
                 </form>
               )}
-              {flash !== null && (
-                <p className={clsx('t-heading inline-flex items-center gap-2 text-[20px]', flash ? 'text-hue' : 'text-ember-text')} role="status">
-                  {flash ? <Check className="size-5" /> : <X className="size-5" />} {flash ? 'Верно' : 'Мимо'}
-                </p>
+
+              {!current && (
+                <button type="button" className="link w-fit text-[15px] text-muted" onClick={() => answer('', true)} disabled={check.isPending}>
+                  Пропустить — пока не знаю
+                </button>
+              )}
+
+              {current && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4" role="status">
+                  {current.correct ? (
+                    <p className="t-heading flex items-center gap-2 text-[22px] text-hue">
+                      <Sparkles className="size-5" /> Верно!
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2 rounded-[12px] bg-butter px-4 py-3">
+                      <p className="text-[17px]">
+                        🟡 <b>{current.skipped ? 'Хорошо, что честно!' : 'Почти!'}</b> Правильный ответ: <b>{current.answer}</b>. Ничего страшного — эту тему подтянем.
+                      </p>
+                      {current.solution?.[0] && (
+                        <p className="text-[15.5px] text-ink/85">
+                          <RichText text={current.solution.join(' ')} />
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <Button className="w-fit" onClick={next} autoFocus>
+                    {step + 1 < problems.length ? 'Дальше' : 'Посмотреть итог'} <ArrowRight className="size-4" />
+                  </Button>
+                </motion.div>
               )}
             </motion.div>
           )}
         </AnimatePresence>
 
         {done && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-end gap-4">
-              <p className="t-display tnum text-[72px] leading-none text-hue">
-                {score}/{problems.length}
+          <div className="flex flex-col gap-7">
+            <div className="flex flex-col gap-2">
+              <p className="t-display tnum text-[64px] leading-none text-hue">
+                {score} из {problems.length}
               </p>
-              <p className="max-w-[40ch] pb-2 text-[18px]">
+              <p className="max-w-[52ch] text-[18px]">
                 {score === problems.length
-                  ? 'Отличная база! Самое время взяться за задачи со звёздочкой.'
+                  ? 'Отличная база! Можно браться за задачи «со звёздочкой» в практикуме.'
                   : score >= problems.length / 2
-                    ? 'Хорошая основа — несколько тем стоит подтянуть.'
-                    : 'Есть что наверстать — начните с тем, отмеченных ниже.'}
+                    ? 'Хорошая основа. Пара тем просит внимания — ниже ссылки, с чего начать.'
+                    : 'Начало положено! Ниже темы, с которых удобнее стартовать. Каждая — минут на десять, с разбором.'}
               </p>
             </div>
             <ul className="m-0 flex list-none flex-col p-0">
-              {problems.map((p, i) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 border-b border-dashed border-hair-soft py-3">
-                  <span className="flex items-center gap-3">
-                    <span className={clsx('grid size-7 place-items-center rounded-full', answers[i]?.correct ? 'bg-tint text-hue' : 'bg-[var(--tint-raw-0)] text-ember-text')}>
-                      {answers[i]?.correct ? <Check className="size-4" /> : <X className="size-4" />}
+              {problems.map((p, i) => {
+                const ok = answers[i]?.correct;
+                return (
+                  <li key={p.id} className="flex items-center justify-between gap-3 border-b border-dashed border-hair-soft py-3">
+                    <span className="flex items-center gap-3">
+                      <span className={clsx('t-mono rounded-full px-2.5 py-1 text-[11px]', ok ? 'bg-tint text-hue' : 'bg-butter text-[var(--ink-2)]')}>{ok ? '✓ знаю' : '◐ подтянуть'}</span>
+                      <span className="text-[17px]">{p.topic.title}</span>
                     </span>
-                    <span className="text-[17px]">{p.topic.title}</span>
-                  </span>
-                  <Link to={`/practice/${s.slug}/${p.topic.slug}`} className="link shrink-0 text-[15px]">
-                    {answers[i]?.correct ? 'Тема' : 'Разобрать'}
-                  </Link>
-                </li>
-              ))}
+                    <Link to={`/practice/${s.slug}/${p.topic.slug}`} className="link shrink-0 text-[15px]">
+                      {ok ? 'Задачи сложнее' : 'Разобрать тему'}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             <div className="flex flex-wrap gap-3">
+              {weak.length > 0 && (
+                <ButtonLink to={`/practice/${s.slug}/${weak[0]!.topic.slug}`}>
+                  Начать с темы «{weak[0]!.topic.title}» <ArrowRight className="size-4" />
+                </ButtonLink>
+              )}
               <ButtonLink
-                to={`/book?subject=${s.course}&note=${encodeURIComponent(`Диагностика по предмету «${s.title}»: ${score} из ${problems.length}. Темы для разбора: ${problems.filter((_, i) => !answers[i]?.correct).map((p) => p.topic.title).join(', ') || 'нет'}`)}`}
+                variant={weak.length ? 'secondary' : 'primary'}
+                to={`/book?subject=${s.course}&note=${encodeURIComponent(`Проверка уровня «${s.title}»: ${score} из ${problems.length}. Подтянуть: ${weak.map((p) => p.topic.title).join(', ') || 'всё в порядке'}`)}`}
               >
-                Разобрать слабые темы с репетитором
-              </ButtonLink>
-              <ButtonLink to="/practice" variant="secondary">
-                В практикум
+                Разобрать с репетитором
               </ButtonLink>
             </div>
+            <p className="t-caption text-muted">Это не оценка: проверку можно пройти ещё раз в любой момент — и увидеть, как вырос результат.</p>
           </div>
         )}
       </div>

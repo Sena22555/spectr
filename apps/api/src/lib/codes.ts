@@ -9,13 +9,20 @@ const MAX_ATTEMPTS = 5;
 
 const hash = (email: string, code: string) => createHash('sha256').update(`${email}:${code}`).digest('hex');
 
-/** Новый шестизначный код. Возвращает null, если прошлый выдан меньше минуты назад. */
+// сколько кодов выдано адресу за сутки: защита от перебора через бесконечные новые коды
+const issued = new Map<string, number[]>();
+
+/** Новый шестизначный код. Возвращает null, если прошлый выдан меньше минуты назад или лимит на сутки исчерпан. */
 export async function issueCode(email: string, purpose: CodePurpose) {
+  const day = Date.now() - 86_400_000;
+  const recent = (issued.get(email) ?? []).filter((t) => t > day);
+  if (recent.length >= 8) return null;
   const last = await prisma.emailCode.findFirst({ where: { email, purpose }, orderBy: { createdAt: 'desc' } });
   if (last && Date.now() - last.createdAt.getTime() < RESEND_MS) return null;
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
   await prisma.emailCode.deleteMany({ where: { email, purpose } });
   await prisma.emailCode.create({ data: { email, purpose, codeHash: hash(email, code), expiresAt: new Date(Date.now() + TTL_MS) } });
+  issued.set(email, [...recent, Date.now()]);
   return code;
 }
 

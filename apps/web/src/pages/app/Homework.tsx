@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
@@ -19,6 +20,7 @@ export interface MyAssignment {
   teacher: { hue: number; user: { name: string } };
   group: { name: string } | null;
   problems: (PracticeProblem & { solved: boolean; topic: { subject: string; slug: string; title: string } })[];
+  trainers: { id: string; title: string; count: number; done: number }[];
   solved: number;
   done: boolean;
   answer: string;
@@ -81,7 +83,7 @@ function AssignmentCard({ a, defaultOpen = false }: { a: MyAssignment; defaultOp
     <article className={clsx(`hue-${a.teacher.hue}`, 'overflow-hidden rounded-[14px] border-[1.5px]', a.complete ? 'border-transparent bg-tint' : 'border-ink/15 bg-paper')}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="press flex w-full items-start gap-4 p-5 text-left sm:p-6">
         <span className={clsx('mt-1 grid size-9 shrink-0 place-items-center rounded-full', a.complete ? 'bg-ink text-mark' : 'bg-tint text-hue')}>
-          {a.complete ? <Check className="size-5" strokeWidth={2.4} /> : <span className="t-mono tnum text-[12px]">{total ? `${a.solved}/${total}` : '•'}</span>}
+          {a.complete ? <Check className="size-5" strokeWidth={2.4} /> : <span className="t-mono tnum text-[12px]">{total ? `${a.solved}/${total}` : a.trainers.length ? `${a.trainers.reduce((n, t) => n + t.done, 0)}/${a.trainers.reduce((n, t) => n + t.count, 0)}` : '•'}</span>}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="t-heading text-[22px] leading-tight">{a.title}</span>
@@ -122,6 +124,19 @@ function AssignmentCard({ a, defaultOpen = false }: { a: MyAssignment; defaultOp
                   </div>
                 </div>
               )}
+              {a.trainers.map((t) => (
+                <Link key={t.id} to={`/practice/train/${t.id}`} className="press flex items-center justify-between gap-4 rounded-[12px] border-[1.5px] border-ink/15 bg-paper p-4 no-underline hover:border-ink/40">
+                  <span className="flex flex-col">
+                    <span className="t-mono text-[11px] text-muted">тренажёр · числа у каждого свои</span>
+                    <span className="text-[17px] font-[600]">
+                      🏋️ {t.title}: решить {t.count} {plural(t.count, 'задачу', 'задачи', 'задач')}
+                    </span>
+                  </span>
+                  <span className={clsx('t-heading tnum shrink-0 text-[20px]', t.done >= t.count && 'text-hue')}>
+                    {t.done}/{t.count}
+                  </span>
+                </Link>
+              ))}
               {a.problems.map((p, i) => (
                 <div key={p.id} className="flex flex-col gap-1.5">
                   <p className="t-mono text-[11px] text-muted">тема: {p.topic.title}</p>

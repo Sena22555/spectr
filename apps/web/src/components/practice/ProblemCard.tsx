@@ -15,12 +15,17 @@ export function ProblemCard({
   solved: solvedBefore = false,
   hue = 2,
   onSolved,
+  onResult,
+  autoFocus,
 }: {
   problem: PracticeProblem;
   index?: number;
   solved?: boolean;
   hue?: number;
   onSolved?(): void;
+  /** когда задача закончена: решена или открыт разбор */
+  onResult?(r: { correct: boolean; firstTry: boolean }): void;
+  autoFocus?: boolean;
 }) {
   const check = useCheck();
   const [value, setValue] = useState('');
@@ -38,9 +43,11 @@ export function ProblemCard({
     if (r.correct) {
       haptic('success');
       onSolved?.();
+      onResult?.({ correct: true, firstTry: wrong === 0 });
     } else {
-      haptic('error');
+      haptic('tap');
       setWrong((n) => n + 1);
+      if (r.solution) onResult?.({ correct: false, firstTry: false });
     }
   };
 
@@ -52,6 +59,7 @@ export function ProblemCard({
   const reveal = async () => {
     const r = await check.mutateAsync({ problemId: problem.id, answer: '', reveal: true });
     setResult({ ...r, correct: false });
+    onResult?.({ correct: false, firstTry: false });
   };
 
   return (
@@ -65,10 +73,12 @@ export function ProblemCard({
     >
       <header className="flex flex-wrap items-center gap-2">
         {index !== undefined && <span className="t-mono rounded-full bg-ink px-2.5 py-1 text-[11px] text-paper">задача {index}</span>}
-        <span className="t-mono text-[12px] text-muted" title={LEVELS[problem.level]}>
-          {'●'.repeat(problem.level)}
-          <span className="opacity-30">{'●'.repeat(3 - problem.level)}</span> {LEVELS[problem.level]?.toLowerCase()}
-        </span>
+        {problem.level > 0 && (
+          <span className="t-mono text-[12px] text-muted" title={LEVELS[problem.level]}>
+            {'●'.repeat(problem.level)}
+            <span className="opacity-30">{'●'.repeat(3 - problem.level)}</span> {LEVELS[problem.level]?.toLowerCase()}
+          </span>
+        )}
         {problem.self && <span className="t-mono rounded-full bg-mark px-2.5 py-1 text-[11px] text-forest">для самостоятельного решения</span>}
         {solved && (
           <span className="ml-auto inline-flex items-center gap-1 text-[14px] font-[600] text-hue">
@@ -77,9 +87,16 @@ export function ProblemCard({
         )}
       </header>
 
-      <p className="text-[18px] leading-relaxed">
-        <RichText text={problem.text} />
-      </p>
+      {problem.text.includes('\n') ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-[18px] leading-relaxed">{problem.text.split('\n')[0]}</p>
+          <pre className="m-0 overflow-x-auto rounded-ctl bg-forest px-4 py-3 font-mono text-[14.5px] leading-relaxed text-cream">{problem.text.split('\n').slice(1).join('\n')}</pre>
+        </div>
+      ) : (
+        <p className="text-[18px] leading-relaxed">
+          <RichText text={problem.text} />
+        </p>
+      )}
 
       {solved && !result ? (
         <button type="button" className="link inline-flex w-fit items-center gap-1.5 text-[15px]" onClick={() => setAgain(true)}>
@@ -101,7 +118,7 @@ export function ProblemCard({
                 className={clsx(
                   'press min-h-12 rounded-ctl border-[1.5px] px-4 py-2.5 text-left text-[16px] disabled:cursor-default',
                   chosen && result?.correct && 'border-ink bg-ink text-paper',
-                  chosen && result && !result.correct && 'border-ember-text bg-[color-mix(in_oklab,var(--tint-raw-0)_50%,transparent)]',
+                  chosen && result && !result.correct && 'border-[var(--ray-2)] bg-butter',
                   !(chosen && result) && 'border-ink/25 hover:border-ink hover:bg-mark/40',
                 )}
               >
@@ -119,6 +136,7 @@ export function ProblemCard({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 inputMode={problem.kind === 'number' ? 'decimal' : 'text'}
+                autoFocus={autoFocus}
                 autoComplete="off"
                 placeholder={problem.kind === 'number' ? 'Ответ числом' : 'Ваш ответ'}
                 className="h-12 w-full rounded-ctl border-[1.5px] border-ink/25 bg-paper px-3.5 pr-20 text-[17px] transition-[border-color,box-shadow] hover:border-ink/50 focus-visible:border-ink focus-visible:shadow-[0_0_0_4px_var(--mark)] focus-visible:outline-none"
@@ -136,13 +154,15 @@ export function ProblemCard({
         {result && !result.correct && result.solution === null && (
           <motion.p
             key={`wrong-${wrong}`}
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: [0, -5, 5, -3, 0] }}
-            transition={{ duration: 0.4 }}
-            className="text-[16px] text-ember-text"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-2 rounded-ctl bg-butter px-3.5 py-2.5 text-[16px]"
             role="status"
           >
-            Не совсем. {wrong === 1 ? 'Попробуйте ещё раз — или возьмите подсказку.' : 'Ещё попытка — и откроем разбор.'}
+            <span aria-hidden="true">🟡</span>
+            <span>
+              <b>Почти!</b> {wrong === 1 ? 'Проверьте вычисления — или загляните в подсказку, она рядом.' : 'Ещё одна попытка — и откроем разбор по шагам. Ошибаться здесь можно, так и учатся.'}
+            </span>
           </motion.p>
         )}
         {result?.correct && (

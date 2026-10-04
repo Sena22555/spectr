@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { rl } from '../lib/limits.js';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../lib/auth.js';
@@ -102,7 +103,7 @@ export async function meRoutes(app: FastifyInstance) {
     return { requests };
   });
 
-  app.post('/me/reschedules', async (req, reply) => {
+  app.post('/me/reschedules', { config: rl(10, '10 minutes') }, async (req, reply) => {
     const body = z
       .object({
         lessonId: z.string(),
@@ -135,7 +136,7 @@ export async function meRoutes(app: FastifyInstance) {
     return { tickets };
   });
 
-  app.post('/me/tickets', async (req) => {
+  app.post('/me/tickets', { config: rl(10, '10 minutes') }, async (req) => {
     const body = z
       .object({ subject: z.string().trim().min(3, 'Тема слишком короткая').max(140), body: z.string().trim().min(1).max(4000) })
       .parse(req.body);
@@ -165,7 +166,7 @@ export async function meRoutes(app: FastifyInstance) {
     return { ticket };
   });
 
-  app.post('/me/tickets/:id/messages', async (req, reply) => {
+  app.post('/me/tickets/:id/messages', { config: rl(30, '10 minutes') }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const { body } = z.object({ body: z.string().trim().min(1).max(4000) }).parse(req.body);
     const ticket = await prisma.supportTicket.findFirst({ where: { id, userId: req.user.sub } });

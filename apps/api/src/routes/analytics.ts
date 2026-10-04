@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { rl } from '../lib/limits.js';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../lib/auth.js';
@@ -15,7 +16,7 @@ const INTEREST = /^\/(subjects|teachers|groups|practice|book)/;
 
 export async function analyticsRoutes(app: FastifyInstance) {
   // ——— сбор ———
-  app.post('/track', async (req) => {
+  app.post('/track', { config: rl(120, '1 minute') }, async (req) => {
     const visitorId = visitorIdOf(req);
     if (!visitorId) return { ok: false };
     const body = z
@@ -242,7 +243,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     });
 
     // Написать человеку в мессенджер от имени школы
-    admin.post('/admin/people/:kind/:id/message', async (req, reply) => {
+    admin.post('/admin/people/:kind/:id/message', { config: rl(60, '1 hour') }, async (req, reply) => {
       const { kind, id } = req.params as { kind: string; id: string };
       const { text } = z.object({ text: z.string().trim().min(1).max(3500) }).parse(req.body);
       const chats = await chatsOf(kind, id);
@@ -255,7 +256,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     });
 
     // Рассылка по сегменту через ботов
-    admin.post('/admin/broadcast', async (req, reply) => {
+    admin.post('/admin/broadcast', { config: rl(10, '1 hour') }, async (req, reply) => {
       const body = z.object({ segment: z.enum(['warm', 'booked', 'practice', 'bot', 'students', 'all']), text: z.string().trim().min(1).max(3500), dry: z.boolean().optional() }).parse(req.body);
       const people = (await buildPeople()).filter((p) => p.kind !== 'visitor' && p.chats.length);
       const target = people.filter((p) => inSegment(p, body.segment));

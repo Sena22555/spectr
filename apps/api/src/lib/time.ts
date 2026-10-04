@@ -13,3 +13,6 @@ export const fmtWhen = (d: Date) =>
 export const fmtTime = (d: Date) => new Intl.DateTimeFormat('ru-RU', { timeZone: SCHOOL_TZ, hour: '2-digit', minute: '2-digit' }).format(d);
 
 export const fmtDate = (d: Date) => new Intl.DateTimeFormat('ru-RU', { timeZone: SCHOOL_TZ, day: 'numeric', month: 'long' }).format(d);
+
+/** День недели по часам школы: 0 — воскресенье … 6 — суббота. */
+export const schoolWeekday = (d = new Date()) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { timeZone: SCHOOL_TZ, weekday: 'short' }).format(d));

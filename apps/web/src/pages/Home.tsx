@@ -30,6 +30,7 @@ import { GroupCard, SubjectRow, TeacherCard } from '../components/Cards';
 import { NextLesson } from '../components/LessonCards';
 import { LogoMark } from '../components/Logo';
 import { PracticeBand } from '../components/practice/PracticeBand';
+import { ParentsBand } from '../components/ParentsBand';
 import { DailyTask } from '../components/practice/DailyTask';
 import { usePractice } from '../lib/practice';
 import { Reveal } from '../components/Reveal';
@@ -140,6 +141,7 @@ function Landing() {
       <LessonFeature />
       <ScheduleFeature />
       <Audience />
+      <ParentsBand />
       <FactsWheel teachers={teachers.data?.length} subjects={subjects.data?.length} groups={groups.data?.length} />
 
       {/* Преподаватели */}

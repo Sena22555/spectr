@@ -90,3 +90,10 @@ export const SOURCE_LABEL: Record<string, string> = {
   bot_telegram: 'Бот в Telegram',
   bot_max: 'Бот в MAX',
 };
+
+/** Хранить события больше 400 дней незачем — чистим раз в сутки. */
+export function startEventPruning() {
+  const prune = () => prisma.event.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 400 * 86_400_000) } } }).catch(() => {});
+  setTimeout(prune, 60_000);
+  setInterval(prune, 86_400_000);
+}

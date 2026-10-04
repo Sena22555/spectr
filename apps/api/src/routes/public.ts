@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { rl } from '../lib/limits.js';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { getBotUsername, getMaxUsername, notifyNewBooking } from '../bot/index.js';
@@ -113,7 +114,7 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   // Заявка на пробное занятие / запись. Работает и без аккаунта.
-  app.post('/bookings', async (req) => {
+  app.post('/bookings', { config: rl(5, '10 minutes') }, async (req) => {
     let userId: string | undefined;
     try {
       await req.jwtVerify();

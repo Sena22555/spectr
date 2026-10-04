@@ -13,20 +13,22 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String?  @unique
-  passwordHash  String?
-  name          String
-  phone         String?
-  avatarUrl     String?
+  id               String    @id @default(cuid())
+  email            String?   @unique
+  passwordHash     String?
+  name             String
+  phone            String?
+  avatarUrl        String?
   // STUDENT | TEACHER | ADMIN
-  role          String   @default("STUDENT")
-  telegramId    String?  @unique
-  vkId          String?  @unique
-  maxId         String?  @unique
-  emailVerified Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  role             String    @default("STUDENT")
+  telegramId       String?   @unique
+  vkId             String?   @unique
+  maxId            String?   @unique
+  emailVerified    Boolean   @default(false)
+  // токены, выданные раньше этого момента, недействительны («выйти на всех устройствах», смена пароля)
+  tokensValidAfter DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   teacher          Teacher?
   memberships      GroupMember[]
@@ -272,6 +274,9 @@ model BotPlayer {
   dailyPushDay String?
   // ссылка из рекламы или от друга: откуда пришёл
   source       String?
+  // класс для тренажёра в боте (5–11) и сколько решено в нём
+  grade        Int?
+  trainSolved  Int      @default(0)
 }
 
 // Отправленные напоминания о занятиях, чтобы не слать дважды
@@ -398,4 +403,27 @@ model AssignmentMark {
   updatedAt    DateTime   @updatedAt
 
   @@unique([assignmentId, userId])
+}
+
+// ─── Родителям ───
+
+// Ссылка для родителя: открывает отчёт об успехах ребёнка без входа в аккаунт
+model ParentLink {
+  token     String    @id
+  userId    String
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+// Родитель подписался в боте на еженедельный отчёт
+model ParentSub {
+  id        String   @id @default(cuid())
+  token     String
+  chatId    String
+  lastSent  String?
+  createdAt DateTime @default(now())
+
+  @@unique([token, chatId])
 }
