@@ -29,6 +29,9 @@ import { BookingForm, useSubjects, useTeachers } from '../components/BookingForm
 import { GroupCard, SubjectRow, TeacherCard } from '../components/Cards';
 import { NextLesson } from '../components/LessonCards';
 import { LogoMark } from '../components/Logo';
+import { PracticeBand } from '../components/practice/PracticeBand';
+import { DailyTask } from '../components/practice/DailyTask';
+import { usePractice } from '../lib/practice';
 import { Reveal } from '../components/Reveal';
 import {
   ArrowDoodle,
@@ -118,6 +121,7 @@ function Landing() {
       <Hero subjects={subjects.data} />
       <ProductBand />
       <Ticker items={subjects.data?.map((s) => s.title) ?? ['Математика', 'Физика', 'Информатика', 'Английский язык']} />
+      <PracticeBand />
 
       {/* Шаги */}
       <Container className="pt-24 text-center">
@@ -415,7 +419,12 @@ function Hero({ subjects }: { subjects?: Subject[] }) {
               Выбрать преподавателя
             </ButtonLink>
           </div>
-          <p className="t-mono text-[12.5px] text-muted">без регистрации · заявка за минуту</p>
+          <p className="t-mono text-[12.5px] text-muted">
+            без регистрации · заявка за минуту ·{' '}
+            <Link to="/practice" className="link text-ink">
+              бесплатный практикум →
+            </Link>
+          </p>
         </motion.div>
       </div>
 
@@ -434,7 +443,7 @@ function Hero({ subjects }: { subjects?: Subject[] }) {
 function ProductBand() {
   const links = useQuery({
     queryKey: ['config'],
-    queryFn: () => api<{ telegramUrl: string | null; vkUrl: string | null }>('/config'),
+    queryFn: () => api<{ telegramUrl: string | null; vkUrl: string | null; maxUrl?: string | null }>('/config'),
     staleTime: Infinity,
   });
   return (
@@ -460,6 +469,7 @@ function ProductBand() {
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <MessengerLink href={links.data?.telegramUrl ?? import.meta.env.VITE_TELEGRAM_APP_URL} label="Открыть в Telegram" />
           <MessengerLink href={links.data?.vkUrl ?? import.meta.env.VITE_VK_APP_URL} label="Открыть во ВКонтакте" />
+          {links.data?.maxUrl && <MessengerLink href={links.data.maxUrl} label="Открыть в MAX" />}
         </div>
       </Container>
     </section>
@@ -1107,6 +1117,7 @@ function Rail({ children }: { children: React.ReactNode[] }) {
 function MiniHome() {
   const { user, loading } = useAuth();
   const subjects = useSubjects();
+  const practice = usePractice();
   const teachers = useTeachers();
   const overview = useQuery({
     queryKey: ['overview'],
@@ -1167,6 +1178,21 @@ function MiniHome() {
               Войти в кабинет
             </ButtonLink>
           </div>
+        </section>
+      )}
+
+      {practice.data && (
+        <section className="flex flex-col gap-4">
+          <SectionTitle
+            action={
+              <Link to="/practice" className="link text-[16px]">
+                Практикум
+              </Link>
+            }
+          >
+            Задача дня
+          </SectionTitle>
+          <DailyTask daily={practice.data.daily} className="mt-3" />
         </section>
       )}
 

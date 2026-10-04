@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../lib/auth.js';
+import { notifyTicketFromWeb } from '../bot/index.js';
 
 const lessonInclude = {
   teacher: { select: { slug: true, subject: true, hue: true, photoUrl: true, user: { select: { name: true } } } },
@@ -145,6 +146,7 @@ export async function meRoutes(app: FastifyInstance) {
         messages: { create: { body: body.body, authorId: req.user.sub } },
       },
     });
+    void notifyTicketFromWeb(ticket.id, `${body.subject}\n\n${body.body}`, req.user.sub);
     return { ticket };
   });
 
@@ -170,6 +172,7 @@ export async function meRoutes(app: FastifyInstance) {
     if (!ticket) return reply.code(404).send({ error: 'Обращение не найдено' });
     const message = await prisma.ticketMessage.create({ data: { ticketId: id, authorId: req.user.sub, body } });
     await prisma.supportTicket.update({ where: { id }, data: { status: 'OPEN' } });
+    void notifyTicketFromWeb(id, body, req.user.sub);
     return { message };
   });
 }

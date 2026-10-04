@@ -6,7 +6,7 @@ import bridge from '@vkontakte/vk-bridge';
 import { api } from './api';
 import type { User } from './types';
 
-export type Platform = 'web' | 'telegram' | 'vk';
+export type Platform = 'web' | 'telegram' | 'vk' | 'max';
 
 interface TelegramWebApp {
   initData: string;
@@ -21,14 +21,26 @@ interface TelegramWebApp {
   HapticFeedback?: { impactOccurred(style: 'light' | 'medium' | 'heavy'): void; notificationOccurred(t: 'success' | 'error' | 'warning'): void };
 }
 
+interface MaxWebApp {
+  initData: string;
+  initDataUnsafe?: { start_param?: string };
+  platform?: string;
+  ready?(): void;
+  close?(): void;
+  BackButton?: { show(): void; hide(): void; onClick(cb: () => void): void; offClick?(cb: () => void): void };
+  HapticFeedback?: { impactOccurred(style: string): void; notificationOccurred?(t: string): void };
+}
+
 declare global {
   interface Window {
     Telegram?: { WebApp: TelegramWebApp };
+    WebApp?: MaxWebApp;
   }
 }
 
 const VK_KEY = 'spectr.vk-launch';
 const TG_KEY = 'spectr.tg';
+const MAX_KEY = 'spectr.max';
 
 function safeSession(get: () => string | null) {
   try {
@@ -40,6 +52,8 @@ function safeSession(get: () => string | null) {
 
 function detect(): Platform {
   if (/tgWebApp/.test(window.location.hash) || safeSession(() => sessionStorage.getItem(TG_KEY))) return 'telegram';
+  // MAX передаёт параметры запуска во фрагменте URL (WebAppData=…)
+  if (/(^|[#&])WebAppData=/.test(window.location.hash) || safeSession(() => sessionStorage.getItem(MAX_KEY))) return 'max';
   const q = new URLSearchParams(window.location.search);
   if (q.has('vk_app_id') && q.has('sign')) return 'vk';
   if (safeSession(() => sessionStorage.getItem(VK_KEY))) return 'vk';
@@ -50,6 +64,7 @@ export const platform: Platform = detect();
 export const isMiniApp = platform !== 'web';
 
 let tg: TelegramWebApp | undefined;
+let mx: MaxWebApp | undefined;
 
 function loadScript(src: string) {
   return new Promise<void>((resolve, reject) => {
@@ -103,6 +118,21 @@ export async function initPlatform() {
     }
   }
 
+  if (platform === 'max') {
+    try {
+      sessionStorage.setItem(MAX_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    try {
+      await loadScript('https://st.max.ru/js/max-web-app.js');
+      mx = window.WebApp?.initData ? window.WebApp : undefined;
+      mx?.ready?.();
+    } catch {
+      /* мост не загрузился — работаем как сайт */
+    }
+  }
+
   if (platform === 'vk') {
     const search = window.location.search;
     if (search.includes('vk_app_id')) {
@@ -121,6 +151,14 @@ export async function initPlatform() {
 // ——— Кнопка «Назад» в Telegram ———
 let backHandler: (() => void) | null = null;
 export function setTelegramBack(visible: boolean, onBack: () => void) {
+  if (mx?.BackButton) {
+    if (backHandler) mx.BackButton.offClick?.(backHandler);
+    backHandler = onBack;
+    mx.BackButton.onClick(onBack);
+    if (visible) mx.BackButton.show();
+    else mx.BackButton.hide();
+    return;
+  }
   if (!tg) return;
   if (backHandler) tg.BackButton.offClick(backHandler);
   backHandler = onBack;
@@ -130,6 +168,15 @@ export function setTelegramBack(visible: boolean, onBack: () => void) {
 }
 
 export function haptic(kind: 'tap' | 'success' | 'error' = 'tap') {
+  if (mx?.HapticFeedback) {
+    try {
+      if (kind === 'tap') mx.HapticFeedback.impactOccurred('light');
+      else mx.HapticFeedback.notificationOccurred?.(kind);
+    } catch {
+      /* старые клиенты */
+    }
+    return;
+  }
   const h = tg?.HapticFeedback;
   if (h) {
     if (kind === 'tap') h.impactOccurred('light');
@@ -150,6 +197,9 @@ export async function miniAppLogin(): Promise<{ token: string; user: User } | nu
   try {
     if (platform === 'telegram' && tg?.initData) {
       return await api('/auth/telegram', { method: 'POST', json: { initData: tg.initData } });
+    }
+    if (platform === 'max' && mx?.initData) {
+      return await api('/auth/max', { method: 'POST', json: { initData: mx.initData } });
     }
     if (platform === 'vk') {
       const search = safeSession(() => sessionStorage.getItem(VK_KEY)) ?? window.location.search;
@@ -173,4 +223,21 @@ export const platformLabel: Record<Platform, string> = {
   web: 'Сайт',
   telegram: 'Telegram',
   vk: 'ВКонтакте',
+  max: 'MAX',
 };
+
+/**
+ * Страница, на которую просили открыть мини-приложение (диплинк ?startapp=…).
+ * Бот кодирует путь: «/» → «__», «#» → «___», например practice__physics__refraction.
+ */
+export function startPath(): string | null {
+  let param: string | null | undefined = null;
+  if (platform === 'max') param = mx?.initDataUnsafe?.start_param;
+  if (platform === 'telegram') {
+    const raw = (tg as unknown as { initDataUnsafe?: { start_param?: string } } | undefined)?.initDataUnsafe?.start_param;
+    param = raw;
+  }
+  if (!param || param === 'home') return null;
+  if (!/^[A-Za-z0-9_-]{1,200}$/.test(param)) return null;
+  return `/${param.replace(/___/g, '#').replace(/__/g, '/')}`;
+}

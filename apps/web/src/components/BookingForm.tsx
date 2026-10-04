@@ -7,6 +7,7 @@ import { Button, Choice, Input, Select, Textarea } from './ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { haptic } from '../lib/platform';
+import { trackEvent } from '../lib/track';
 import type { Subject, TeacherCard } from '../lib/types';
 
 export function useSubjects() {
@@ -17,7 +18,7 @@ export function useTeachers() {
 }
 
 /** Запись на занятие. Работает без аккаунта; если вошли — подставляем имя и контакт. */
-export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { subjectSlug?: string; teacherSlug?: string; compact?: boolean }) {
+export function BookingForm({ subjectSlug, teacherSlug, note, compact = false }: { subjectSlug?: string; teacherSlug?: string; note?: string; compact?: boolean }) {
   const { user } = useAuth();
   const subjects = useSubjects();
   const teachers = useTeachers();
@@ -28,8 +29,14 @@ export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { sub
     teacherSlug: teacherSlug ?? '',
     format: 'INDIVIDUAL' as 'INDIVIDUAL' | 'GROUP',
     preferredTime: '',
-    comment: '',
+    comment: note ?? '',
   });
+  const [opened, setOpened] = useState(false);
+  const markOpened = () => {
+    if (opened) return;
+    setOpened(true);
+    trackEvent('book_open');
+  };
 
   useEffect(() => {
     if (user) setForm((f) => ({ ...f, name: f.name || user.name, contact: f.contact || user.phone || user.email || '' }));
@@ -93,6 +100,7 @@ export function BookingForm({ subjectSlug, teacherSlug, compact = false }: { sub
   return (
     <form
       className={compact ? 'grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : 'grid gap-5 sm:grid-cols-2'}
+      onFocusCapture={markOpened}
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate();

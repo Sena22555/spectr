@@ -439,3 +439,27 @@
 
   .pb-safe { padding-bottom: calc(var(--safe-bottom) + 76px); }
 }
+
+/* ——— Ползунки лабораторных ——— */
+.lab-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--r) 0 var(--pct), rgb(26 51 0 / 0.14) var(--pct) 100%);
+}
+.lab-range::-moz-range-track { height: 6px; border-radius: 999px; background: rgb(26 51 0 / 0.14); }
+.lab-range::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--r); }
+.lab-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 0 2px 0 var(--ink);
+  transition: transform 0.2s var(--ease-back);
+}
+.lab-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 999px; background: var(--paper); border: 2px solid var(--ink); }
+.lab-range:active::-webkit-slider-thumb { transform: scale(1.15); }
+.lab-range:focus-visible { outline: none; }
+.lab-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--mark), 0 2px 0 var(--ink); }

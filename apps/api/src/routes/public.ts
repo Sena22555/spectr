@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { getBotUsername, notifyNewBooking } from '../bot/index.js';
+import { getBotUsername, getMaxUsername, notifyNewBooking } from '../bot/index.js';
+import { track, visitorIdOf } from '../lib/track.js';
 
 const teacherCard = {
   id: true,
@@ -21,6 +22,7 @@ export async function publicRoutes(app: FastifyInstance) {
     return {
       telegramUrl: process.env.TELEGRAM_APP_URL || (bot ? `https://t.me/${bot}` : null),
       vkUrl: process.env.VK_APP_URL || null,
+      maxUrl: process.env.MAX_APP_URL || (getMaxUsername() ? `https://max.ru/${getMaxUsername()}` : null),
     };
   });
 
@@ -132,6 +134,7 @@ export async function publicRoutes(app: FastifyInstance) {
       .parse(req.body);
     const booking = await prisma.booking.create({ data: { ...body, userId } });
     void notifyNewBooking(booking);
+    void track({ type: 'booking', visitorId: visitorIdOf(req), userId, label: body.courseId ?? body.teacherSlug ?? null });
     return { booking };
   });
 }

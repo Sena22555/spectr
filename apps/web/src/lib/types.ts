@@ -9,6 +9,7 @@ export interface User {
   role: Role;
   telegramLinked: boolean;
   vkLinked: boolean;
+  maxLinked?: boolean;
   emailVerified: boolean;
   teacherId: string | null;
   teacherSlug: string | null;

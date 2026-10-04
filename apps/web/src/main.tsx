@@ -42,6 +42,14 @@ const AdminTeachers = lazy(() => import('./pages/admin/Teachers'));
 const AdminSubjects = lazy(() => import('./pages/admin/Subjects'));
 const AdminRequests = lazy(() => import('./pages/admin/Requests'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
+const AdminPeople = lazy(() => import('./pages/admin/People'));
+const AdminPerson = lazy(() => import('./pages/admin/Person'));
+const PracticeCatalog = lazy(() => import('./pages/practice/Catalog'));
+const PracticeTopic = lazy(() => import('./pages/practice/Topic'));
+const PracticeDiagnostic = lazy(() => import('./pages/practice/Diagnostic'));
+const Homework = lazy(() => import('./pages/app/Homework'));
+const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
 const s = (el: React.ReactNode) => (
   <Suspense
@@ -71,6 +79,9 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'groups', element: s(<Groups />) },
           { path: 'groups/:slug', element: s(<Group />) },
           { path: 'book', element: s(<Book />) },
+          { path: 'practice', element: s(<PracticeCatalog />) },
+          { path: 'practice/check/:subject', element: s(<PracticeDiagnostic />) },
+          { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },
           { path: 'reset', element: <ResetPassword /> },
@@ -83,6 +94,7 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
         children: [
           { index: true, element: s(<Dashboard />) },
           { path: 'schedule', element: s(<Schedule />) },
+          { path: 'homework', element: s(<Homework />) },
           { path: 'requests', element: s(<Requests />) },
           { path: 'support', element: s(<Support />) },
           { path: 'support/:id', element: s(<Ticket />) },
@@ -95,6 +107,7 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
         children: [
           { index: true, element: s(<TeachToday />) },
           { path: 'lessons', element: s(<TeachLessons />) },
+          { path: 'homework', element: s(<TeachHomework />) },
           { path: 'students', element: s(<TeachStudents />) },
           { path: 'requests', element: s(<TeachRequests />) },
           { path: 'groups', element: s(<TeachGroups />) },
@@ -113,6 +126,9 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'subjects', element: s(<AdminSubjects />) },
           { path: 'requests', element: s(<AdminRequests />) },
           { path: 'tickets', element: s(<AdminTickets />) },
+          { path: 'analytics', element: s(<AdminAnalytics />) },
+          { path: 'people', element: s(<AdminPeople />) },
+          { path: 'people/:kind/:id', element: s(<AdminPerson />) },
         ],
       },
     ],
@@ -121,6 +137,19 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 } },
+});
+
+// Сайт обновился, пока вкладка была открыта: старые файлы сборки уже удалены — перезагружаемся один раз
+window.addEventListener('vite:preloadError', (e) => {
+  try {
+    const last = Number(sessionStorage.getItem('spectr.reload') ?? 0);
+    if (Date.now() - last < 10_000) return;
+    sessionStorage.setItem('spectr.reload', String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+  e.preventDefault();
+  window.location.reload();
 });
 
 initPlatform().finally(() => {

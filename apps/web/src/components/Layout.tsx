@@ -2,15 +2,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import clsx from 'clsx';
-import { CalendarDays, Home, Menu, UserRound, UsersRound, X } from 'lucide-react';
+import { CalendarDays, Home, Menu, Puzzle, UserRound, X } from 'lucide-react';
 import { Logo } from './Logo';
 import { PencilBuddy } from './Doodles';
 import { Avatar, ButtonLink, Loading } from './ui';
 import { useAuth } from '../lib/auth';
-import { isMiniApp, setTelegramBack } from '../lib/platform';
+import { isMiniApp, setTelegramBack, startPath } from '../lib/platform';
+import { trackView } from '../lib/track';
 import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
+  { to: '/practice', label: 'Практикум', badge: 'бесплатно' },
   { to: '/teachers', label: 'Преподаватели' },
   { to: '/subjects', label: 'Предметы' },
   { to: '/groups', label: 'Группы' },
@@ -18,14 +20,24 @@ const PUBLIC_NAV = [
 
 
 /** Корневая оболочка: Telegram-«Назад», скролл наверх при переходе */
+let startHandled = false;
+
 export function Root() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    window.scrollTo(0, 0);
-    const roots = ['/', '/app', '/app/schedule', '/teachers', '/teach', '/admin'];
-    setTelegramBack(!roots.includes(location.pathname), () => navigate(-1));
+    // мини-приложение открыли диплинком из бота — сразу ведём на нужную страницу
+    if (startHandled) return;
+    startHandled = true;
+    const target = startPath();
+    if (target && target !== location.pathname) navigate(target, { replace: true });
   }, [location.pathname, navigate]);
+  useEffect(() => {
+    if (!location.hash) window.scrollTo(0, 0);
+    const roots = ['/', '/app', '/app/schedule', '/practice', '/teach', '/admin'];
+    setTelegramBack(!roots.includes(location.pathname), () => navigate(-1));
+  }, [location.pathname, location.hash, navigate]);
+  useEffect(() => trackView(location.pathname), [location.pathname]);
   return (
     <>
       <Outlet />
@@ -161,6 +173,7 @@ function SiteHeader() {
               }
             >
               {n.label}
+              {'badge' in n && n.badge && <span className="t-mono ml-1.5 rounded-full bg-[var(--tint-raw-3)] px-1.5 py-0.5 align-[1px] text-[10px] text-[var(--ink-3)]">{n.badge}</span>}
             </NavLink>
           ))}
         </nav>
@@ -307,7 +320,7 @@ export function BottomTabs() {
   const tabs = [
     { to: '/', label: 'Главная', Icon: Home, end: true },
     { to: teacher ? '/teach' : '/app/schedule', label: teacher ? 'Занятия' : 'Расписание', Icon: CalendarDays, end: false },
-    { to: '/teachers', label: 'Преподаватели', Icon: UsersRound, end: false },
+    { to: '/practice', label: 'Практикум', Icon: Puzzle, end: false },
     { to: user ? '/app' : '/login', label: user ? 'Кабинет' : 'Войти', Icon: UserRound, end: true },
   ];
   return (
@@ -355,6 +368,8 @@ function sectionsFor(role: Role, hasTeacher: boolean) {
       items: [
         { to: '/app', label: 'Обзор', end: true },
         { to: '/app/schedule', label: 'Расписание' },
+        { to: '/app/homework', label: 'Домашка' },
+        { to: '/practice', label: 'Практикум' },
         { to: '/app/requests', label: 'Переносы' },
         { to: '/app/support', label: 'Поддержка' },
       ],
@@ -366,6 +381,7 @@ function sectionsFor(role: Role, hasTeacher: boolean) {
       items: [
         { to: '/teach', label: 'Сегодня', end: true },
         { to: '/teach/lessons', label: 'Занятия' },
+        { to: '/teach/homework', label: 'Домашние задания' },
         { to: '/teach/students', label: 'Ученики' },
         { to: '/teach/requests', label: 'Переносы' },
         { to: '/teach/groups', label: 'Группы и фото' },
@@ -377,6 +393,8 @@ function sectionsFor(role: Role, hasTeacher: boolean) {
       title: 'Школа',
       items: [
         { to: '/admin', label: 'Сводка', end: true },
+        { to: '/admin/analytics', label: 'Аналитика' },
+        { to: '/admin/people', label: 'Люди и воронка' },
         { to: '/admin/bookings', label: 'Заявки на запись' },
         { to: '/admin/lessons', label: 'Расписание' },
         { to: '/admin/groups', label: 'Группы' },

@@ -8,6 +8,9 @@ import { homeFor } from '../../components/Layout';
 import { LessonRow, NextLesson } from '../../components/LessonCards';
 import { GroupCard } from '../../components/Cards';
 import { ButtonLink, Empty, Loading, SectionTitle } from '../../components/ui';
+import { DailyTask } from '../../components/practice/DailyTask';
+import { usePractice } from '../../lib/practice';
+import { useMyHomework } from './Homework';
 import type { GroupCard as Group, Lesson } from '../../lib/types';
 
 interface Overview {
@@ -28,6 +31,9 @@ export default function Dashboard() {
       api<{ lessons: Lesson[] }>(`/me/schedule?from=${new Date().toISOString()}&to=${new Date(Date.now() + 7 * 86_400_000).toISOString()}`).then((r) => r.lessons),
   });
   const groups = useQuery({ queryKey: ['my-groups'], queryFn: () => api<{ groups: Group[] }>('/me/groups').then((r) => r.groups) });
+  const homework = useMyHomework();
+  const practice = usePractice();
+  const pendingHw = homework.data?.filter((a) => !a.complete) ?? [];
 
   if (user && user.role !== 'STUDENT') return <Navigate to={homeFor(user.role)} replace />;
   const o = overview.data;
@@ -57,6 +63,19 @@ export default function Dashboard() {
         >
           Как только администратор подберёт преподавателя и время, занятие появится здесь вместе со ссылкой.
         </Empty>
+      )}
+
+      {pendingHw.length > 0 && (
+        <Link to="/app/homework" className="hue-1 lift group flex items-center justify-between gap-4 rounded-[14px] bg-tint p-5 no-underline hover:-translate-y-0.5">
+          <span className="flex flex-col">
+            <span className="t-mono text-[11px] text-hue">домашка</span>
+            <span className="lift-title t-heading text-[22px]">
+              {pendingHw.length} {plural(pendingHw.length, 'задание ждёт', 'задания ждут', 'заданий ждут')}: {pendingHw[0]!.title}
+              {pendingHw.length > 1 ? ' и др.' : ''}
+            </span>
+          </span>
+          <ArrowRight className="size-5 shrink-0" />
+        </Link>
       )}
 
       {o && (o.pendingRequests > 0 || o.openTickets > 0) && (
@@ -97,6 +116,21 @@ export default function Dashboard() {
           <p className="py-6 text-muted">На ближайшие семь дней других занятий нет.</p>
         )}
       </section>
+
+      {practice.data && (
+        <section className="flex flex-col gap-6">
+          <SectionTitle
+            action={
+              <Link to="/practice" className="link inline-flex items-center gap-1.5 text-[16px]">
+                Весь практикум <ArrowRight className="size-4" strokeWidth={1.7} />
+              </Link>
+            }
+          >
+            Разминка дня
+          </SectionTitle>
+          <DailyTask daily={practice.data.daily} className="mt-2" />
+        </section>
+      )}
 
       {groups.data && groups.data.length > 0 && (
         <section>

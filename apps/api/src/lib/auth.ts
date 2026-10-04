@@ -40,6 +40,7 @@ export function publicUser(u: User & { teacher?: { id: string; slug: string } | 
     role: u.role as Role,
     telegramLinked: Boolean(u.telegramId),
     vkLinked: Boolean(u.vkId),
+    maxLinked: Boolean(u.maxId),
     emailVerified: u.emailVerified,
     teacherId: u.teacher?.id ?? null,
     teacherSlug: u.teacher?.slug ?? null,

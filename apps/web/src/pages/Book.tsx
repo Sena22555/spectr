@@ -19,7 +19,7 @@ export default function Book() {
         </ol>
       </div>
       <div className="rounded-card bg-bone p-5 sm:p-8">
-        <BookingForm subjectSlug={params.get('subject') ?? undefined} teacherSlug={params.get('teacher') ?? undefined} />
+        <BookingForm subjectSlug={params.get('subject') ?? undefined} teacherSlug={params.get('teacher') ?? undefined} note={params.get('note') ?? undefined} />
       </div>
     </Container>
   );

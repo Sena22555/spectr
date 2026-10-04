@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { fmtFull, STATUS_LABEL } from '../../lib/format';
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from '../../components/ui';
@@ -43,11 +44,7 @@ export default function Bookings() {
                 {b.status === 'NEW' && <Badge tone="ember">Новая</Badge>}
                 {b.name}
               </p>
-              <p className="text-[16px]">
-                <a className="link" href={/^\+?\d/.test(b.contact) ? `tel:${b.contact}` : b.contact.includes('@') && !b.contact.startsWith('@') ? `mailto:${b.contact}` : `https://t.me/${b.contact.replace('@', '')}`}>
-                  {b.contact}
-                </a>
-              </p>
+              <p className="text-[16px]">{contactHref(b.contact) ? <a className="link" href={contactHref(b.contact)!} target="_blank" rel="noreferrer">{b.contact}</a> : b.contact}</p>
               <p className="t-caption text-muted">{fmtFull(b.createdAt)}</p>
             </div>
             <div className="flex flex-col gap-1 text-[16px]">
@@ -57,7 +54,11 @@ export default function Bookings() {
               {b.teacherSlug && <p className="t-caption text-muted">Хочет к: {b.teacherSlug}</p>}
               {b.preferredTime && <p className="t-caption text-muted">Время: {b.preferredTime}</p>}
               {b.comment && <p className="t-caption">«{b.comment}»</p>}
-              {b.user && <p className="t-caption text-muted">Есть аккаунт: {b.user.email ?? b.user.name}</p>}
+              {b.user && (
+                <Link to={`/admin/people/user/${b.user.id}`} className="t-caption link w-fit">
+                  Аккаунт: {b.user.email ?? b.user.name} — что смотрел
+                </Link>
+              )}
             </div>
             <div className="flex flex-wrap items-start gap-1 md:justify-end" role="group" aria-label="Статус заявки">
               {FLOW.map((s) => (
@@ -79,4 +80,16 @@ export default function Bookings() {
       </ul>
     </div>
   );
+}
+
+/** Ссылка по контакту: телефон, почта или ник в Telegram. */
+function contactHref(contact: string) {
+  const c = contact.trim();
+  const email = c.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  if (email) return `mailto:${email[0]}`;
+  const tg = c.match(/(?:^|\s)@([A-Za-z0-9_]{4,32})\b/);
+  if (tg) return `https://t.me/${tg[1]}`;
+  const phone = c.replace(/[^\d+]/g, '');
+  if (/^\+?\d{6,15}$/.test(phone)) return `tel:${phone}`;
+  return null;
 }

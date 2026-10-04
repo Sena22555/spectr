@@ -30,9 +30,9 @@ export default function Profile() {
       setTimeout(() => setSaved(false), 2500);
     },
   });
-  // Открываем бота с одноразовым кодом: бот привяжет этот Telegram к аккаунту
+  // Открываем бота с одноразовым кодом: бот привяжет этот мессенджер к аккаунту
   const linkTg = useMutation({
-    mutationFn: () => api<{ url: string }>('/auth/link/telegram/start', { method: 'POST', json: {} }),
+    mutationFn: (platform: 'telegram' | 'max') => api<{ url: string }>(`/auth/link/${platform}/start`, { method: 'POST', json: {} }),
     onSuccess: ({ url }) => {
       window.location.href = url;
     },
@@ -115,6 +115,7 @@ export default function Profile() {
             { label: 'Сайт', on: Boolean(user.email), note: user.email ? `вход по почте ${user.email}` : 'почта не указана' },
             { label: 'Telegram', on: user.telegramLinked, note: user.telegramLinked ? 'привязан' : 'откройте школу в Telegram, чтобы привязать' },
             { label: 'ВКонтакте', on: user.vkLinked, note: user.vkLinked ? 'привязан' : 'откройте школу во ВКонтакте, чтобы привязать' },
+            { label: 'MAX', on: Boolean(user.maxLinked), note: user.maxLinked ? 'привязан' : 'привяжите кнопкой ниже' },
           ].map((r) => (
             <li key={r.label} className="flex items-center justify-between gap-4 border-b border-hair-soft py-3">
               <span className="text-[17px]">{r.label}</span>
@@ -122,13 +123,22 @@ export default function Profile() {
             </li>
           ))}
         </ul>
-        {!user.telegramLinked && (
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" variant="secondary" loading={linkTg.isPending} onClick={() => linkTg.mutate()}>
-              Привязать Telegram
-            </Button>
+        {(!user.telegramLinked || !user.maxLinked) && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              {!user.telegramLinked && (
+                <Button type="button" variant="secondary" loading={linkTg.isPending && linkTg.variables === 'telegram'} onClick={() => linkTg.mutate('telegram')}>
+                  Привязать Telegram
+                </Button>
+              )}
+              {!user.maxLinked && (
+                <Button type="button" variant="secondary" loading={linkTg.isPending && linkTg.variables === 'max'} onClick={() => linkTg.mutate('max')}>
+                  Привязать MAX
+                </Button>
+              )}
+            </div>
             <span className="t-caption text-muted">
-              {linkTg.error ? (linkTg.error as Error).message : 'Бот пришлёт расписание и ссылку на урок за 15 минут до начала'}
+              {linkTg.error ? (linkTg.error as Error).message : 'Бот пришлёт расписание, домашку и ссылку на урок за 15 минут до начала. Если мессенджер был привязан к другому вашему аккаунту — он перейдёт на этот.'}
             </span>
           </div>
         )}

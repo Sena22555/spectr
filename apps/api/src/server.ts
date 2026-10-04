@@ -14,6 +14,9 @@ import { teacherRoutes } from './routes/teacher.js';
 import { adminRoutes } from './routes/admin.js';
 import { uploadRoutes, UPLOAD_DIR } from './routes/uploads.js';
 import { startBot } from './bot/index.js';
+import { practiceRoutes } from './routes/practice.js';
+import { analyticsRoutes } from './routes/analytics.js';
+import { homeworkRoutes } from './routes/homework.js';
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
 
@@ -49,6 +52,9 @@ await app.register(
     await api.register(teacherRoutes);
     await api.register(adminRoutes);
     await api.register(uploadRoutes);
+    await api.register(practiceRoutes);
+    await api.register(analyticsRoutes);
+    await api.register(homeworkRoutes);
   },
   { prefix: '/api' },
 );
@@ -59,6 +65,10 @@ if (process.env.SERVE_WEB === '1' && existsSync(webDist)) {
   await app.register(fastifyStatic, { root: webDist, prefix: '/', wildcard: false });
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api')) return reply.code(404).send({ error: 'Не найдено' });
+    // файла сборки нет (сайт обновился) — честный 404, а не index.html, иначе браузер получит HTML вместо скрипта
+    if (req.url.startsWith('/assets/')) return reply.code(404).send('Not found');
+    // index.html не кешируем, чтобы после обновления сайта сразу подхватывалась новая сборка
+    reply.header('cache-control', 'no-cache');
     return reply.sendFile('index.html', webDist);
   });
 }

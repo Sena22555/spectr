@@ -7,7 +7,8 @@ import { verifyTelegramInitData, verifyVkLaunchParams } from '../lib/miniapp.js'
 import type { Role } from '../lib/enums.js';
 import { consumeCode, issueCode } from '../lib/codes.js';
 import { LETTERS, sendMail } from '../lib/mail.js';
-import { getBotUsername } from '../bot/index.js';
+import { getBotUsername, getMaxUsername } from '../bot/index.js';
+import { linkVisitor, track, visitorIdOf } from '../lib/track.js';
 import { randomBytes } from 'node:crypto';
 
 const registerSchema = z.object({
@@ -42,6 +43,8 @@ export async function authRoutes(app: FastifyInstance) {
       },
       include: { teacher: true },
     });
+    void linkVisitor(visitorIdOf(req), user.id);
+    void track({ type: 'register', visitorId: visitorIdOf(req), userId: user.id });
     const code = await issueCode(body.email, 'VERIFY');
     if (code) await sendMail(body.email, LETTERS.verify(user.name, code)).catch((err) => app.log.error(err, 'письмо с кодом не ушло'));
     return { token: sign(user.id, user.role), user: publicUser(user) };
@@ -103,6 +106,8 @@ export async function authRoutes(app: FastifyInstance) {
     if (!user?.passwordHash || !(await bcrypt.compare(body.password, user.passwordHash))) {
       return reply.code(401).send({ error: 'Неверный email или пароль' });
     }
+    void linkVisitor(visitorIdOf(req), user.id);
+    void track({ type: 'login', visitorId: visitorIdOf(req), userId: user.id });
     return { token: sign(user.id, user.role), user: publicUser(user) };
   });
 
@@ -125,7 +130,29 @@ export async function authRoutes(app: FastifyInstance) {
         },
         include: { teacher: true },
       });
+      void track({ type: 'register', visitorId: visitorIdOf(req), userId: user.id, label: 'telegram' });
     }
+    void linkVisitor(visitorIdOf(req), user.id);
+    return { token: sign(user.id, user.role), user: publicUser(user) };
+  });
+
+  // Вход из мини-приложения MAX: initData подписан ботом MAX по тому же алгоритму, что и в Telegram
+  app.post('/auth/max', async (req, reply) => {
+    const token = process.env.MAX_BOT_TOKEN;
+    if (!token) return reply.code(501).send({ error: 'Вход через MAX ещё не настроен' });
+    const { initData } = z.object({ initData: z.string().min(1) }).parse(req.body);
+    const mx = verifyTelegramInitData(initData, token);
+    if (!mx) return reply.code(401).send({ error: 'Подпись MAX не прошла проверку' });
+    const maxId = String(mx.id);
+    let user = await prisma.user.findUnique({ where: { maxId }, include: { teacher: true } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: { maxId, name: [mx.first_name, mx.last_name].filter(Boolean).join(' ') || mx.username || 'Ученик', avatarUrl: mx.photo_url },
+        include: { teacher: true },
+      });
+      void track({ type: 'register', visitorId: visitorIdOf(req), userId: user.id, label: 'max' });
+    }
+    void linkVisitor(visitorIdOf(req), user.id);
     return { token: sign(user.id, user.role), user: publicUser(user) };
   });
 
@@ -164,14 +191,16 @@ export async function authRoutes(app: FastifyInstance) {
     return { user: publicUser(user) };
   });
 
-  // Привязать Telegram через бота: одноразовая ссылка t.me/<бот>?start=l_<код>, живёт 15 минут
-  app.post('/auth/link/telegram/start', { preHandler: authenticate }, async (req, reply) => {
-    const bot = getBotUsername();
-    if (!bot) return reply.code(501).send({ error: 'Telegram-бот ещё не подключён' });
+  // Привязать мессенджер через бота: одноразовая ссылка на бота с кодом l_<код>, живёт 15 минут
+  app.post('/auth/link/:platform/start', { preHandler: authenticate }, async (req, reply) => {
+    const { platform } = req.params as { platform: string };
+    const bot = platform === 'max' ? getMaxUsername() : platform === 'telegram' ? getBotUsername() : null;
+    if (!bot) return reply.code(501).send({ error: platform === 'max' ? 'Бот в MAX ещё не подключён' : 'Telegram-бот ещё не подключён' });
+    // код из [A-Za-z0-9_-] и короче 128 символов — подходит и для Telegram, и для MAX
     const code = randomBytes(12).toString('base64url');
     await prisma.telegramLinkCode.deleteMany({ where: { OR: [{ userId: req.user.sub }, { expiresAt: { lt: new Date() } }] } });
     await prisma.telegramLinkCode.create({ data: { code, userId: req.user.sub, expiresAt: new Date(Date.now() + 15 * 60_000) } });
-    return { url: `https://t.me/${bot}?start=l_${code}` };
+    return { url: platform === 'max' ? `https://max.ru/${bot}?start=l_${code}` : `https://t.me/${bot}?start=l_${code}` };
   });
 
   app.get('/auth/me', { preHandler: authenticate }, async (req, reply) => {

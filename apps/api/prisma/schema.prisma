@@ -13,28 +13,30 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String?  @unique
-  passwordHash String?
-  name         String
-  phone        String?
-  avatarUrl    String?
+  id            String   @id @default(cuid())
+  email         String?  @unique
+  passwordHash  String?
+  name          String
+  phone         String?
+  avatarUrl     String?
   // STUDENT | TEACHER | ADMIN
-  role         String   @default("STUDENT")
-  telegramId   String?  @unique
-  vkId         String?  @unique
-  emailVerified Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role          String   @default("STUDENT")
+  telegramId    String?  @unique
+  vkId          String?  @unique
+  maxId         String?  @unique
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   teacher          Teacher?
   memberships      GroupMember[]
-  lessonsAsStudent Lesson[]           @relation("LessonStudent")
+  lessonsAsStudent Lesson[]            @relation("LessonStudent")
   bookings         Booking[]
   reschedules      RescheduleRequest[]
   tickets          SupportTicket[]
   ticketMessages   TicketMessage[]
   enrollments      Enrollment[]
+  assignments      Assignment[]
 }
 
 model Teacher {
@@ -52,32 +54,33 @@ model Teacher {
   published  Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  groups  Group[]
-  lessons Lesson[]
-  courses Course[]
+  groups      Group[]
+  lessons     Lesson[]
+  courses     Course[]
+  assignments Assignment[]
 }
 
 model Course {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  title       String
-  summary     String
-  description String
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  summary       String
+  description   String
   // SCHOOL | UNIVERSITY — университетские курсы подключатся позже
-  source      String   @default("SCHOOL")
-  university  String?
+  source        String   @default("SCHOOL")
+  university    String?
   // Кому: SCHOOL — школьникам, STUDENTS — студентам, ALL — всем
-  audience    String   @default("SCHOOL")
-  level       String   @default("Любой")
-  format      String   @default("Группа")
-  durationWeeks Int    @default(8)
-  priceFrom   Int      @default(0)
-  hue         Int      @default(0)
-  published   Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  audience      String   @default("SCHOOL")
+  level         String   @default("Любой")
+  format        String   @default("Группа")
+  durationWeeks Int      @default(8)
+  priceFrom     Int      @default(0)
+  hue           Int      @default(0)
+  published     Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
   teacherId   String?
-  teacher     Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  teacher     Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   groups      Group[]
   bookings    Booking[]
   enrollments Enrollment[]
@@ -112,9 +115,10 @@ model Group {
   teacherId String?
   teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
 
-  members GroupMember[]
-  photos  GroupPhoto[]
-  lessons Lesson[]
+  members     GroupMember[]
+  photos      GroupPhoto[]
+  lessons     Lesson[]
+  assignments Assignment[]
 }
 
 model GroupMember {
@@ -171,21 +175,21 @@ model Booking {
   status        String   @default("NEW")
   createdAt     DateTime @default(now())
 
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  courseId  String?
-  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  courseId    String?
+  course      Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
   teacherSlug String?
 }
 
 model RescheduleRequest {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   reason     String
   proposedAt DateTime?
   // PENDING | APPROVED | DECLINED
-  status     String   @default("PENDING")
+  status     String    @default("PENDING")
   reply      String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   lessonId String
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -235,24 +239,39 @@ model EmailCode {
 
 // Каждый, кто запускал бота: прогресс в игре «Радуга знаний», приглашения, настройки
 model BotPlayer {
-  chatId     String   @id
-  firstName  String
-  username   String?
+  chatId       String   @id
+  firstName    String
+  username     String?
   // собранные цвета радуги, по биту на цвет (7 бит)
-  colors     Int      @default(0)
-  rainbows   Int      @default(0)
-  streak     Int      @default(0)
-  bestStreak Int      @default(0)
+  colors       Int      @default(0)
+  rainbows     Int      @default(0)
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
   // день по Москве (YYYY-MM-DD), когда играл последний раз, и сколько вопросов в этот день
-  lastDay    String?
-  todayCount Int      @default(0)
+  lastDay      String?
+  todayCount   Int      @default(0)
   // лишние вопросы за приглашённых друзей
-  bonus      Int      @default(0)
-  invitedBy  String?
-  invited    Int      @default(0)
-  colorTest  String?
-  reminders  Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  bonus        Int      @default(0)
+  invitedBy    String?
+  invited      Int      @default(0)
+  colorTest    String?
+  reminders    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  // telegram | max. У MAX chatId хранится с префиксом «max:»
+  platform     String   @default("telegram")
+  lastName     String?
+  // сообщение-«экран», которое бот редактирует вместо отправки новых
+  screenId     String?
+  lastSeen     DateTime @default(now())
+  // «Задача дня»: последний решённый день, серия, общее число решённых
+  dailyDay     String?
+  dailyStreak  Int      @default(0)
+  dailySolved  Int      @default(0)
+  // напоминать о задаче дня вечером
+  dailyPush    Boolean  @default(true)
+  dailyPushDay String?
+  // ссылка из рекламы или от друга: откуда пришёл
+  source       String?
 }
 
 // Отправленные напоминания о занятиях, чтобы не слать дважды
@@ -270,7 +289,8 @@ model BotRelay {
   id             String   @id @default(cuid())
   adminChatId    String
   adminMessageId Int
-  userChatId     String
+  userChatId     String?
+  ticketId       String?
   createdAt      DateTime @default(now())
 
   @@unique([adminChatId, adminMessageId])
@@ -281,4 +301,101 @@ model TelegramLinkCode {
   code      String   @id
   userId    String
   expiresAt DateTime
+}
+
+// ─── Аналитика ───
+
+// Посетитель сайта или мини-приложения: id генерирует браузер и хранит у себя
+model Visitor {
+  id          String   @id
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  visits      Int      @default(1)
+  views       Int      @default(0)
+  // web | telegram | vk | max
+  platform    String   @default("web")
+  // откуда пришёл в первый раз: direct | search | social | telegram | vk | max | referral | ads
+  source      String   @default("direct")
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  landing     String?
+  device      String?
+  userId      String?
+
+  @@index([userId])
+  @@index([lastSeen])
+}
+
+// Событие: просмотр страницы, начало записи, решённая задача, действие в боте и т. д.
+model Event {
+  id        String   @id @default(cuid())
+  visitorId String?
+  userId    String?
+  // для событий из ботов: id игрока (BotPlayer.chatId)
+  playerId  String?
+  type      String
+  path      String?
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([visitorId])
+  @@index([userId])
+  @@index([playerId])
+  @@index([type, createdAt])
+}
+
+// ─── Практикум ───
+
+// Попытка решить задачу из практикума (гость или ученик)
+model PracticeAttempt {
+  id        String   @id @default(cuid())
+  problemId String
+  topic     String
+  visitorId String?
+  userId    String?
+  playerId  String?
+  correct   Boolean
+  answer    String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([visitorId])
+  @@index([problemId])
+}
+
+// Домашнее задание: задачи практикума и/или своё задание от преподавателя
+model Assignment {
+  id         String    @id @default(cuid())
+  title      String
+  note       String    @default("")
+  // id задач практикума через запятую
+  problemIds String    @default("")
+  dueAt      DateTime?
+  createdAt  DateTime  @default(now())
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  groupId   String?
+  group     Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   User?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  marks AssignmentMark[]
+}
+
+// Отметка ученика по домашке: «сделал» и ответ на своё задание преподавателя
+model AssignmentMark {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId       String
+  done         Boolean    @default(false)
+  answer       String     @default("")
+  comment      String     @default("")
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assignmentId, userId])
 }

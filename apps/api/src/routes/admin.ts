@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { publicUser, requireRole } from '../lib/auth.js';
+import { notifyTicketReply } from '../bot/index.js';
 import { BOOKING_STATUS, COURSE_SOURCE, ENROLLMENT_STATUS, LESSON_STATUS, ROLES, TICKET_STATUS } from '../lib/enums.js';
 
 const slugify = (s: string) =>
@@ -343,6 +344,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { body } = z.object({ body: z.string().trim().min(1).max(4000) }).parse(req.body);
     const message = await prisma.ticketMessage.create({ data: { ticketId: id, authorId: req.user.sub, body } });
     await prisma.supportTicket.update({ where: { id }, data: { status: 'ANSWERED' } });
+    void notifyTicketReply(id, body);
     return { message };
   });
 

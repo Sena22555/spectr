@@ -20,6 +20,23 @@ export function setToken(token: string | null) {
 
 let memoryToken: string | null = null;
 
+// id посетителя для аналитики: живёт в браузере, по нему видно путь человека до записи
+const VISITOR_KEY = 'spectr.vid';
+let memoryVisitor: string | null = null;
+export function visitorId() {
+  if (memoryVisitor) return memoryVisitor;
+  try {
+    memoryVisitor = localStorage.getItem(VISITOR_KEY);
+    if (!memoryVisitor) {
+      memoryVisitor = crypto.randomUUID?.() ?? `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(VISITOR_KEY, memoryVisitor);
+    }
+  } catch {
+    memoryVisitor ??= `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return memoryVisitor;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -40,6 +57,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     headers: {
       ...(json !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      'x-visitor': visitorId(),
       ...headers,
     },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
