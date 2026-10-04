@@ -110,7 +110,15 @@ cd "$APP_DIR/app/apps/api"
 FIRST=0
 [ -f "$APP_DIR/data/spectr.db" ] || FIRST=1
 set -a; . "$APP_DIR/.env"; set +a
-npx prisma db push
+# перед изменением схемы — копия базы (хранятся 10 последних)
+if [ "$FIRST" = "0" ]; then
+  mkdir -p "$APP_DIR/backups"
+  cp "$APP_DIR/data/spectr.db" "$APP_DIR/backups/spectr-$(date +%Y%m%d-%H%M%S).db"
+  chmod 600 "$APP_DIR/backups/"*.db
+  ls -1t "$APP_DIR/backups/"*.db | tail -n +11 | xargs -r rm -f
+fi
+# --accept-data-loss: Prisma перестраховывается даже на новых уникальных полях; копия базы уже сделана выше
+npx prisma db push --accept-data-loss
 if [ "$FIRST" = "1" ]; then
   npx tsx prisma/seed.ts
 fi
