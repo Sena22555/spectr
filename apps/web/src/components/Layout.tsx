@@ -14,6 +14,7 @@ import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
   { to: '/practice', label: 'Практикум', badge: 'бесплатно' },
+  { to: '/tournament', label: 'Турнир' },
   { to: '/teachers', label: 'Преподаватели' },
   { to: '/subjects', label: 'Предметы' },
   { to: '/groups', label: 'Группы' },

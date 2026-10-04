@@ -52,6 +52,8 @@ const PracticeTrainers = lazy(() => import('./pages/practice/Trainers'));
 const PracticeTrain = lazy(() => import('./pages/practice/Train'));
 const PracticeProgress = lazy(() => import('./pages/practice/Progress'));
 const Parents = lazy(() => import('./pages/Parents'));
+const Tournament = lazy(() => import('./pages/tournament/Tournament'));
+const Certificate = lazy(() => import('./pages/tournament/Certificate'));
 const Homework = lazy(() => import('./pages/app/Homework'));
 const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
@@ -89,6 +91,8 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'practice/train/:id', element: s(<PracticeTrain />) },
           { path: 'practice/progress', element: s(<PracticeProgress />) },
           { path: 'parents/:token', element: s(<Parents />) },
+          { path: 'tournament', element: s(<Tournament />) },
+          { path: 'tournament/certificate/:id', element: s(<Certificate />) },
           { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },

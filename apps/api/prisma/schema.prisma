@@ -427,3 +427,27 @@ model ParentSub {
 
   @@unique([token, chatId])
 }
+
+// ─── Турнир недели ───
+
+model TournamentEntry {
+  id         String    @id @default(cuid())
+  // неделя по ISO, например 2026-W41
+  week       String
+  // junior (5–6), middle (7–8), oge (9), ege (10–11)
+  league     String
+  userId     String?
+  visitorId  String?
+  name       String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  score      Int       @default(0)
+  timeMs     Int       @default(0)
+  // ответы участника JSON-строкой
+  answers    String    @default("")
+  hidden     Boolean   @default(false)
+
+  @@index([week, league])
+  @@index([userId])
+  @@index([visitorId])
+}

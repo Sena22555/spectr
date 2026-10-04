@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, BookOpen, Check, Clock, Dumbbell, FlaskConical, Gauge, Sparkles, Target, Trophy } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, Clock, Dumbbell, FlaskConical, Gauge, Medal, Sparkles, Target, Trophy } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { Reveal } from '../../components/Reveal';
 import { DailyTask } from '../../components/practice/DailyTask';
@@ -47,12 +47,13 @@ export default function PracticeCatalog() {
         </dl>
       </header>
 
-      <nav aria-label="Разделы практикума" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <nav aria-label="Разделы практикума" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { to: '/practice/trainers', title: 'Сборник 5–11 класс', text: 'Бесконечные тренажёры по классам', hue: 1, Icon: Dumbbell },
           { to: '/practice/trainers?tab=exams', title: 'ОГЭ и ЕГЭ', text: 'Задания по номерам экзамена', hue: 5, Icon: Target },
           { to: '#topics', title: 'Темы с теорией', text: 'Коротко, с формулами и опытами', hue: 3, Icon: BookOpen },
           { to: '/practice/check/math', title: 'Проверить уровень', text: '5 минут, без оценок', hue: 2, Icon: Gauge },
+          { to: '/tournament', title: 'Турнир недели', text: '10 задач, сертификат каждому', hue: 0, Icon: Medal },
           { to: '/practice/progress', title: 'Мой прогресс', text: 'Достижения и отчёт для родителей', hue: 6, Icon: Trophy },
         ].map(({ to, title, text, hue, Icon }) =>
           to.startsWith('#') ? (
