@@ -6,18 +6,10 @@ import { GAMES } from './content.js';
 
 const FACTS: Record<'lingo' | 'math' | 'physics' | 'code', string[]> = {
   lingo: [
-    'to be: I am, he/she/it is, we/you/they are. Прошедшее: was (I, he, she, it), were (we, you, they).',
-    'Present Simple — регулярно: I play, he plays; вопрос Do you…? Does he…?; отрицание don’t/doesn’t + глагол без -s.',
-    'Present Continuous — сейчас: am/is/are + -ing (I am reading now).',
-    'Past Simple: правильные + ed (played), неправильные — вторая форма (go → went, see → saw); вопрос Did you go?',
-    'Present Perfect: have/has + третья форма (I have seen). Опыт и результат без точного времени; с yesterday/ago — Past Simple.',
-    'Будущее: will — решения и прогнозы (I’ll help), be going to — планы (I’m going to travel).',
-    'Условные: If it rains, we will stay (1 тип). If I were rich, I would travel (2 тип). После if будущее не ставим.',
-    'Пассив: be + третья форма: Paper is made of wood. The house was built in 1900.',
-    'Артикли: a/an — один из многих, впервые; the — конкретный, уже известный, единственный (the sun).',
-    'Степени сравнения: big → bigger → the biggest; interesting → more interesting → the most interesting; good → better → the best.',
-    'Модальные: can — умею, must — обязательно, mustn’t — нельзя, should — совет, have to — приходится.',
-    'Уровни: Starter → A1 → A2 → B1 (B1 — уровень ОГЭ).',
+    'to be: I am, he is, they are; прошлое was/were. Present Simple: he plays, Do you…? Present Continuous: I am reading now.',
+    'Past Simple: played, went (go), saw (see); вопрос Did you…? Present Perfect: have/has + V3 (I have seen) — опыт без точного времени.',
+    'Будущее: will — решение/прогноз, be going to — план. If it rains, we will stay (1 тип); If I were rich, I would… (2 тип).',
+    'Артикли: a/an — один из многих, the — конкретный. Сравнение: bigger, the biggest; good → better → the best.',
   ],
   math: [
     'Дроби: складываем через общий знаменатель (1/2 + 1/3 = 3/6 + 2/6 = 5/6); умножаем числители и знаменатели.',

@@ -24,7 +24,7 @@ function systemPrompt(game: Persona) {
   return [
     `Ты — ${p.name}, помощник по ${p.subject} в онлайн-школе «Спектр» для школьников 5–11 класса.`,
     'Говори дружески и по-молодёжному, на «ты», можно немного сленга («го», «изи», «норм», «лайфхак»). Без мата и насмешек.',
-    'Пиши только по-русски, простыми словами. Объясняй по шагам с коротким примером. 3–7 предложений.',
+    'Пиши только по-русски, простыми словами. Объясняй по шагам с коротким примером. Коротко: 2–5 предложений.',
     game === 'lingo' ? 'Английские примеры пиши по-английски с переводом в скобках.' : 'Формулы пиши обычным текстом (x² + 2x = 0, v = s / t), без LaTeX.',
     'Опирайся на шпаргалку ниже — это проверенные факты. Не выдумывай. Если не уверен — честно скажи и посоветуй спросить преподавателя «Спектра».',
     'Держись школьной программы. Если ученик ошибся — скажи «почти» и покажи, где ошибка. Домашку целиком не решай: подскажи ход и попроси сделать последний шаг.',
@@ -141,6 +141,7 @@ export async function aiRoutes(app: FastifyInstance) {
         messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(800) })).min(1).max(12),
         where: z.string().max(120).optional(),
         mode: z.enum(['help', 'talk']).default('help'),
+        voice: z.boolean().default(false),
         level: z.string().max(10).optional(),
       })
       .parse(req.body);
@@ -169,6 +170,8 @@ export async function aiRoutes(app: FastifyInstance) {
     const messages: ChatMsg[] = talk
       ? [{ role: 'system', content: talkPrompt }, ...body.messages.slice(-8)]
       : [{ role: 'system', content: systemPrompt(body.game) }, ...(about ? [{ role: 'system' as const, content: about }] : []), ...body.messages.slice(-8)];
+    // голосовой разговор: коротко, как в живой беседе, без формул и списков
+    if (body.voice && !talk) messages.splice(messages.length - 1, 0, { role: 'system', content: 'Это голосовой разговор: ответь очень коротко — 1–3 предложения, разговорно, без списков и без формул из символов.' });
     void track({ type: 'ai_chat', userId, visitorId, label: body.game });
 
     reply.hijack();
@@ -190,6 +193,7 @@ export async function aiRoutes(app: FastifyInstance) {
     };
     try {
       await chatStream(
+        body.voice || talk ? 150 : 260,
         messages,
         (t) => {
           full += t;

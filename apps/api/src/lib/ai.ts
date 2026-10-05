@@ -197,13 +197,13 @@ export interface ChatMsg {
 }
 
 /** Потоковый ответ модели: вызывает onToken для каждого кусочка текста. */
-export async function chatStream(messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal) {
+export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal) {
   active++;
   try {
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
       headers: llmHeaders(),
-      body: JSON.stringify({ ...llmModel(), messages, stream: true, max_tokens: 380, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
+      body: JSON.stringify({ ...llmModel(), messages, stream: true, max_tokens: maxTokens, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
     });
     if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);

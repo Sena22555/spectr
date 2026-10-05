@@ -42,9 +42,13 @@ export function unlockAudio() {
   });
 }
 
+let pendingResolve: ((ok: boolean) => void) | null = null;
+
 export function stopVoice() {
   queueToken++;
   player?.pause();
+  pendingResolve?.(false);
+  pendingResolve = null;
   try {
     window.speechSynthesis?.cancel();
   } catch {
@@ -58,10 +62,20 @@ export function playUrl(url: string): Promise<boolean> {
     player ??= new Audio();
     const a = player;
     a.pause();
-    a.onended = () => resolve(true);
-    a.onerror = () => resolve(false);
+    // предыдущая фраза оборвана — её промис тоже завершаем
+    pendingResolve?.(false);
+    let settled = false;
+    const done = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (pendingResolve === done) pendingResolve = null;
+      resolve(ok);
+    };
+    pendingResolve = done;
+    a.onended = () => done(true);
+    a.onerror = () => done(false);
     a.src = url;
-    a.play().catch(() => resolve(false));
+    a.play().catch(() => done(false));
   });
 }
 
@@ -88,6 +102,8 @@ export function speakStream(item: { t: string; v: string; sig?: string }) {
   void fetch(url).catch(() => undefined);
   streamChain = streamChain.then(() => (token === streamToken ? playUrl(url) : undefined));
 }
+/** Промис: всё, что поставлено в потоковую речь, договорено. */
+export const streamIdle = () => streamChain.then(() => undefined);
 export function resetStream() {
   streamToken++;
   streamChain = Promise.resolve();
