@@ -21,7 +21,8 @@ function inline(text: string, key: string): ReactNode[] {
 }
 
 export function Markdown({ text }: { text: string }) {
-  const src = text.replace(/\\\(|\\\)|\\\[|\\\]/g, '$').replace(/^#{1,4}\s*/gm, '');
+  // «P.S.» и ремарки модели не показываем
+  const src = text.replace(/\\\(|\\\)|\\\[|\\\]/g, '$').replace(/^#{1,4}\s*/gm, '').replace(/\s*P\.?\s?S\.?[^\n]*/g, '');
   const lines = src.split('\n');
   const blocks: ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
