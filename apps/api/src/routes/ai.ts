@@ -4,6 +4,7 @@ import { rl } from '../lib/limits.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
 import { EN_VOICE, chatOnce, chatStream, checkSpeechSig, llmBusy, llmEnabled, signSpeech, speakable, speech, ttsEnabled, type ChatMsg } from '../lib/ai.js';
 import { COACH_NAMES, COACH_VOICE, coachLines, coachTexts, type CoachId } from '../games/coach.js';
+import { knowledge } from '../games/knowledge.js';
 import { progressFor } from '../lib/progress.js';
 import { englishTexts } from '../english/content.js';
 
@@ -17,21 +18,19 @@ const PERSONAS = {
 } as const;
 type Persona = keyof typeof PERSONAS;
 
-function systemPrompt(game: Persona, studentNotes: string[], extra: string | null) {
+/** Постоянная часть подсказки (кешируется моделью): характер, правила и проверенная шпаргалка предмета. */
+function systemPrompt(game: Persona) {
   const p = PERSONAS[game];
   return [
     `Ты — ${p.name}, помощник по ${p.subject} в онлайн-школе «Спектр» для школьников 5–11 класса.`,
     'Говори дружески и по-молодёжному, на «ты», можно немного сленга («го», «изи», «норм», «лайфхак»). Без мата и насмешек.',
     'Пиши только по-русски, простыми словами. Объясняй по шагам с коротким примером. 3–7 предложений.',
-    game === 'lingo' ? 'Английские примеры пиши по-английски с переводом в скобках.' : 'Формулы пиши обычным текстом (x² + 2x = 0, v = s / t), без LaTeX и без знаков \\( \\).',
-    'Держись школьной программы, без тем из университета. Если ученик ошибся — скажи «почти» и покажи, где ошибка.',
-    'Домашку целиком не решай: подскажи ход и попроси сделать последний шаг самому. Не спрашивай личные данные.',
-    `Если вопрос не про учёбу — мягко верни к ${p.subject}. Если не уверен — честно скажи и посоветуй спросить преподавателя «Спектра».`,
-    studentNotes.length ? `Об ученике: ${studentNotes.join(' ')}` : '',
-    extra ? `Ученик сейчас в разделе: ${extra}.` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
+    game === 'lingo' ? 'Английские примеры пиши по-английски с переводом в скобках.' : 'Формулы пиши обычным текстом (x² + 2x = 0, v = s / t), без LaTeX.',
+    'Опирайся на шпаргалку ниже — это проверенные факты. Не выдумывай. Если не уверен — честно скажи и посоветуй спросить преподавателя «Спектра».',
+    'Держись школьной программы. Если ученик ошибся — скажи «почти» и покажи, где ошибка. Домашку целиком не решай: подскажи ход и попроси сделать последний шаг.',
+    `Не спрашивай личные данные. Если вопрос не про учёбу — мягко верни к ${p.subject}.`,
+    `Шпаргалка:\n${knowledge(game)}`,
+  ].join('\n');
 }
 
 export async function aiRoutes(app: FastifyInstance) {
@@ -124,7 +123,11 @@ export async function aiRoutes(app: FastifyInstance) {
       'If the student writes in Russian, translate the idea into simple English, and ask them to try saying it in English.',
       'Be warm and fun. No rude words. Do not ask for personal data (address, phone, surname).',
     ].join('\n');
-    const messages: ChatMsg[] = [{ role: 'system', content: talk ? talkPrompt : systemPrompt(body.game, notes, body.where ?? null) }, ...body.messages.slice(-8)];
+    // переменная часть — отдельным сообщением после постоянной, чтобы кеш модели не сбрасывался
+    const about = [notes.length ? `Об ученике: ${notes.join(' ')}` : '', body.where ? `Ученик сейчас в разделе: ${body.where}.` : ''].filter(Boolean).join('\n');
+    const messages: ChatMsg[] = talk
+      ? [{ role: 'system', content: talkPrompt }, ...body.messages.slice(-8)]
+      : [{ role: 'system', content: systemPrompt(body.game) }, ...(about ? [{ role: 'system' as const, content: about }] : []), ...body.messages.slice(-8)];
     void track({ type: 'ai_chat', userId, visitorId, label: body.game });
 
     reply.hijack();

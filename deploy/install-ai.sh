@@ -10,6 +10,8 @@ VOICE=en_GB-jenny_dioco-medium
 
 mkdir -p "$AI/models" "$AI/voices" "$AI/tts-cache"
 chown -R "$OWNER:$OWNER" "$AI"
+# кеш озвучки пишет сам сайт (пользователь spectr-school)
+id spectr-school >/dev/null 2>&1 && chown -R spectr-school:spectr-school "$AI/tts-cache"
 
 echo "==> ffmpeg и venv"
 DEBIAN_FRONTEND=noninteractive apt-get install -y -q ffmpeg python3-venv >/dev/null

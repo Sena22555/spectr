@@ -9,6 +9,9 @@ import { join } from 'node:path';
 
 const TTS_URL = () => process.env.TTS_URL ?? '';
 const LLM_URL = () => process.env.LLM_URL ?? '';
+// можно подключить внешнюю модель с OpenAI-совместимым API (например, YandexGPT): ключ и имя модели
+const llmHeaders = (): Record<string, string> => ({ 'content-type': 'application/json', ...(process.env.LLM_KEY ? { authorization: process.env.LLM_KEY.includes(' ') ? process.env.LLM_KEY : `Bearer ${process.env.LLM_KEY}` } : {}) });
+const llmModel = () => (process.env.LLM_MODEL ? { model: process.env.LLM_MODEL } : {});
 const CACHE = () => process.env.TTS_CACHE ?? join(process.cwd(), 'tts-cache');
 
 export const ttsEnabled = () => Boolean(TTS_URL());
@@ -143,8 +146,8 @@ export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: 
   try {
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.8, top_p: 0.9, repeat_penalty: 1.1 }),
+      headers: llmHeaders(),
+      body: JSON.stringify({ ...llmModel(), messages, max_tokens: maxTokens, temperature: 0.8, top_p: 0.9, cache_prompt: true }),
       signal: signal ?? AbortSignal.timeout(40_000),
     });
     if (!res.ok) throw new Error(`llm ${res.status}`);
@@ -171,8 +174,8 @@ export async function chatStream(messages: ChatMsg[], onToken: (t: string) => vo
   try {
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ messages, stream: true, max_tokens: 380, temperature: 0.6, top_p: 0.9, repeat_penalty: 1.1 }),
+      headers: llmHeaders(),
+      body: JSON.stringify({ ...llmModel(), messages, stream: true, max_tokens: 380, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
     });
     if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);
