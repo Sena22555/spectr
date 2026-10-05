@@ -59,10 +59,11 @@ echo "==> llama.cpp"
 docker pull -q ghcr.io/ggml-org/llama.cpp:server >/dev/null
 docker rm -f spectr-llm >/dev/null 2>&1 || true
 docker run -d --name spectr-llm --restart unless-stopped \
-  -p 127.0.0.1:8090:8080 --memory 2600m --cpus 2 \
+  -p 127.0.0.1:8090:8080 --memory 2900m --cpus 2 \
   -v "$AI/models:/models:ro" \
   ghcr.io/ggml-org/llama.cpp:server \
-  -m "/models/$MODEL" -c 4096 -t 2 --parallel 1 --host 0.0.0.0 --port 8080 >/dev/null
+  -m "/models/$MODEL" -c 16384 -t 2 --parallel 4 -ctk q8_0 -ctv q8_0 --flash-attn on --host 0.0.0.0 --port 8080 >/dev/null
+# 4 слота: у каждого помощника (Лина, Матвей, Фотон, Байт) своя закешированная шпаргалка
 
 # сайту — адреса нейросетей
 ENV=/opt/spectr-school/.env
