@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Нейросети «Спектра» на том же сервере: озвучка (Piper: английский и русские голоса) и чат-помощники (Qwen2.5-3B в llama.cpp).
+# Нейросети «Спектра» на том же сервере: озвучка (Piper), распознавание речи (Whisper) и чат-помощники
+# (RuadaptQwen3-4B — Qwen3, дообученная на русском, в llama.cpp).
 # Оба сервиса слушают только 127.0.0.1 — снаружи к ним не достучаться, ходит только сайт.
 # Запуск (с sudo): bash deploy/install-ai.sh
 set -euo pipefail
 AI=/opt/spectr-ai
 OWNER="${SUDO_USER:-deploy}"
-MODEL=qwen2.5-3b-instruct-q4_k_m.gguf
+MODEL=ruadapt-qwen3-4b-instruct-iq4_xs.gguf
 VOICE=en_GB-jenny_dioco-medium
 
 mkdir -p "$AI/models" "$AI/voices" "$AI/tts-cache"
@@ -17,7 +18,7 @@ echo "==> ffmpeg и venv"
 DEBIAN_FRONTEND=noninteractive apt-get install -y -q ffmpeg python3-venv >/dev/null
 
 echo "==> модель чата"
-[ -s "$AI/models/$MODEL" ] || sudo -u "$OWNER" curl -sSfL -o "$AI/models/$MODEL" "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/$MODEL"
+[ -s "$AI/models/$MODEL" ] || sudo -u "$OWNER" curl -sSfL -o "$AI/models/$MODEL" "https://huggingface.co/RefalMachine/RuadaptQwen3-4B-Instruct-GGUF/resolve/main/IQ4_XS.gguf"
 
 echo "==> голоса"
 for f in "$VOICE.onnx" "$VOICE.onnx.json"; do
@@ -90,8 +91,9 @@ docker run -d --name spectr-llm --restart unless-stopped \
   -p 127.0.0.1:8090:8080 --memory 3300m --cpus 2 \
   -v "$AI/models:/models:ro" \
   ghcr.io/ggml-org/llama.cpp:server \
-  -m "/models/$MODEL" -c 18432 -t 2 --parallel 6 -ctk q8_0 -ctv q8_0 --flash-attn on --host 0.0.0.0 --port 8080 >/dev/null
-# 6 слотов: у каждого помощника (Лина, Матвей, Фотон, Байт, разговорная практика) своя закешированная подсказка
+  -m "/models/$MODEL" -c 6144 -t 2 --parallel 2 -ctk q8_0 -ctv q4_0 --flash-attn on --cache-ram 192 --host 0.0.0.0 --port 8080 >/dev/null
+# --cache-ram 192: прочитанные подсказки всех помощников хранятся в памяти и подставляются в любой слот.
+# По умолчанию llama.cpp берёт под это до 8 ГБ — на нашем сервере это вытесняло модель на диск и давало «лаги».
 
 # сайту — адреса нейросетей
 ENV=/opt/spectr-school/.env

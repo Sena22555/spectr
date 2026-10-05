@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
 import { Headphones, Mic, Phone, PhoneOff, Send, Trash2, X } from 'lucide-react';
 import { apiHeaders } from '../../lib/api';
-import { RichText } from '../Tex';
+import { Markdown } from './Markdown';
 import { COACH_FACE, useCoachData } from '../../lib/coach';
 import { GAME_META, savedEnLevel, type GameKey } from '../../lib/games';
 import { canRecognize, canRecord, listenSpeech, resetStream, speakStream, stopVoice, streamIdle, unlockAudio } from '../../lib/voice';
@@ -362,13 +362,14 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             <p
               key={i}
               className={clsx(
-                'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed whitespace-pre-wrap shadow-sticker',
+                'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
+                m.role === 'user' && 'whitespace-pre-wrap',
                 m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
               )}
             >
               {m.content ? (
                 m.role === 'assistant' ? (
-                  <RichText text={m.content.replace(/\\\(|\\\)|\\\[|\\\]/g, '$').replace(/\*\*/g, '')} />
+                  <Markdown text={m.content} />
                 ) : (
                   m.content
                 )

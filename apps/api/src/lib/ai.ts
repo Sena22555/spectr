@@ -5,7 +5,7 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 // Нейросети на том же сервере (deploy/install-ai.sh):
-// озвучка — Piper (TTS_URL), распознавание — Whisper (STT_URL), чат — Qwen2.5-3B в llama.cpp (LLM_URL).
+// озвучка — Piper (TTS_URL), распознавание — Whisper (STT_URL), чат — RuadaptQwen3-4B в llama.cpp (LLM_URL).
 // Если задан ключ GigaChat (GIGACHAT_KEY), чат отвечает через GigaChat от Сбера — быстрее и умнее на двух ядрах,
 // а своя модель остаётся запасной: если GigaChat недоступен, ответит она.
 
