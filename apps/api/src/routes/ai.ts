@@ -141,7 +141,8 @@ export async function aiRoutes(app: FastifyInstance) {
     const body = z
       .object({
         game: z.enum(['lingo', 'math', 'physics', 'code']),
-        messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(800) })).min(1).max(12),
+        // история из браузера может содержать оборванный пустой ответ — не отказываем, а чистим
+        messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) })).min(1).max(30),
         where: z.string().max(120).optional(),
         mode: z.enum(['help', 'talk']).default('help'),
         voice: z.boolean().default(false),
@@ -149,6 +150,8 @@ export async function aiRoutes(app: FastifyInstance) {
       })
       .parse(req.body);
     if (!llmEnabled()) return reply.code(503).send({ error: 'Помощник сейчас отдыхает. Загляни чуть позже!' });
+    body.messages = body.messages.filter((m) => m.content.trim()).map((m) => ({ ...m, content: m.content.slice(0, 1200) }));
+    if (!body.messages.length || body.messages[body.messages.length - 1]!.role !== 'user') return reply.code(400).send({ error: 'Напиши вопрос — я отвечу' });
     if (llmBusy()) return reply.code(429).send({ error: 'Помощник сейчас отвечает другим ребятам — попробуй через минутку 🙂' });
     const userId = await optionalUser(req);
     const visitorId = visitorIdOf(req);

@@ -28,7 +28,7 @@ const NAME_TO: Record<string, string> = { Лина: 'Лину', Матвей: '�
 const storeKey = (game: GameKey, talk: boolean) => `spectr.chat.${game}${talk ? '.talk' : ''}`;
 function load(game: GameKey, talk: boolean): Msg[] {
   try {
-    return JSON.parse(localStorage.getItem(storeKey(game, talk)) ?? '[]') as Msg[];
+    return (JSON.parse(localStorage.getItem(storeKey(game, talk)) ?? '[]') as Msg[]).filter((m) => m.content?.trim());
   } catch {
     return [];
   }
@@ -68,7 +68,10 @@ async function askHelper(args: { game: GameKey; history: Msg[]; talk: boolean; v
     headers: apiHeaders(),
     body: JSON.stringify({
       game: args.game,
-      messages: args.history.slice(-10).map((m) => ({ role: m.role, content: m.content.slice(0, 800) })),
+      messages: args.history
+        .filter((m) => m.content.trim())
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) })),
       where: args.where,
       mode: args.talk ? 'talk' : 'help',
       voice: args.voice,
@@ -134,7 +137,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
 
   useEffect(() => {
     try {
-      localStorage.setItem(storeKey(game, talk), JSON.stringify(msgs.slice(-20)));
+      localStorage.setItem(storeKey(game, talk), JSON.stringify(msgs.filter((m) => m.content.trim()).slice(-20)));
     } catch {
       /* ignore */
     }
@@ -191,10 +194,9 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         });
         return answer;
       } catch (e) {
-        if (!ctrl.signal.aborted) {
-          setError((e as Error).message);
-          setMsgs(history);
-        }
+        if (!ctrl.signal.aborted) setError((e as Error).message);
+        // оборванный ответ: оставляем то, что успело прийти, пустой — убираем
+        setMsgs((list) => list.filter((m) => m.content.trim()));
         return '';
       } finally {
         setBusy(false);
