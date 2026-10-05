@@ -1,4 +1,3 @@
-import { GAMES } from './content.js';
 
 // Проверенные факты для чат-помощников. Маленькая нейросеть на сервере может ошибаться,
 // поэтому в подсказку ей всегда кладём шпаргалку предмета: формулы глав и ответы на частые вопросы.
@@ -8,7 +7,7 @@ const FACTS: Record<'lingo' | 'math' | 'physics' | 'code', string[]> = {
   lingo: [
     'to be: I am, he is, they are; прошлое was/were. Present Simple: he plays, Do you…? Present Continuous: I am reading now.',
     'Past Simple: played, went (go), saw (see); вопрос Did you…? Present Perfect: have/has + V3 (I have seen) — опыт без точного времени.',
-    'Будущее: will — решение/прогноз, be going to — план. If it rains, we will stay (1 тип); If I were rich, I would… (2 тип).',
+    'Будущее: will — решение/прогноз, be going to — план. Условные: If it rains, we will stay. If I were rich, I would travel.',
     'Артикли: a/an — один из многих, the — конкретный. Сравнение: bigger, the biggest; good → better → the best.',
   ],
   math: [
@@ -57,8 +56,8 @@ export function knowledge(game: 'lingo' | 'math' | 'physics' | 'code') {
   if (!cache) {
     cache = {};
     for (const g of ['lingo', 'math', 'physics', 'code'] as const) {
-      const chapters = g === 'lingo' ? [] : GAMES.find((x) => x.id === g)!.chapters.flatMap((c) => c.cheat);
-      cache[g] = [...FACTS[g], ...chapters].map((l) => `— ${l}`).join('\n');
+      // только ключевые факты: длинная подсказка — это десятки секунд «раздумий» модели перед первым словом
+      cache[g] = FACTS[g].map((l) => `— ${l}`).join('\n');
     }
   }
   return cache[game]!;

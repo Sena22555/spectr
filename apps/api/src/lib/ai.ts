@@ -222,7 +222,8 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
         const data = line.slice(5).trim();
         if (data === '[DONE]') return;
         try {
-          const t = JSON.parse(data).choices?.[0]?.delta?.content;
+          // модель иногда вставляет китайские слова — вырезаем их
+          const t = (JSON.parse(data).choices?.[0]?.delta?.content as string | undefined)?.replace(/[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, '');
           if (t) onToken(t);
         } catch {
           /* неполная строка */
