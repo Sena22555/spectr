@@ -24,7 +24,11 @@ import { challengeRoutes } from './routes/challenge.js';
 import { familyRoutes } from './routes/family.js';
 import { englishRoutes } from './routes/english.js';
 import { gamesRoutes } from './routes/games.js';
+import { aiRoutes } from './routes/ai.js';
 import { startEventPruning } from './lib/track.js';
+import { EN_VOICE, ttsEnabled, warmSpeech } from './lib/ai.js';
+import { coachTexts } from './games/coach.js';
+import { englishTexts } from './english/content.js';
 
 // За Caddy адрес клиента приходит в X-Forwarded-For: доверяем ему только от локального прокси
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, trustProxy: '127.0.0.1', bodyLimit: 1024 * 1024 });
@@ -109,6 +113,7 @@ await app.register(
     await api.register(familyRoutes);
     await api.register(englishRoutes);
     await api.register(gamesRoutes);
+    await api.register(aiRoutes);
   },
   { prefix: '/api' },
 );
@@ -132,3 +137,12 @@ const port = Number(process.env.PORT ?? 4000);
 await app.listen({ port, host: process.env.HOST || '0.0.0.0' });
 startBot(app.log);
 startEventPruning();
+
+// озвучка заранее: сначала фразы комментаторов, потом весь английский курс — чтобы в игре звучало сразу
+if (ttsEnabled() && process.env.TTS_WARM !== '0') {
+  setTimeout(() => {
+    const items = [...coachTexts()].flatMap(([voice, set]) => [...set].map((text) => ({ text, voice })));
+    for (const text of englishTexts()) items.push({ text, voice: EN_VOICE });
+    void warmSpeech(items, (m) => app.log.info(m));
+  }, 20_000);
+}

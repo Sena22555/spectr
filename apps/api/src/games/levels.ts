@@ -7,8 +7,8 @@ import { LEVELS, findLevel, type Chapter, type Game, type OrderKind } from './co
 export type GStep =
   | { type: 'cheat'; title: string; lines: string[] }
   | { type: 'solve'; text: string; unit: string | null; answer: number | string; tol: number | null; display: string; hint: string; explain: string[]; blitz: number | null }
-  | { type: 'choose'; text: string; options: string[]; answer: number; display: string; explain: string[]; blitz: number | null }
-  | { type: 'truefalse'; text: string; claim: string; truth: boolean; display: string; explain: string[] }
+  | { type: 'choose'; text: string; options: string[]; answer: number; display: string; hint: string; explain: string[]; blitz: number | null }
+  | { type: 'truefalse'; text: string; claim: string; truth: boolean; display: string; hint: string; explain: string[] }
   | { type: 'memory'; pairs: [string, string][] }
   | { type: 'order'; prompt: string; items: string[]; order: number[] };
 
@@ -61,7 +61,7 @@ function choose(genId: string, blitz: number | null = null): GStep {
   p.text = noFormat(p.text);
   const right = genAnswerText(p);
   const options = shuffle([right, ...distractors(genId, p, 3)]);
-  return { type: 'choose', text: p.text, options, answer: options.indexOf(right), display: right, explain: p.steps, blitz };
+  return { type: 'choose', text: p.text, options, answer: options.indexOf(right), display: right, hint: p.hint, explain: p.steps, blitz };
 }
 
 function truefalse(genId: string): GStep {
@@ -70,7 +70,7 @@ function truefalse(genId: string): GStep {
   const right = genAnswerText(p);
   const truth = Math.random() < 0.5;
   const claim = truth ? right : (distractors(genId, p, 1)[0] ?? right);
-  return { type: 'truefalse', text: p.text, claim, truth: claim === right, display: right, explain: p.steps };
+  return { type: 'truefalse', text: p.text, claim, truth: claim === right, display: right, hint: p.hint, explain: p.steps };
 }
 
 function memory(ch: Chapter): GStep {

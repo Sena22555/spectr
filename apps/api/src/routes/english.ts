@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { rl } from '../lib/limits.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
-import { LESSONS, UNITS, findLesson, lessonId } from '../english/content.js';
+import { LESSONS, LEVELS, UNITS, fillGap, findLesson, lessonId, splitHint, type Level } from '../english/content.js';
 import { makeLesson } from '../english/lessons.js';
 
 // «Английский: путь». Разделы открыты все (старшеклассник может начать с ОГЭ),
@@ -36,10 +36,35 @@ export async function englishRoutes(app: FastifyInstance) {
       if (!next && started) next = lessons.find((l) => !l.done)?.id ?? null;
       return { id: u.id, title: u.title, ru: u.ru, level: u.level, grades: u.grades, icon: u.icon, hue: i % 7, grammar: u.grammar.title, words: u.words.length, lessons };
     });
+    // как идут дела на каждом уровне: средняя точность последних уроков — для совета «полегче / посложнее»
+    const unitLevel = new Map(UNITS.map((u) => [u.id, u.level]));
+    const levelStats = LEVELS.map((l) => {
+      const recent = results
+        .filter((r) => unitLevel.get(r.lessonId.split('-')[0]!) === l.id)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 4);
+      const accuracy = recent.length ? recent.reduce((s, r) => s + r.correct / r.total, 0) / recent.length : null;
+      return { id: l.id, title: l.title, about: l.about, units: UNITS.filter((u) => u.level === l.id).length, done: recent.length, accuracy, struggle: recent.length >= 2 && (accuracy ?? 1) < 0.6, easy: recent.length >= 4 && (accuracy ?? 0) >= 0.95 };
+    });
     // если ничего не начато — первый урок; если раздел закончен — первый урок следующего незаконченного
     if (!next) next = units.flatMap((u) => u.lessons).find((l) => !l.done)?.id ?? null;
-    const wordsLearned = results.filter((r) => /-[12]$/.test(r.lessonId)).reduce((s, r) => s.add(r.lessonId), new Set<string>()).size * 6;
-    return { units, next, stats: { lessons: done.size, words: wordsLearned, total: UNITS.length * LESSONS.length } };
+    const wordsLearned = [...new Set(results.map((r) => r.lessonId))].reduce((n, id) => n + ({ '1': 7, '2': 7, '3': 6 }[id.split('-')[1] ?? ''] ?? 0), 0);
+    return { units, next, levels: levelStats, stats: { lessons: done.size, words: wordsLearned, total: UNITS.length * LESSONS.length } };
+  });
+
+  // тест на уровень: по 4 задания грамматики на каждый уровень, от простого к сложному
+  app.get('/english/placement', async () => {
+    const pick = <T>(list: T[], n: number) => [...list].sort(() => Math.random() - 0.5).slice(0, n);
+    const items = LEVELS.flatMap((l) =>
+      pick(
+        UNITS.filter((u) => u.level === l.id).flatMap((u) => u.grammar.gaps.filter((g) => !/\(/.test(g[0]))),
+        4,
+      ).map((g) => {
+        const opts = pick(g[1], 3);
+        return { level: l.id as Level, sentence: splitHint(g[0]).text, options: opts, answer: opts.indexOf(g[1][g[2]]!), ru: g[3], full: fillGap(g) };
+      }),
+    );
+    return { items };
   });
 
   app.get('/english/lesson/:id', async (req, reply) => {

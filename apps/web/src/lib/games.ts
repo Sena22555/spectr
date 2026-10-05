@@ -17,11 +17,13 @@ export const GAME_META: Record<GameKey, { name: [string, string]; subject: strin
 };
 export const isGame = (x: string): x is GameKey => (GAME_KEYS as string[]).includes(x);
 
+export type HintSay = { t: string; v: string; sig: string };
+
 export type GStep =
   | { type: 'cheat'; title: string; lines: string[] }
-  | { type: 'solve'; text: string; unit: string | null; answer: number | string; tol: number | null; display: string; hint: string; explain: string[]; blitz: number | null }
-  | { type: 'choose'; text: string; options: string[]; answer: number; display: string; explain: string[]; blitz: number | null }
-  | { type: 'truefalse'; text: string; claim: string; truth: boolean; display: string; explain: string[] }
+  | { type: 'solve'; text: string; unit: string | null; answer: number | string; tol: number | null; display: string; hint: string; explain: string[]; blitz: number | null; hintSay?: HintSay }
+  | { type: 'choose'; text: string; options: string[]; answer: number; display: string; hint?: string; explain: string[]; blitz: number | null; hintSay?: HintSay }
+  | { type: 'truefalse'; text: string; claim: string; truth: boolean; display: string; hint?: string; explain: string[]; hintSay?: HintSay }
   | { type: 'memory'; pairs: [string, string][] }
   | { type: 'order'; prompt: string; items: string[]; order: number[] };
 
@@ -30,7 +32,7 @@ export type AnyStep = GStep | LingoStep;
 export interface PlayLevel {
   id: string;
   game: GameKey;
-  chapter: { title: string; icon: string; hue: number };
+  chapter: { title: string; icon: string; hue: number; level?: string };
   level: { n: number; title: string };
   levels: number;
   steps: AnyStep[];
@@ -50,6 +52,24 @@ export interface GameMap {
   units: CourseUnit[];
   next: string | null;
   stats: { lessons: number; words: number; total: number };
+  /** только у СпектрLingo: уровни и как на них идут дела */
+  levels?: { id: string; title: string; about: string; units: number; done: number; accuracy: number | null; struggle: boolean; easy: boolean }[];
+}
+
+export const EN_LEVEL_KEY = 'spectr.enLevel';
+export function savedEnLevel() {
+  try {
+    return localStorage.getItem(EN_LEVEL_KEY);
+  } catch {
+    return null;
+  }
+}
+export function saveEnLevel(level: string) {
+  try {
+    localStorage.setItem(EN_LEVEL_KEY, level);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function useGameMap(game: GameKey) {
@@ -79,7 +99,7 @@ export function useGamesHub() {
 export async function loadLevel(game: GameKey, id: string): Promise<PlayLevel> {
   if (game === 'lingo') {
     const l = await api<Lesson>(`/english/lesson/${id}`);
-    return { id: l.id, game, chapter: { title: l.unit.title, icon: l.unit.icon, hue: l.unit.hue }, level: { n: l.n, title: l.title }, levels: 4, steps: l.steps };
+    return { id: l.id, game, chapter: { title: l.unit.title, icon: l.unit.icon, hue: l.unit.hue, level: l.unit.level }, level: { n: l.n, title: l.title }, levels: 4, steps: l.steps };
   }
   const l = await api<ServerLevel>(`/games/${game}/level/${id}`);
   return { id: l.id, game, chapter: { title: l.chapter.title, icon: l.chapter.icon, hue: (l.game.hue + l.chapter.n - 1) % 7 }, level: { n: l.level.n, title: l.level.title }, levels: l.levels, steps: l.steps };

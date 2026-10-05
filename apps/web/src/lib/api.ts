@@ -70,6 +70,12 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   return data as T;
 }
 
+/** Заголовки для запросов в обход api() (например, потоковый ответ чата). */
+export function apiHeaders(): Record<string, string> {
+  const token = getToken() ?? memoryToken;
+  return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), 'x-visitor': visitorId() };
+}
+
 export async function uploadImage(file: File) {
   if (__DEMO__) return (await import('../demo/mock')).demoUpload(file);
   const form = new FormData();

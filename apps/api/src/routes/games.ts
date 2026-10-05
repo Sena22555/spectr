@@ -6,6 +6,8 @@ import { optionalUser, track, visitorIdOf } from '../lib/track.js';
 import { GAMES, LEVELS, findGame, findLevel, levelId } from '../games/content.js';
 import { makeLevel } from '../games/levels.js';
 import { UNITS as EN_UNITS, LESSONS as EN_LESSONS } from '../english/content.js';
+import { sayMath, signSpeech } from '../lib/ai.js';
+import { COACH_VOICE } from '../games/coach.js';
 
 // «Игры Спектра». Главы открыты все (старшеклассник начнёт с профильной), уровни в главе — по порядку.
 
@@ -57,7 +59,15 @@ export async function gamesRoutes(app: FastifyInstance) {
     const level = game ? makeLevel(game, id) : null;
     if (!level) return reply.code(404).send({ error: 'Уровень не найден' });
     void track({ type: 'game_start', visitorId: visitorIdOf(req), userId: await optionalUser(req), label: `${gid}:${id}` });
-    return level;
+    // подсказка комментатора к каждой задаче — проверенная (из генератора), с подписью для озвучки
+    const voice = COACH_VOICE[game!.id];
+    const lead = ['Смотри', 'Лайфхак', 'Подсказываю', 'Давай так', 'Секрет такой'];
+    const steps = level.steps.map((st, i) => {
+      if (!('hint' in st) || !st.hint) return st;
+      const t = `${lead[i % lead.length]}: ${sayMath(st.hint)}`.slice(0, 380);
+      return { ...st, hintSay: { t, v: voice, sig: signSpeech(voice, t) } };
+    });
+    return { ...level, steps };
   });
 
   app.post('/games/result', { config: rl(40, '10 minutes') }, async (req, reply) => {

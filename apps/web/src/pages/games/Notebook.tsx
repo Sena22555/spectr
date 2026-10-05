@@ -1,4 +1,5 @@
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { motion } from 'motion/react';
 import { ArrowLeft, Lock, Play, Star } from 'lucide-react';
@@ -8,7 +9,8 @@ import { XpMeter } from '../../components/game/XpMeter';
 import { LeagueBoard } from '../../components/game/League';
 import { GameMark } from '../../components/games/parts';
 import type { CourseUnit } from '../../lib/english';
-import { GAME_META, isGame, useGameMap, type GameKey } from '../../lib/games';
+import { GAME_META, isGame, saveEnLevel, savedEnLevel, useGameMap, type GameKey, type GameMap } from '../../lib/games';
+import { ChatLauncher } from '../../components/games/Chat';
 import { useGame } from '../../lib/game';
 import { isMiniApp } from '../../lib/platform';
 import { usePageTitle } from '../../lib/title';
@@ -60,19 +62,116 @@ export default function Notebook() {
 
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {q.isPending && <Skeleton className="h-[520px]" />}
-      {q.data && (
-        <ol className="m-0 flex list-none flex-col gap-7 p-0">
-          {q.data.units.map((u, i) => (
-            <Chapter key={u.id} u={u} index={i} game={game} next={q.data!.next} />
-          ))}
-        </ol>
+      {q.data && game === 'lingo' && q.data.levels ? (
+        <LingoLevels data={q.data} />
+      ) : (
+        q.data && (
+          <ol className="m-0 flex list-none flex-col gap-7 p-0">
+            {q.data.units.map((u, i) => (
+              <Chapter key={u.id} u={u} index={i} game={game} next={q.data!.next} />
+            ))}
+          </ol>
+        )
       )}
+      <ChatLauncher game={game} where={meta.name.join('')} />
 
       <LeagueBoard />
       <p className="rounded-[10px] bg-bone px-4 py-3 text-[15px] text-muted">
-        Главы открыты все — начинайте со своего класса. Уровни в главе идут по порядку: Разминка, Тренировка, Испытание{game === 'lingo' ? ' и Грамматика' : ''}. Прогресс сохраняется, а после входа в аккаунт — на всех устройствах.
+        {game === 'lingo'
+          ? 'Уровни как в учебниках English File и Face2Face: Starter → A1 → A2 → B1. В разделе — три словарика, фразы, грамматика и контрольная. Застрял — подскажем уровень пониже, легко — повыше.'
+          : 'Главы открыты все — начинайте со своего класса. Уровни в главе идут по порядку: Разминка, Тренировка, Испытание.'}{' '}
+        Прогресс сохраняется, а после входа в аккаунт — на всех устройствах.
       </p>
     </Container>
+  );
+}
+
+/** СпектрLingo: уровни как в учебниках, выбор уровня, тест и мягкий совет «полегче / посложнее». */
+function LingoLevels({ data }: { data: GameMap }) {
+  const [params, setParams] = useSearchParams();
+  const levels = data.levels!;
+  const started = data.units.some((u) => u.lessons.some((l) => l.done));
+  const fromUrl = params.get('level');
+  const [level, setLevel] = useState<string | null>(() => (fromUrl && levels.some((l) => l.id === fromUrl) ? fromUrl : savedEnLevel()));
+  useEffect(() => {
+    if (fromUrl && levels.some((l) => l.id === fromUrl)) {
+      setLevel(fromUrl);
+      saveEnLevel(fromUrl);
+    }
+  }, [fromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  const choose = (id: string) => {
+    setLevel(id);
+    saveEnLevel(id);
+    setParams({ level: id }, { replace: true });
+  };
+  // уровень ещё не выбран и уроков не было — предлагаем выбрать или пройти тест
+  if (!level && !started)
+    return (
+      <section className="flex flex-col gap-5" aria-label="Выбор уровня">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="t-display t-md">С какого уровня начнём?</h2>
+          <Link to="/games/lingo/test" className="press print-shadow inline-flex h-12 items-center rounded-[10px] bg-ink px-5 text-[15px] font-[650] text-paper no-underline hover:bg-mark hover:text-forest">
+            Тест на уровень · 3 минуты
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {levels.map((l, i) => (
+            <button key={l.id} type="button" onClick={() => choose(l.id)} className={clsx(`hue-${[3, 2, 1, 5][i]}`, 'press tape relative flex flex-col items-start gap-2 rounded-[8px] bg-tint p-5 text-left shadow-sticker transition-transform hover:-rotate-1')}>
+              <span className="t-display text-[30px] leading-none">{l.id === 'Starter' ? 'Starter' : l.id}</span>
+              <span className="t-mono text-[12px] text-hue">{l.title} · {l.units} разделов</span>
+              <span className="text-[15px] text-ink/80">{l.about}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  const current = levels.find((l) => l.id === level) ?? levels[0]!;
+  const idx = levels.indexOf(current);
+  const units = data.units.filter((u) => u.level === current.id);
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Уровень">
+        {levels.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            role="tab"
+            aria-selected={l.id === current.id}
+            onClick={() => choose(l.id)}
+            className={clsx('press rounded-full px-4 py-2 text-[15px] font-[600]', l.id === current.id ? 'bg-ink text-paper' : 'border border-ink/25 hover:bg-ink/[0.06]')}
+          >
+            {l.id}
+          </button>
+        ))}
+        <Link to="/games/lingo/test" className="link ml-auto text-[14px]">
+          Тест на уровень
+        </Link>
+      </div>
+      <p className="text-[15.5px] text-muted">{current.about}</p>
+      {current.struggle && idx > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-[8px] bg-butter px-4 py-3">
+          <p className="mr-auto text-[15.5px]">
+            Похоже, <b>{current.id}</b> пока тяжеловат — последние уроки на {Math.round((current.accuracy ?? 0) * 100)}%. Это нормально! Укрепим базу уровнем ниже?
+          </p>
+          <button type="button" onClick={() => choose(levels[idx - 1]!.id)} className="press rounded-[8px] bg-ink px-4 py-2 text-[14.5px] font-[650] text-paper">
+            Перейти на {levels[idx - 1]!.id}
+          </button>
+        </div>
+      )}
+      {current.easy && idx < levels.length - 1 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-[8px] bg-[var(--tint-raw-3)] px-4 py-3">
+          <p className="mr-auto text-[15.5px]">Слишком легко? Последние уроки — почти без ошибок. Можно попробовать {levels[idx + 1]!.id}.</p>
+          <button type="button" onClick={() => choose(levels[idx + 1]!.id)} className="press rounded-[8px] bg-ink px-4 py-2 text-[14.5px] font-[650] text-paper">
+            Попробовать {levels[idx + 1]!.id}
+          </button>
+        </div>
+      )}
+      <ol className="m-0 flex list-none flex-col gap-7 p-0">
+        {units.map((u) => (
+          <Chapter key={u.id} u={u} index={data.units.indexOf(u)} game="lingo" next={data.next} />
+        ))}
+      </ol>
+    </section>
   );
 }
 

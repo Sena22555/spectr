@@ -60,6 +60,7 @@ const Family = lazy(() => import('./pages/family/Family'));
 const GamesHub = lazy(() => import('./pages/games/Hub'));
 const GameNotebook = lazy(() => import('./pages/games/Notebook'));
 const GamePlay = lazy(() => import('./pages/games/Play'));
+const GamePlacement = lazy(() => import('./pages/games/Placement'));
 
 // старые адреса английского ведут в СпектрLingo
 function LegacyLesson() {
@@ -111,6 +112,7 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'tournament/certificate/:id', element: s(<Certificate />) },
           { path: 'challenge/:id', element: s(<Challenge />) },
           { path: 'games', element: s(<GamesHub />) },
+          { path: 'games/lingo/test', element: s(<GamePlacement />) },
           { path: 'games/:game', element: s(<GameNotebook />) },
           { path: 'english', element: <Navigate to="/games/lingo" replace /> },
           { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },

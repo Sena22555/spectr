@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api';
 import { useAuth } from './auth';
+import { EN, playUrl, ttsUrl } from './voice';
 
 export type Step =
   | { type: 'new'; en: string; ru: string; emoji: string | null }
@@ -10,13 +11,15 @@ export type Step =
   | { type: 'type'; ru: string; answers: string[] }
   | { type: 'fill'; sentence: string; options: string[]; answer: number; ru: string }
   | { type: 'match'; pairs: [string, string][] }
-  | { type: 'rule'; title: string; rule: string[] };
+  | { type: 'rule'; title: string; rule: string[] }
+  | { type: 'spot'; words: string[]; wrong: number; fix: string; ru: string; hint: string | null }
+  | { type: 'say'; text: string; ru: string };
 
 export interface Lesson {
   id: string;
   n: number;
   title: string;
-  unit: { id: string; title: string; ru: string; icon: string; hue: number };
+  unit: { id: string; title: string; ru: string; icon: string; hue: number; level?: string };
   steps: Step[];
 }
 
@@ -51,9 +54,10 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   pickVoice();
   window.speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
 }
-export const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
-export function speak(text: string, slow = false) {
-  if (!canSpeak()) return;
+export const canSpeak = () => typeof window !== 'undefined' && ('Audio' in window || 'speechSynthesis' in window);
+
+function browserVoice(text: string, slow: boolean) {
+  if (!('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -64,6 +68,13 @@ export function speak(text: string, slow = false) {
   } catch {
     /* без звука тоже можно */
   }
+}
+
+/** Озвучить английскую фразу: живой голос с сервера, если не вышло — голос браузера. */
+export function speak(text: string, slow = false) {
+  void playUrl(ttsUrl(text, EN, { slow })).then((ok) => {
+    if (!ok) browserVoice(text, slow);
+  });
 }
 
 // ——— проверка письменного ответа: без учёта регистра, знаков и сокращений ———

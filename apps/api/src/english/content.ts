@@ -1,591 +1,72 @@
-// «Английский: путь» — разделы для 5–11 класса: от знакомства (A1) до грамматики ОГЭ и словообразования ЕГЭ.
-// В каждом разделе 12 слов (с картинкой-эмодзи, если она понятна), 8 фраз и грамматика с правилом.
-// Уроки собираются из этого материала генератором (english/lessons.ts).
+import type { Gap, Level, Unit } from './types.js';
+import { STARTER } from './units/starter.js';
+import { A1 } from './units/a1.js';
+import { A2 } from './units/a2.js';
+import { B1 } from './units/b1.js';
+import { CAFE, CLASSROOM, HOTEL, MAYBE, OBJECTS, OPINION, QUESTIONS } from './units/extra.js';
 
-export type Word = [en: string, ru: string, emoji?: string];
-export type Phrase = [en: string, ru: string];
-/** предложение с пропуском «___», варианты, номер верного, перевод-подсказка */
-export type Gap = [sentence: string, options: string[], answer: number, ru: string];
+export type { Gap, Level, Phrase, Unit, Word } from './types.js';
 
-export interface Unit {
-  id: string;
-  title: string;
-  ru: string;
-  level: 'A1' | 'A2' | 'B1';
-  grades: [number, number];
-  icon: string;
-  words: Word[];
-  phrases: Phrase[];
-  grammar: { title: string; rule: string[]; gaps: Gap[] };
+/** вставить разделы после раздела с указанным id */
+function after(list: Unit[], id: string, ...add: Unit[]) {
+  const i = list.findIndex((u) => u.id === id);
+  return [...list.slice(0, i + 1), ...add, ...list.slice(i + 1)];
 }
 
+// «СпектрLingo»: 46 разделов от нуля до B1 (920 слов) по программе English File, Face2Face и Speakout.
+// В разделе 20 слов, 10 фраз, грамматика с правилом и 10 заданиями. «Ситуации» — живые диалоги.
 export const UNITS: Unit[] = [
-  {
-    id: 'hello',
-    title: 'Hello!',
-    ru: 'Знакомство',
-    level: 'A1',
-    grades: [5, 6],
-    icon: '👋',
-    words: [
-      ['hello', 'привет', '👋'],
-      ['goodbye', 'до свидания'],
-      ['name', 'имя', '🏷️'],
-      ['friend', 'друг', '🤝'],
-      ['boy', 'мальчик', '👦'],
-      ['girl', 'девочка', '👧'],
-      ['teacher', 'учитель', '🧑‍🏫'],
-      ['yes', 'да'],
-      ['no', 'нет'],
-      ['please', 'пожалуйста'],
-      ['thank you', 'спасибо'],
-      ['good morning', 'доброе утро', '🌅'],
-    ],
-    phrases: [
-      ['My name is Anna.', 'Меня зовут Анна.'],
-      ['What is your name?', 'Как тебя зовут?'],
-      ['Nice to meet you.', 'Приятно познакомиться.'],
-      ['How are you?', 'Как дела?'],
-      ['I am fine, thank you.', 'У меня всё хорошо, спасибо.'],
-      ['This is my friend.', 'Это мой друг.'],
-      ['I am twelve years old.', 'Мне двенадцать лет.'],
-      ['Where are you from?', 'Откуда ты?'],
-    ],
-    grammar: {
-      title: 'Глагол to be: am, is, are',
-      rule: ['I → am: I am a student.', 'he, she, it → is: She is my sister.', 'we, you, they → are: They are friends.'],
-      gaps: [
-        ['I ___ a student.', ['am', 'is', 'are'], 0, 'Я ученик.'],
-        ['She ___ my sister.', ['is', 'am', 'are'], 0, 'Она моя сестра.'],
-        ['They ___ friends.', ['are', 'is', 'am'], 0, 'Они друзья.'],
-        ['We ___ in the classroom.', ['are', 'is', 'am'], 0, 'Мы в классе.'],
-        ['He ___ eleven.', ['is', 'are', 'am'], 0, 'Ему одиннадцать.'],
-        ['You ___ my best friend.', ['are', 'is', 'am'], 0, 'Ты мой лучший друг.'],
-        ['It ___ a cat.', ['is', 'are', 'am'], 0, 'Это кошка.'],
-        ['I ___ from Russia.', ['am', 'are', 'is'], 0, 'Я из России.'],
-      ],
-    },
-  },
-  {
-    id: 'school',
-    title: 'At school',
-    ru: 'Школа',
-    level: 'A1',
-    grades: [5, 6],
-    icon: '🎒',
-    words: [
-      ['book', 'книга', '📕'],
-      ['pen', 'ручка', '🖊️'],
-      ['pencil', 'карандаш', '✏️'],
-      ['bag', 'рюкзак', '🎒'],
-      ['ruler', 'линейка', '📏'],
-      ['notebook', 'тетрадь', '📓'],
-      ['computer', 'компьютер', '💻'],
-      ['scissors', 'ножницы', '✂️'],
-      ['school', 'школа', '🏫'],
-      ['lesson', 'урок'],
-      ['homework', 'домашнее задание', '📝'],
-      ['desk', 'парта'],
-    ],
-    phrases: [
-      ['Open your books.', 'Откройте учебники.'],
-      ['I have got a new pen.', 'У меня есть новая ручка.'],
-      ['Where is my bag?', 'Где мой рюкзак?'],
-      ['The book is on the desk.', 'Книга на парте.'],
-      ['Can I go out, please?', 'Можно выйти?'],
-      ['I like English lessons.', 'Мне нравятся уроки английского.'],
-      ['Do your homework.', 'Сделай домашнее задание.'],
-      ['This is our classroom.', 'Это наш класс.'],
-    ],
-    grammar: {
-      title: 'a / an и множественное число',
-      rule: ['an — перед гласным звуком: an apple, an English book.', 'a — перед согласным: a pen, a bag.', 'Много: + s (books), после s, x, sh, ch — + es (boxes). Особые: child → children.'],
-      gaps: [
-        ['I have ___ apple.', ['an', 'a', 'the'], 0, 'У меня есть яблоко.'],
-        ['She has ___ new bag.', ['a', 'an', 'some'], 0, 'У неё новый рюкзак.'],
-        ['There are three ___ on the desk.', ['books', 'book', 'bookes'], 0, 'На парте три книги.'],
-        ['I see ___ elephant.', ['an', 'a', 'two'], 0, 'Я вижу слона.'],
-        ['He has two ___.', ['boxes', 'boxs', 'box'], 0, 'У него две коробки.'],
-        ['Five ___ are in the classroom.', ['children', 'childs', 'child'], 0, 'В классе пятеро детей.'],
-        ['This is ___ English book.', ['an', 'a', 'the a'], 0, 'Это учебник английского.'],
-        ['I need two ___.', ['pencils', 'pencil', 'penciles'], 0, 'Мне нужно два карандаша.'],
-      ],
-    },
-  },
-  {
-    id: 'family',
-    title: 'My family',
-    ru: 'Семья',
-    level: 'A1',
-    grades: [5, 6],
-    icon: '🏠',
-    words: [
-      ['mother', 'мама', '👩'],
-      ['father', 'папа', '👨'],
-      ['sister', 'сестра', '👧'],
-      ['brother', 'брат', '👦'],
-      ['grandmother', 'бабушка', '👵'],
-      ['grandfather', 'дедушка', '👴'],
-      ['baby', 'малыш', '👶'],
-      ['cat', 'кошка', '🐱'],
-      ['dog', 'собака', '🐶'],
-      ['house', 'дом', '🏠'],
-      ['family', 'семья'],
-      ['parents', 'родители'],
-    ],
-    phrases: [
-      ['This is my mother.', 'Это моя мама.'],
-      ['I have got a brother.', 'У меня есть брат.'],
-      ['My sister is ten.', 'Моей сестре десять лет.'],
-      ['We live in a big house.', 'Мы живём в большом доме.'],
-      ['My dad is a doctor.', 'Мой папа — врач.'],
-      ['Have you got a pet?', 'У тебя есть питомец?'],
-      ['Our dog is very funny.', 'Наша собака очень смешная.'],
-      ['I love my family.', 'Я люблю свою семью.'],
-    ],
-    grammar: {
-      title: 'have got / has got и «мой, твой, его»',
-      rule: ['I, you, we, they → have got: I have got a cat.', 'he, she, it → has got: She has got a dog.', 'my — мой, your — твой, his — его, her — её, our — наш, their — их.'],
-      gaps: [
-        ['I ___ a sister.', ['have got', 'has got', 'am got'], 0, 'У меня есть сестра.'],
-        ['She ___ two brothers.', ['has got', 'have got', 'is got'], 0, 'У неё два брата.'],
-        ['This is ___ cat.', ['my', 'me', 'I'], 0, 'Это моя кошка.'],
-        ['___ name is Tom.', ['His', 'He', 'Him'], 0, 'Его зовут Том.'],
-        ['___ house is big.', ['Our', 'We', 'Us'], 0, 'Наш дом большой.'],
-        ['They ___ a dog.', ['have got', 'has got', 'are got'], 0, 'У них есть собака.'],
-        ['Is this ___ book?', ['your', 'you', "you're"], 0, 'Это твоя книга?'],
-        ['___ mother is a teacher.', ['Her', 'She', 'Hers'], 0, 'Её мама — учитель.'],
-      ],
-    },
-  },
-  {
-    id: 'food',
-    title: 'Food',
-    ru: 'Еда',
-    level: 'A1',
-    grades: [5, 7],
-    icon: '🍎',
-    words: [
-      ['apple', 'яблоко', '🍎'],
-      ['bread', 'хлеб', '🍞'],
-      ['milk', 'молоко', '🥛'],
-      ['water', 'вода', '💧'],
-      ['cheese', 'сыр', '🧀'],
-      ['egg', 'яйцо', '🥚'],
-      ['fish', 'рыба', '🐟'],
-      ['banana', 'банан', '🍌'],
-      ['tea', 'чай', '🍵'],
-      ['soup', 'суп', '🍲'],
-      ['pizza', 'пицца', '🍕'],
-      ['ice cream', 'мороженое', '🍦'],
-    ],
-    phrases: [
-      ['I like apples.', 'Я люблю яблоки.'],
-      ["I don't like milk.", 'Я не люблю молоко.'],
-      ['Can I have some water, please?', 'Можно мне воды, пожалуйста?'],
-      ['What do you want for breakfast?', 'Что ты хочешь на завтрак?'],
-      ['Pizza is my favourite food.', 'Пицца — моя любимая еда.'],
-      ['We have lunch at school.', 'Мы обедаем в школе.'],
-      ['Is there any cheese?', 'Есть ли сыр?'],
-      ['The soup is hot.', 'Суп горячий.'],
-    ],
-    grammar: {
-      title: 'some / any и like / likes',
-      rule: ['some — в утверждениях: There is some milk.', 'any — в вопросах и отрицаниях: Is there any bread? There aren’t any eggs.', 'he, she, it likes; отрицание: I don’t like, she doesn’t like.'],
-      gaps: [
-        ['There is ___ milk in the fridge.', ['some', 'any', 'a'], 0, 'В холодильнике есть молоко.'],
-        ['Is there ___ bread?', ['any', 'some', 'an'], 0, 'Есть ли хлеб?'],
-        ['He ___ bananas.', ['likes', 'like', 'liking'], 0, 'Он любит бананы.'],
-        ['I ___ like fish.', ["don't", "doesn't", 'not'], 0, 'Я не люблю рыбу.'],
-        ['She ___ like tea.', ["doesn't", "don't", "isn't"], 0, 'Она не любит чай.'],
-        ["There aren't ___ eggs.", ['any', 'some', 'an'], 0, 'Яиц нет.'],
-        ['Would you like ___ tea?', ['some', 'any', 'a'], 0, 'Хочешь чаю?'],
-        ['My brother ___ pizza.', ['loves', 'love', 'loving'], 0, 'Мой брат обожает пиццу.'],
-      ],
-    },
-  },
-  {
-    id: 'day',
-    title: 'My day',
-    ru: 'Мой день',
-    level: 'A1',
-    grades: [6, 7],
-    icon: '⏰',
-    words: [
-      ['get up', 'вставать', '⏰'],
-      ['breakfast', 'завтрак', '🥣'],
-      ['dinner', 'ужин', '🍽️'],
-      ['sleep', 'спать', '😴'],
-      ['morning', 'утро', '🌅'],
-      ['evening', 'вечер', '🌆'],
-      ['clock', 'часы', '🕒'],
-      ['bus', 'автобус', '🚌'],
-      ['every day', 'каждый день'],
-      ['always', 'всегда'],
-      ['often', 'часто'],
-      ['never', 'никогда'],
-    ],
-    phrases: [
-      ['I get up at seven o’clock.', 'Я встаю в семь часов.'],
-      ['She goes to school by bus.', 'Она ездит в школу на автобусе.'],
-      ['We have dinner at six.', 'Мы ужинаем в шесть.'],
-      ['He never watches TV in the morning.', 'Он никогда не смотрит телевизор утром.'],
-      ['What time do you go to bed?', 'Во сколько ты ложишься спать?'],
-      ['I always do my homework.', 'Я всегда делаю домашнее задание.'],
-      ['My brother often plays football.', 'Мой брат часто играет в футбол.'],
-      ['On Sundays I sleep a lot.', 'По воскресеньям я много сплю.'],
-    ],
-    grammar: {
-      title: 'Present Simple — то, что бывает регулярно',
-      rule: ['I / you / we / they play; he / she / it plays (+s, после sh, ch, o — +es: watches, goes).', 'Вопрос: Do you play? Does he play?', 'Отрицание: I don’t play. He doesn’t play.'],
-      gaps: [
-        ['She ___ up at seven.', ['gets', 'get', 'getting'], 0, 'Она встаёт в семь.'],
-        ['They ___ to school every day.', ['go', 'goes', 'going'], 0, 'Они ходят в школу каждый день.'],
-        ['___ he like music?', ['Does', 'Do', 'Is'], 0, 'Он любит музыку?'],
-        ['I ___ watch TV in the morning.', ["don't", "doesn't", 'not'], 0, 'Я не смотрю телевизор утром.'],
-        ['My mum ___ tea.', ['drinks', 'drink', 'drinking'], 0, 'Мама пьёт чай.'],
-        ['He ___ his teeth twice a day.', ['brushes', 'brush', 'brushs'], 0, 'Он чистит зубы дважды в день.'],
-        ['We ___ football on Saturdays.', ['play', 'plays', 'playing'], 0, 'По субботам мы играем в футбол.'],
-        ['Where ___ you live?', ['do', 'does', 'are'], 0, 'Где ты живёшь?'],
-      ],
-    },
-  },
-  {
-    id: 'town',
-    title: 'My town',
-    ru: 'Город',
-    level: 'A1',
-    grades: [6, 7],
-    icon: '🏙️',
-    words: [
-      ['park', 'парк', '🌳'],
-      ['shop', 'магазин', '🏪'],
-      ['hospital', 'больница', '🏥'],
-      ['car', 'машина', '🚗'],
-      ['bridge', 'мост', '🌉'],
-      ['cinema', 'кинотеатр', '🎬'],
-      ['library', 'библиотека', '📚'],
-      ['museum', 'музей', '🏛️'],
-      ['train', 'поезд', '🚆'],
-      ['street', 'улица'],
-      ['left', 'налево', '⬅️'],
-      ['right', 'направо', '➡️'],
-    ],
-    phrases: [
-      ['There is a park near my house.', 'Рядом с моим домом есть парк.'],
-      ['How can I get to the museum?', 'Как добраться до музея?'],
-      ['Turn left.', 'Поверните налево.'],
-      ['Go straight on.', 'Идите прямо.'],
-      ['The cinema is next to the shop.', 'Кинотеатр рядом с магазином.'],
-      ['There are many cars in the street.', 'На улице много машин.'],
-      ['Is there a library here?', 'Здесь есть библиотека?'],
-      ['I go to the park on foot.', 'Я хожу в парк пешком.'],
-    ],
-    grammar: {
-      title: 'there is / there are и предлоги места',
-      rule: ['There is + один предмет: There is a park. There are + много: There are two shops.', 'in — в, on — на, under — под, next to — рядом с, between — между, behind — за.'],
-      gaps: [
-        ['There ___ a cinema in my town.', ['is', 'are', 'be'], 0, 'В моём городе есть кинотеатр.'],
-        ['There ___ two parks.', ['are', 'is', 'am'], 0, 'Там два парка.'],
-        ['___ there a bank here?', ['Is', 'Are', 'Do'], 0, 'Здесь есть банк?'],
-        ['The cat is ___ the box.', ['in', 'on', 'under'], 0, 'Кошка в коробке.'],
-        ['The book is ___ the table.', ['on', 'in', 'at'], 0, 'Книга на столе.'],
-        ['The ball is ___ the chair.', ['under', 'on', 'in'], 0, 'Мяч под стулом.'],
-        ['The shop is ___ the bank and the cafe.', ['between', 'next', 'behind'], 0, 'Магазин между банком и кафе.'],
-        ["There aren't ___ shops in my street.", ['any', 'some', 'a'], 0, 'На моей улице нет магазинов.'],
-      ],
-    },
-  },
-  {
-    id: 'hobbies',
-    title: 'Hobbies',
-    ru: 'Хобби',
-    level: 'A2',
-    grades: [7, 8],
-    icon: '🎨',
-    words: [
-      ['swim', 'плавать', '🏊'],
-      ['dance', 'танцевать', '💃'],
-      ['draw', 'рисовать', '🎨'],
-      ['sing', 'петь', '🎤'],
-      ['read', 'читать', '📖'],
-      ['bike', 'велосипед', '🚲'],
-      ['guitar', 'гитара', '🎸'],
-      ['camera', 'фотоаппарат', '📷'],
-      ['chess', 'шахматы', '♟️'],
-      ['cook', 'готовить', '🍳'],
-      ['skate', 'кататься на коньках', '⛸️'],
-      ['free time', 'свободное время'],
-    ],
-    phrases: [
-      ['I can swim very well.', 'Я умею очень хорошо плавать.'],
-      ['Can you play the guitar?', 'Ты умеешь играть на гитаре?'],
-      ["She can't dance.", 'Она не умеет танцевать.'],
-      ['I like drawing.', 'Мне нравится рисовать.'],
-      ['My hobby is taking photos.', 'Моё хобби — фотографировать.'],
-      ['He is good at chess.', 'Он хорошо играет в шахматы.'],
-      ['We often play computer games.', 'Мы часто играем в компьютерные игры.'],
-      ['What do you do in your free time?', 'Что ты делаешь в свободное время?'],
-    ],
-    grammar: {
-      title: 'can и глагол с -ing после like, enjoy',
-      rule: ['can + глагол без to: I can swim. Can you swim? I can’t swim.', 'like / enjoy / be fond of + -ing: I enjoy dancing.', 'good at, interested in, fond of — запомните предлоги.'],
-      gaps: [
-        ['I can ___ well.', ['swim', 'swimming', 'to swim'], 0, 'Я хорошо плаваю.'],
-        ['She enjoys ___.', ['dancing', 'dance', 'to dancing'], 0, 'Ей нравится танцевать.'],
-        ['___ you ride a bike?', ['Can', 'Do', 'Are'], 0, 'Ты умеешь кататься на велосипеде?'],
-        ['He is good ___ maths.', ['at', 'in', 'on'], 0, 'Он силён в математике.'],
-        ["I'm interested ___ music.", ['in', 'at', 'on'], 0, 'Я интересуюсь музыкой.'],
-        ["My sister can't ___.", ['sing', 'sings', 'singing'], 0, 'Моя сестра не умеет петь.'],
-        ["I'm fond ___ reading.", ['of', 'at', 'in'], 0, 'Я увлекаюсь чтением.'],
-        ['We like ___ photos.', ['taking', 'take', 'takes'], 0, 'Мы любим фотографировать.'],
-      ],
-    },
-  },
-  {
-    id: 'past',
-    title: 'Last weekend',
-    ru: 'Прошлые выходные',
-    level: 'A2',
-    grades: [7, 8],
-    icon: '🕰️',
-    words: [
-      ['went', 'ходил, ездил'],
-      ['saw', 'видел'],
-      ['bought', 'купил'],
-      ['ate', 'ел'],
-      ['made', 'сделал'],
-      ['wrote', 'написал'],
-      ['came', 'пришёл'],
-      ['took', 'взял'],
-      ['yesterday', 'вчера'],
-      ['ago', 'назад'],
-      ['holiday', 'каникулы', '🏖️'],
-      ['film', 'фильм', '🎞️'],
-    ],
-    phrases: [
-      ['I went to the cinema yesterday.', 'Вчера я ходил в кино.'],
-      ['We visited our grandmother last Sunday.', 'В прошлое воскресенье мы навестили бабушку.'],
-      ['She bought a new dress.', 'Она купила новое платье.'],
-      ['Did you see the film?', 'Ты видел этот фильм?'],
-      ["I didn't do my homework.", 'Я не сделал домашнее задание.'],
-      ['They played football in the park.', 'Они играли в футбол в парке.'],
-      ['It was cold and rainy.', 'Было холодно и дождливо.'],
-      ['Two years ago I lived in Moscow.', 'Два года назад я жил в Москве.'],
-    ],
-    grammar: {
-      title: 'Past Simple — что было',
-      rule: ['Правильные глаголы + ed: play → played, visit → visited.', 'Неправильные — вторая форма: go → went, see → saw, eat → ate.', 'Вопрос и отрицание — через did: Did you go? I didn’t go. was — для I/he/she/it, were — для we/you/they.'],
-      gaps: [
-        ['Yesterday I ___ to the park.', ['went', 'go', 'goes'], 0, 'Вчера я ходил в парк.'],
-        ['She ___ a cake last Sunday.', ['made', 'make', 'makes'], 0, 'В прошлое воскресенье она испекла торт.'],
-        ['___ you watch TV yesterday?', ['Did', 'Do', 'Was'], 0, 'Ты смотрел вчера телевизор?'],
-        ['We ___ go to school last Saturday.', ["didn't", "don't", "wasn't"], 0, 'В прошлую субботу мы не ходили в школу.'],
-        ['He ___ at home yesterday.', ['was', 'were', 'is'], 0, 'Вчера он был дома.'],
-        ['They ___ very happy.', ['were', 'was', 'is'], 0, 'Они были очень рады.'],
-        ['I ___ a letter to my friend.', ['wrote', 'writed', 'write'], 0, 'Я написал письмо другу.'],
-        ['We ___ pizza for dinner.', ['ate', 'eated', 'eat'], 0, 'На ужин мы ели пиццу.'],
-      ],
-    },
-  },
-  {
-    id: 'plans',
-    title: 'Future plans',
-    ru: 'Планы',
-    level: 'A2',
-    grades: [7, 9],
-    icon: '🗓️',
-    words: [
-      ['tomorrow', 'завтра'],
-      ['travel', 'путешествовать', '✈️'],
-      ['visit', 'навещать'],
-      ['summer', 'лето', '☀️'],
-      ['winter', 'зима', '❄️'],
-      ['sea', 'море', '🌊'],
-      ['mountains', 'горы', '🏔️'],
-      ['ticket', 'билет', '🎫'],
-      ['suitcase', 'чемодан', '🧳'],
-      ['tent', 'палатка', '⛺'],
-      ['weekend', 'выходные'],
-      ['plan', 'план'],
-    ],
-    phrases: [
-      ['I am going to visit my grandparents.', 'Я собираюсь навестить бабушку и дедушку.'],
-      ['We are going to travel to the sea.', 'Мы собираемся поехать на море.'],
-      ['It will be sunny tomorrow.', 'Завтра будет солнечно.'],
-      ['What are you going to do at the weekend?', 'Что ты собираешься делать на выходных?'],
-      ['I think she will win.', 'Думаю, она победит.'],
-      ['I will help you.', 'Я тебе помогу.'],
-      ['They are not going to buy a car.', 'Они не собираются покупать машину.'],
-      ['Next summer I will learn to swim.', 'Следующим летом я научусь плавать.'],
-    ],
-    grammar: {
-      title: 'be going to и will',
-      rule: ['be going to — планы и намерения: I am going to travel.', 'will — решения в момент речи, прогнозы, обещания: I think it will rain. I will help you.', 'Отрицание: I won’t (= will not), I’m not going to.'],
-      gaps: [
-        ['I ___ going to read this book.', ['am', 'is', 'are'], 0, 'Я собираюсь прочитать эту книгу.'],
-        ['They are going ___ a film.', ['to watch', 'watch', 'watching'], 0, 'Они собираются посмотреть фильм.'],
-        ['It ___ rain tomorrow.', ['will', 'is', 'does'], 0, 'Завтра будет дождь.'],
-        ['___ you help me, please?', ['Will', 'Are', 'Do'], 0, 'Поможешь мне, пожалуйста?'],
-        ['She ___ going to buy a dress.', ['is', 'are', 'am'], 0, 'Она собирается купить платье.'],
-        ['I think he ___ be late.', ['will', 'is', 'going'], 0, 'Думаю, он опоздает.'],
-        ["I won't ___ your birthday.", ['forget', 'forgot', 'forgetting'], 0, 'Я не забуду твой день рождения.'],
-        ['We ___ to visit Paris next year.', ['are going', 'is going', 'going'], 0, 'В следующем году мы собираемся в Париж.'],
-      ],
-    },
-  },
-  {
-    id: 'experience',
-    title: 'Have you ever…?',
-    ru: 'Опыт и впечатления',
-    level: 'B1',
-    grades: [8, 9],
-    icon: '🌍',
-    words: [
-      ['already', 'уже'],
-      ['yet', 'ещё (в вопросе — уже)'],
-      ['ever', 'когда-нибудь'],
-      ['just', 'только что'],
-      ['recently', 'недавно'],
-      ['abroad', 'за границей', '✈️'],
-      ['passport', 'паспорт', '🛂'],
-      ['island', 'остров', '🏝️'],
-      ['volcano', 'вулкан', '🌋'],
-      ['whale', 'кит', '🐋'],
-      ['since', 'с (какого-то момента)'],
-      ['for', 'в течение'],
-    ],
-    phrases: [
-      ['I have already done my homework.', 'Я уже сделал домашнее задание.'],
-      ['Have you ever been to London?', 'Ты когда-нибудь был в Лондоне?'],
-      ['She has just come home.', 'Она только что пришла домой.'],
-      ["We haven't seen this film yet.", 'Мы ещё не видели этот фильм.'],
-      ['I have known him for five years.', 'Я знаю его пять лет.'],
-      ['They have lived here since 2020.', 'Они живут здесь с 2020 года.'],
-      ['He has never tried sushi.', 'Он никогда не пробовал суши.'],
-      ['Have you finished yet?', 'Ты уже закончил?'],
-    ],
-    grammar: {
-      title: 'Present Perfect',
-      rule: ['have / has + третья форма: I have seen, she has done.', 'Слова-подсказки: already, just, yet, ever, never, for, since.', 'for — сколько длится (for two years), since — с какого момента (since 2020).'],
-      gaps: [
-        ['I have ___ finished. Let’s go!', ['just', 'yet', 'ago'], 0, 'Я только что закончил. Пойдём!'],
-        ['She ___ been to Paris twice.', ['has', 'have', 'is'], 0, 'Она дважды была в Париже.'],
-        ['Have you ___ seen a whale?', ['ever', 'yet', 'ago'], 0, 'Ты когда-нибудь видел кита?'],
-        ["We haven't eaten ___.", ['yet', 'already', 'just'], 0, 'Мы ещё не ели.'],
-        ['I have lived here ___ ten years.', ['for', 'since', 'ago'], 0, 'Я живу здесь десять лет.'],
-        ['He has worked here ___ 2019.', ['since', 'for', 'ago'], 0, 'Он работает здесь с 2019 года.'],
-        ['They ___ never flown on a plane.', ['have', 'has', 'are'], 0, 'Они никогда не летали на самолёте.'],
-        ['Look! I ___ a new phone.', ['have bought', 'has bought', 'buying'], 0, 'Смотри! Я купил новый телефон.'],
-      ],
-    },
-  },
-  {
-    id: 'nature',
-    title: 'Nature',
-    ru: 'Природа и экология',
-    level: 'B1',
-    grades: [8, 10],
-    icon: '🌿',
-    words: [
-      ['weather', 'погода', '🌦️'],
-      ['rain', 'дождь', '🌧️'],
-      ['snow', 'снег', '❄️'],
-      ['wind', 'ветер', '💨'],
-      ['forest', 'лес', '🌲'],
-      ['river', 'река', '🏞️'],
-      ['planet', 'планета', '🌍'],
-      ['animal', 'животное', '🐾'],
-      ['recycle', 'перерабатывать', '♻️'],
-      ['pollution', 'загрязнение', '🏭'],
-      ['protect', 'защищать', '🛡️'],
-      ['environment', 'окружающая среда'],
-    ],
-    phrases: [
-      ['If it rains, we will stay at home.', 'Если пойдёт дождь, мы останемся дома.'],
-      ['We must protect nature.', 'Мы должны защищать природу.'],
-      ['Paper can be recycled.', 'Бумагу можно переработать.'],
-      ['The forest was destroyed by fire.', 'Лес был уничтожен пожаром.'],
-      ['If you heat ice, it melts.', 'Если нагреть лёд, он тает.'],
-      ['Many animals live in the forest.', 'В лесу живёт много животных.'],
-      ['It is windy today.', 'Сегодня ветрено.'],
-      ['The river is polluted.', 'Река загрязнена.'],
-    ],
-    grammar: {
-      title: 'Условные предложения и страдательный залог',
-      rule: ['If + Present, will + глагол: If it rains, we will stay at home (после if — без will!).', 'If I were you, I would… — совет, нереальное условие.', 'Страдательный залог: be + третья форма. Paper is recycled. The house was built in 1990.'],
-      gaps: [
-        ['If it ___ sunny tomorrow, we will go to the park.', ['is', 'will be', 'be'], 0, 'Если завтра будет солнечно, мы пойдём в парк.'],
-        ['If you study, you ___ pass the exam.', ['will', 'would', 'are'], 0, 'Если будешь заниматься, сдашь экзамен.'],
-        ['The letter ___ written yesterday.', ['was', 'is', 'were'], 0, 'Письмо написали вчера.'],
-        ['English ___ spoken all over the world.', ['is', 'are', 'was'], 0, 'На английском говорят по всему миру.'],
-        ['These houses ___ built in 1990.', ['were', 'was', 'are'], 0, 'Эти дома построены в 1990 году.'],
-        ['If I ___ you, I would take an umbrella.', ['were', 'am', 'will be'], 0, 'На твоём месте я бы взял зонт.'],
-        ['Plastic should ___ recycled.', ['be', 'been', 'is'], 0, 'Пластик нужно перерабатывать.'],
-        ['If water ___ 100 degrees, it boils.', ['reaches', 'will reach', 'reach'], 0, 'Если вода нагреется до 100 градусов, она закипит.'],
-      ],
-    },
-  },
-  {
-    id: 'words',
-    title: 'Word building',
-    ru: 'Словообразование (ОГЭ, ЕГЭ)',
-    level: 'B1',
-    grades: [9, 11],
-    icon: '🔤',
-    words: [
-      ['happiness', 'счастье'],
-      ['teacher', 'учитель', '🧑‍🏫'],
-      ['impossible', 'невозможный'],
-      ['careful', 'осторожный'],
-      ['useless', 'бесполезный'],
-      ['national', 'национальный'],
-      ['invention', 'изобретение', '💡'],
-      ['actor', 'актёр', '🎭'],
-      ['friendly', 'дружелюбный'],
-      ['dangerous', 'опасный', '⚠️'],
-      ['beautiful', 'красивый'],
-      ['decision', 'решение'],
-    ],
-    phrases: [
-      ['He is a famous actor.', 'Он известный актёр.'],
-      ['Be careful on the road.', 'Будь осторожен на дороге.'],
-      ['It is impossible to do it in one day.', 'Это невозможно сделать за один день.'],
-      ['The invention of the telephone changed the world.', 'Изобретение телефона изменило мир.'],
-      ['Our neighbours are very friendly.', 'Наши соседи очень дружелюбные.'],
-      ['Swimming here is dangerous.', 'Плавать здесь опасно.'],
-      ['She made a difficult decision.', 'Она приняла трудное решение.'],
-      ['Happiness is important.', 'Счастье важно.'],
-    ],
-    grammar: {
-      title: 'Суффиксы и приставки',
-      rule: ['Кто делает: -er, -or (teacher, actor). Предмет, действие: -tion, -sion, -ness, -ment (invention, decision, happiness).', 'Прилагательные: -ful, -less, -ous, -al, -ly (careful, useless, dangerous, national, friendly).', 'Отрицание: un-, im-, in-, dis- (unhappy, impossible).'],
-      gaps: [
-        ['Thank you for your ___. (KIND)', ['kindness', 'kindly', 'kind'], 0, 'Спасибо за вашу доброту.'],
-        ['This book is very ___: I learned a lot. (USE)', ['useful', 'useless', 'user'], 0, 'Эта книга очень полезная: я многое узнал.'],
-        ['He works as a ___. (TEACH)', ['teacher', 'teaching', 'teached'], 0, 'Он работает учителем.'],
-        ['It is ___ to fly without wings. (POSSIBLE)', ['impossible', 'possibly', 'possible'], 0, 'Летать без крыльев невозможно.'],
-        ['The ___ of the wheel was very important. (INVENT)', ['invention', 'inventor', 'invent'], 0, 'Изобретение колеса было очень важным.'],
-        ['Tigers are ___ animals. (DANGER)', ['dangerous', 'danger', 'dangerously'], 0, 'Тигры — опасные животные.'],
-        ['What a ___ day! (BEAUTY)', ['beautiful', 'beauty', 'beautifully'], 0, 'Какой прекрасный день!'],
-        ['They made an important ___. (DECIDE)', ['decision', 'decide', 'decisive'], 0, 'Они приняли важное решение.'],
-      ],
-    },
-  },
+  ...STARTER,
+  CLASSROOM,
+  ...after(A1, 'people', QUESTIONS),
+  CAFE,
+  ...after(after(A2, 'stories', OBJECTS), 'future', MAYBE),
+  HOTEL,
+  ...B1,
+  OPINION,
+];
+
+export const LEVELS: { id: Level; title: string; about: string }[] = [
+  { id: 'Starter', title: 'С нуля', about: 'Буквы уже знакомы, но слов почти нет: привет, цвета, числа, семья, «я умею».' },
+  { id: 'A1', title: 'A1 · начальный', about: 'Глагол to be, there is, Present Simple и Continuous, сравнения. Можно рассказать о себе.' },
+  { id: 'A2', title: 'A2 · базовый', about: 'Прошедшее время, планы и будущее, советы и правила. Можно рассказать историю.' },
+  { id: 'B1', title: 'B1 · средний', about: 'Present Perfect, условные, пассив, косвенная речь, словообразование — уровень ОГЭ и база ЕГЭ.' },
 ];
 
 export const LESSONS = [
   { n: 1, kind: 'words1', title: 'Словарик', icon: 'sparkles' },
   { n: 2, kind: 'words2', title: 'Словарик 2', icon: 'book' },
-  { n: 3, kind: 'phrases', title: 'Фразы', icon: 'message' },
-  { n: 4, kind: 'grammar', title: 'Грамматика', icon: 'puzzle' },
+  { n: 3, kind: 'words3', title: 'Словарик 3', icon: 'book' },
+  { n: 4, kind: 'phrases', title: 'Фразы', icon: 'message' },
+  { n: 5, kind: 'grammar', title: 'Грамматика', icon: 'puzzle' },
+  { n: 6, kind: 'review', title: 'Контрольная', icon: 'star' },
 ] as const;
 
 export const lessonId = (unit: string, n: number) => `${unit}-${n}`;
 export function findLesson(id: string) {
-  const m = /^([a-z]+)-([1-4])$/.exec(id);
+  const m = /^([a-z0-9]+)-([1-6])$/.exec(id);
   if (!m) return null;
   const unit = UNITS.find((u) => u.id === m[1]);
   const lesson = LESSONS.find((l) => l.n === Number(m[2]));
   return unit && lesson ? { unit, lesson } : null;
+}
+
+/** «___ is my pen. (у меня в руке)» → текст без подсказки в скобках и сама подсказка. */
+export function splitHint(sentence: string) {
+  const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(sentence);
+  return m ? { text: m[1]!, hint: m[2]! } : { text: sentence, hint: null };
+}
+export const fillGap = (g: Gap) => splitHint(g[0]).text.replace('___', g[1][g[2]]!);
+
+let texts: Set<string> | null = null;
+/** Все английские тексты курса — только их можно озвучивать. */
+export function englishTexts() {
+  if (texts) return texts;
+  texts = new Set<string>();
+  for (const u of UNITS) {
+    for (const w of u.words) texts.add(w[0]);
+    for (const p of u.phrases) texts.add(p[0]);
+    for (const g of u.grammar.gaps) texts.add(fillGap(g));
+  }
+  return texts;
 }

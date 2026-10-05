@@ -3,13 +3,16 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, Lightbulb, PencilLine, RotateCcw, Snail, Undo2, Volume2, X } from 'lucide-react';
+import { ArrowRight, EarOff, Lightbulb, Mic, MicOff, PencilLine, RotateCcw, Snail, Undo2, Volume2, VolumeX, X } from 'lucide-react';
 import { ButtonLink, ErrorNote, Loading } from '../../components/ui';
 import { RichText } from '../../components/Tex';
 import { Burst } from '../../components/game/Burst';
 import { LevelUp, XpMeter } from '../../components/game/XpMeter';
 import { Beam, BlitzTimer, GameMark, Memory, Stamp, type BeamCell } from '../../components/games/parts';
-import { canSpeak, checkTyped, speak } from '../../lib/english';
+import { canSpeak, checkTyped, normalize, speak } from '../../lib/english';
+import { canRecognize, noListen, noSpeak, recognize, setNoListen, setNoSpeak } from '../../lib/voice';
+import { COACH_FACE, useCoach } from '../../lib/coach';
+import { ChatLauncher } from '../../components/games/Chat';
 import { checkSolve, isGame, loadLevel, nextLevelId, saveResult, type AnyStep, type GameKey, type PlayLevel } from '../../lib/games';
 import { levelOf, sfx, useGame, useRefreshGame } from '../../lib/game';
 import { haptic } from '../../lib/platform';
@@ -33,6 +36,8 @@ const KIND: Record<AnyStep['type'], string> = {
   choose: 'выбор',
   truefalse: 'верно или нет',
   order: 'по порядку',
+  spot: 'найди ошибку',
+  say: 'скажи вслух',
 };
 const PRAISE = ['Так держать!', 'Отлично!', 'Точно!', 'В яблочко!', 'Блестяще!', 'Чисто!'];
 const ungraded = (s: AnyStep) => s.type === 'new' || s.type === 'rule' || s.type === 'cheat';
@@ -61,7 +66,12 @@ export default function Play() {
         </ButtonLink>
       </div>
     );
-  return <Session key={`${id}-${round}`} level={q.data} onAgain={() => setRound((r) => r + 1)} />;
+  // без микрофона (или «не могу говорить») задания «скажи вслух» убираем
+  // и задания на слух — если ученик сказал «не могу слушать»
+  const speakOk = canRecognize() && !noSpeak();
+  const listenOk = !noListen();
+  const lv = speakOk && listenOk ? q.data : { ...q.data, steps: q.data.steps.filter((x) => (speakOk || x.type !== 'say') && (listenOk || x.type !== 'listen')) };
+  return <Session key={`${id}-${round}`} level={lv} onAgain={() => setRound((r) => r + 1)} />;
 }
 
 function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
@@ -88,6 +98,21 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
   const hue = level.chapter.hue;
   const graded = level.steps.filter((s) => !ungraded(s)).length;
   const isBlitz = (step.type === 'solve' || step.type === 'choose') && Boolean(step.blitz);
+  const coach = useCoach(level.game);
+  const streak = useRef(0);
+  const misses = useRef(0);
+  const [quiet, setQuiet] = useState(noListen);
+  const greeted = useRef(false);
+  useEffect(() => {
+    if (!coach.ready || greeted.current) return;
+    greeted.current = true;
+    const t = setTimeout(() => void coach.say('start'), 500);
+    return () => clearTimeout(t);
+  }, [coach.ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  // «не могу слушать» нажали посреди уровня — оставшиеся задания на слух пропускаем
+  useEffect(() => {
+    if (quiet && step.type === 'listen' && !verdict) next();
+  }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const finish = useMutation({
     mutationFn: () => saveResult(level.game, level.id, graded, mistakes, blitzOk),
@@ -95,6 +120,7 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
       const before = game.data?.xp.total ?? 0;
       setResult({ xp: r.xp, ms: Date.now() - started });
       sfx('finish');
+      setTimeout(() => void coach.say(mistakes === 0 ? 'perfect' : mistakes / Math.max(1, graded) > 0.4 ? 'finishTough' : 'finish'), 700);
       if (game.data && levelOf(before + r.xp).level > levelOf(before).level) setTimeout(() => setLevelUp(levelOf(before + r.xp).level), 1200);
       void refreshGame();
       void qc.invalidateQueries({ queryKey: ['game-map'] });
@@ -103,17 +129,29 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
   });
 
   const settle = useCallback(
-    (ok: boolean, correct: string, opts: { typo?: boolean; say?: string | null; explain?: string[]; timeout?: boolean } = {}) => {
+    (ok: boolean, correct: string, opts: { typo?: boolean; say?: string | null; explain?: string[]; timeout?: boolean; ask?: { task: string; given: string }; tip?: { t: string; v: string; sig: string } } = {}) => {
       setVerdict({ ok, correct, typo: opts.typo, explain: opts.explain ?? [], timeout: opts.timeout });
-      if (opts.say) setTimeout(() => speak(opts.say!), 200);
+      // английский образец звучит, только если комментатор молчит: иначе голоса наложатся
+      if (opts.say && (!coach.on || !coach.ready)) setTimeout(() => speak(opts.say!), 200);
       if (ok) {
         haptic('success');
         sfx('correct');
         setFire((n) => n + 1);
         if (isBlitz) setBlitzOk(true);
+        streak.current++;
+        misses.current = 0;
+        const hard = isBlitz || (level.game !== 'lingo' && level.level.n === 3) || step.type === 'type' || step.type === 'spot';
+        const ev = [3, 5, 8, 12].includes(streak.current) ? 'streak' : hard ? 'okHard' : 'ok';
+        const said = coach.say(ev);
+        if (opts.say && coach.on) void said.then(() => speak(opts.say!));
       } else {
         haptic('tap');
         sfx('almost');
+        streak.current = 0;
+        misses.current++;
+        const said = coach.say(opts.timeout ? 'timeout' : misses.current > 1 ? 'almostAgain' : 'almost');
+        // разбор — проверенная подсказка из задачи (нейросеть в объяснениях задач может ошибиться)
+        if (opts.tip) void coach.tip(opts.tip, said);
         setMistakes((m) => m + 1);
         // карточка вернётся в конце, один раз
         if (!retried.current.has(idx)) {
@@ -122,7 +160,7 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
         }
       }
     },
-    [idx, isBlitz],
+    [idx, isBlitz, coach, level, step.type],
   );
 
   const next = useCallback(() => {
@@ -140,7 +178,8 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
     setVerdict(null);
     setFlipped(false);
     setHint(false);
-  }, [pos, queue.length, finish, verdict]);
+    coach.reset();
+  }, [pos, queue.length, finish, verdict, coach]);
 
   const canCheck = useMemo(() => {
     switch (step.type) {
@@ -152,6 +191,7 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
       case 'match':
       case 'memory':
       case 'truefalse':
+      case 'say':
         return false;
       case 'build':
         return Array.isArray(answer) && answer.length > 0;
@@ -175,21 +215,25 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
         return settle(answer === step.answer, step.options[step.answer]!, { say: step.say });
       case 'fill': {
         const full = step.sentence.replace('___', step.options[step.answer]!);
-        return settle(answer === step.answer, full, { say: full.replace(/\s*\([A-Z]+\)$/, '') });
+        return settle(answer === step.answer, full, { say: full.replace(/\s*\([A-Z]+\)$/, ''), ask: { task: `Вставить пропуск: ${step.sentence} (${step.ru})`, given: step.options[answer as number] ?? '' } });
       }
       case 'build': {
         const given = (answer as number[]).map((i) => step.tiles[i]).join(' ');
         const right = step.answer.join(' ');
-        return settle(given.toLowerCase() === right.toLowerCase(), right, { say: right });
+        return settle(given.toLowerCase() === right.toLowerCase(), right, { say: right, ask: { task: `Собрать по-английски: «${step.ru}»`, given } });
       }
       case 'type': {
         const v = checkTyped(answer as string, step.answers);
-        return settle(v !== 'almost', step.answers[0]!, { typo: v === 'typo', say: step.answers[0] });
+        return settle(v !== 'almost', step.answers[0]!, { typo: v === 'typo', say: step.answers[0], ask: { task: `Перевести на английский: «${step.ru}»`, given: answer as string } });
+      }
+      case 'spot': {
+        const fixed = step.words.map((w, i) => (i === step.wrong ? w.replace(/^[^\s.,!?]+/, step.fix) : w)).join(' ');
+        return settle(answer === step.wrong, fixed, { say: fixed, ask: { task: `Найти ошибку в предложении: ${step.words.join(' ')}`, given: `ученик нажал на слово «${step.words[answer as number]}»` } });
       }
       case 'solve':
-        return settle(checkSolve(step, answer as string), step.display, { explain: step.explain });
+        return settle(checkSolve(step, answer as string), step.display, { explain: step.explain, tip: step.hintSay });
       case 'choose':
-        return settle(answer === step.answer, step.display, { explain: step.explain });
+        return settle(answer === step.answer, step.display, { explain: step.explain, tip: step.hintSay });
       case 'order': {
         const ok = (answer as number[]).every((v, i) => v === step.order[i]);
         return settle(ok, step.order.map((i) => step.items[i]).join(' < '));
@@ -199,7 +243,7 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
 
   const timeUp = useCallback(() => {
     if (verdict || !(step.type === 'solve' || step.type === 'choose')) return;
-    settle(false, step.display, { explain: step.explain, timeout: true });
+    settle(false, step.display, { explain: step.explain, timeout: true, tip: step.hintSay });
   }, [verdict, step, settle]);
 
   // Enter — проверить / дальше; цифры — выбрать вариант
@@ -276,7 +320,26 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
               {pos >= level.steps.length && <span className="t-mono text-[11.5px] text-[var(--ink-2)]">повтор</span>}
               {isBlitz && (step.type === 'solve' || step.type === 'choose') && <BlitzTimer seconds={step.blitz!} running={!verdict} onEnd={timeUp} />}
             </div>
-            <StepView step={step} answer={answer} setAnswer={setAnswer} locked={locked} flipped={flipped} setFlipped={setFlipped} hint={hint} setHint={setHint} settle={settle} />
+            <StepView
+              step={step}
+              answer={answer}
+              setAnswer={setAnswer}
+              locked={locked}
+              flipped={flipped}
+              setFlipped={setFlipped}
+              hint={hint}
+              setHint={setHint}
+              settle={settle}
+              quiet={quiet}
+              onQuiet={() => {
+                setNoListen();
+                setQuiet(true);
+              }}
+              onNoMic={() => {
+                setNoSpeak();
+                next();
+              }}
+            />
           </motion.article>
         </AnimatePresence>
 
@@ -315,8 +378,10 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
         </AnimatePresence>
       </main>
 
+      <CoachBubble face={COACH_FACE[level.game]} name={coach.name} bubble={coach.bubble} on={coach.on} toggle={coach.toggle} />
+
       {/* кнопка действия — снизу, но без цветной «шторки»: вердикт уже стоит печатью на карточке */}
-      {(verdict || canCheck || !['match', 'memory', 'truefalse'].includes(step.type)) && (
+      {(verdict || canCheck || !['match', 'memory', 'truefalse', 'say'].includes(step.type)) && (
         <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper/95 to-transparent pt-8" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
           <div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-4 px-4 sm:px-6">
             <span className="hidden text-[13.5px] text-muted sm:block">{verdict ? 'Enter — следующая карточка' : step.type === 'new' ? 'Пробел — перевернуть' : step.type === 'rule' || step.type === 'cheat' ? 'Enter — дальше' : 'Enter — проверить'}</span>
@@ -417,6 +482,9 @@ function StepView({
   hint,
   setHint,
   settle,
+  quiet,
+  onQuiet,
+  onNoMic,
 }: {
   step: AnyStep;
   answer: Answer;
@@ -426,7 +494,10 @@ function StepView({
   setFlipped(v: boolean): void;
   hint: boolean;
   setHint(v: boolean): void;
-  settle(ok: boolean, correct: string, opts?: { say?: string | null; explain?: string[] }): void;
+  settle(ok: boolean, correct: string, opts?: { say?: string | null; explain?: string[]; typo?: boolean; ask?: { task: string; given: string }; tip?: { t: string; v: string; sig: string } }): void;
+  quiet: boolean;
+  onQuiet(): void;
+  onNoMic(): void;
 }) {
   switch (step.type) {
     case 'new':
@@ -540,9 +611,49 @@ function StepView({
               </Choice>
             ))}
           </div>
+          {!locked && !quiet && (
+            <button type="button" onClick={onQuiet} className="link inline-flex w-fit items-center gap-1.5 text-[14px] text-muted">
+              <EarOff className="size-4" /> Не могу слушать сейчас
+            </button>
+          )}
         </>
       );
     }
+
+    case 'spot':
+      return (
+        <>
+          <Q>Найдите ошибку — нажмите на неверное слово</Q>
+          <p className="flex flex-wrap gap-x-1.5 gap-y-2 text-[clamp(20px,4vw,25px)] leading-relaxed">
+            {step.words.map((w, i) => (
+              <button
+                key={i}
+                type="button"
+                disabled={locked}
+                onClick={() => setAnswer(i)}
+                className={clsx(
+                  'press rounded-[6px] border-b-[3px] px-1.5 transition-colors',
+                  locked && i === step.wrong ? 'border-[var(--ray-3)] bg-[var(--tint-raw-3)]' : locked && answer === i ? 'border-[var(--ray-2)] bg-butter' : answer === i ? 'border-ink bg-mark' : 'border-transparent hover:border-ink/30 hover:bg-bone',
+                )}
+              >
+                {w}
+              </button>
+            ))}
+          </p>
+          <p className="text-[15.5px] text-muted italic">
+            {step.ru}
+            {step.hint ? ` (${step.hint})` : ''}
+          </p>
+          {locked && (
+            <p className="text-[16px]">
+              Нужно: <b>{step.fix}</b>
+            </p>
+          )}
+        </>
+      );
+
+    case 'say':
+      return <SayAloud key={step.text} text={step.text} ru={step.ru} locked={locked} settle={settle} onNoMic={onNoMic} />;
 
     case 'fill': {
       const [before, after] = step.sentence.split('___');
@@ -685,7 +796,7 @@ function StepView({
                 disabled={locked}
                 onClick={() => {
                   setAnswer(v);
-                  settle(v === step.truth, step.truth ? `одноклассник прав, ${step.display}` : `одноклассник ошибся, верно — ${step.display}`, { explain: step.explain });
+                  settle(v === step.truth, step.truth ? `одноклассник прав, ${step.display}` : `одноклассник ошибся, верно — ${step.display}`, { explain: step.explain, tip: step.hintSay });
                 }}
                 className={clsx(
                   'press h-16 rounded-[8px] border-[1.5px] text-[19px] font-[700] transition-colors disabled:cursor-default',
@@ -760,6 +871,100 @@ function StepView({
   }
 }
 
+/** «Скажи вслух»: браузер слушает микрофон, сверяем слова с образцом. Три попытки, без штрафа за капризный микрофон. */
+function SayAloud({ text, ru, locked, settle, onNoMic }: { text: string; ru: string; locked: boolean; settle: Parameters<typeof StepView>[0]['settle']; onNoMic(): void }) {
+  const [heard, setHeard] = useState('');
+  const [state, setState] = useState<'idle' | 'listening' | 'retry'>('idle');
+  const [tries, setTries] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
+  const target = normalize(text).split(' ');
+  const score = (said: string) => {
+    const got = new Set(normalize(said).split(' '));
+    return target.filter((w) => got.has(w)).length / target.length;
+  };
+  const listen = async () => {
+    setError(null);
+    setHeard('');
+    setState('listening');
+    const r = recognize('en-US', setHeard);
+    stopRef.current = r.stop;
+    try {
+      const said = await r.promise;
+      setHeard(said);
+      const n = tries + 1;
+      setTries(n);
+      if (said && score(said) >= 0.7) settle(true, text, {});
+      else if (n >= 3) settle(true, text, { typo: true });
+      else setState('retry');
+    } catch (e) {
+      setError((e as Error).message);
+      setState('idle');
+    }
+  };
+  return (
+    <>
+      <Q>Скажите вслух по-английски</Q>
+      <p className="flex flex-wrap items-center gap-3">
+        <span className="t-display text-[clamp(24px,4.6vw,32px)] leading-tight">{text}</span>
+        <Speaker text={text} />
+      </p>
+      {ru && <p className="text-[15.5px] text-muted italic">{ru}</p>}
+      {!locked && (
+        <div className="flex flex-col items-center gap-3 py-2">
+          <button
+            type="button"
+            onClick={() => (state === 'listening' ? stopRef.current?.() : void listen())}
+            className={clsx('press grid size-24 place-items-center rounded-full text-paper shadow-sticker', state === 'listening' ? 'animate-pulse bg-[var(--ray-0)]' : 'bg-ink hover:bg-mark hover:text-forest')}
+            aria-label={state === 'listening' ? 'Остановить запись' : 'Нажмите и говорите'}
+          >
+            <Mic className="size-10" />
+          </button>
+          <p className="min-h-6 text-center text-[16px]">{state === 'listening' ? heard || 'Говорите…' : state === 'retry' ? `Услышал: «${heard || '…'}». Почти — ещё разок!` : 'Нажмите на микрофон и скажите фразу'}</p>
+          {error && <p className="rounded-[4px] bg-butter px-3 py-1.5 text-[14px]">{error}</p>}
+          <button type="button" onClick={onNoMic} className="link inline-flex items-center gap-1.5 text-[14px] text-muted">
+            <MicOff className="size-4" /> Не могу говорить сейчас
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CoachBubble({ face, name, bubble, on, toggle }: { face: string; name: string | null; bubble: { text: string; key: number; thinking?: boolean } | null; on: boolean; toggle(): void }) {
+  if (!name) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[92px] z-30 mx-auto flex w-full max-w-[760px] items-end gap-2 px-4 sm:bottom-[100px] sm:px-6">
+      <button
+        type="button"
+        onClick={toggle}
+        className={clsx('press pointer-events-auto relative grid size-12 shrink-0 place-items-center rounded-full text-[24px] shadow-sticker', on ? 'bg-mark' : 'bg-bone grayscale')}
+        aria-label={on ? `Выключить голос: ${name}` : `Включить голос: ${name}`}
+        title={on ? 'Комментатор говорит — нажмите, чтобы выключить' : 'Комментатор молчит — нажмите, чтобы включить'}
+      >
+        {face}
+        <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-ink text-paper">{on ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />}</span>
+      </button>
+      <AnimatePresence>
+        {bubble && (bubble.text || bubble.thinking) && (
+          <motion.p
+            key={bubble.key}
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-auto max-w-[min(520px,80vw)] rounded-[14px] rounded-bl-[4px] border-[1.5px] border-ink/12 bg-paper px-4 py-2.5 text-[15.5px] leading-snug shadow-sticker"
+            role="status"
+          >
+            <span className="t-mono mr-1.5 text-[11px] text-muted">{name}:</span>
+            {bubble.text}
+            {bubble.thinking && <span className="ml-1 inline-flex gap-0.5 align-middle">{[0, 1, 2].map((i) => <motion.span key={i} className="size-1.5 rounded-full bg-ink/40" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} />)}</span>}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function Finish({
   level,
   result,
@@ -820,7 +1025,17 @@ function Finish({
           </motion.div>
         ))}
       </div>
+      {level.game === 'lingo' && accuracy < 55 && level.chapter.level && level.chapter.level !== 'Starter' && (
+        <div className="relative flex w-full max-w-md flex-col gap-2 rounded-[8px] bg-butter p-4 text-left shadow-sticker">
+          <p className="t-heading text-[18px]">Уровень {level.chapter.level} пока тяжеловат?</p>
+          <p className="text-[15px]">Это нормально — без базы дальше сложно. Пройди пару разделов уровнем ниже, а потом возвращайся: пойдёт заметно легче.</p>
+          <Link to={`/games/lingo?level=${{ A1: 'Starter', A2: 'A1', B1: 'A2' }[level.chapter.level] ?? 'Starter'}`} className="link w-fit text-[15px] font-[650]">
+            Перейти на {{ A1: 'Starter', A2: 'A1', B1: 'A2' }[level.chapter.level] ?? 'Starter'} →
+          </Link>
+        </div>
+      )}
       <XpMeter xp={xp} className="relative w-full max-w-md" />
+      <ChatLauncher game={level.game} where={`${level.chapter.title}, ${level.level.title}`} />
       <div className="relative flex w-full max-w-md flex-col gap-3">
         {next ? (
           <Link to={`/games/${level.game}/play/${next}`} className="press print-shadow grid h-14 place-items-center rounded-[10px] bg-ink text-[17px] font-[700] text-paper no-underline hover:bg-mark hover:text-forest">
