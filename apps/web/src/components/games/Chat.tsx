@@ -23,6 +23,16 @@ const SUGGEST: Record<GameKey, string[]> = {
   physics: ['Что такое импульс простыми словами?', 'Как запомнить закон Ома?', 'Почему небо голубое?', 'Что мне подтянуть?'],
   code: ['Как перевести число в двоичную систему?', 'Что делает range в Python?', 'Объясни логическое И и ИЛИ', 'Что мне подтянуть?'],
 };
+// Лина начинает разговор по-разному — как живой человек, а не анкета
+const LINA_HELLO = [
+  'Hey! I’m Lina 👋 I just finished my shift at the café and I smell like coffee 😄 How was your day?',
+  'Hi there! My cat Toast just knocked my phone off the table again 🙄 Do you have any pets?',
+  'Hey! I’m Lina from Brighton. It’s raining here, as always ☔ What’s the weather like where you are?',
+  'Hi! I’m trying to bake pancakes and… let’s say it’s going badly 😅 Do you like cooking?',
+  'Yo! My little brother Sam has been playing games for five hours straight 🎮 Do you play anything?',
+];
+const helloLine = () => LINA_HELLO[Math.floor(Math.random() * LINA_HELLO.length)]!;
+
 const NAME_TO: Record<string, string> = { Лина: 'Лину', Матвей: 'Матвея', Фотон: 'Фотона', Байт: 'Байта' };
 
 const storeKey = (game: GameKey, talk: boolean) => `spectr.chat.${game}${talk ? '.talk' : ''}`;
@@ -70,7 +80,7 @@ async function askHelper(args: { game: GameKey; history: Msg[]; talk: boolean; v
       game: args.game,
       messages: args.history
         .filter((m) => m.content.trim())
-        .slice(-10)
+        .slice(args.talk ? -16 : -10)
         .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) })),
       where: args.where,
       mode: args.talk ? 'talk' : 'help',
@@ -116,6 +126,7 @@ type CallState = 'listening' | 'thinking' | 'speaking' | 'paused';
 
 function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string; where?: string; onClose(): void }) {
   const [talk, setTalk] = useState(false);
+  const [hello] = useState(helloLine);
   const [msgs, setMsgs] = useState<Msg[]>(() => load(game, false));
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -176,7 +187,9 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
       setError(null);
       setText('');
       resetStream();
-      const history = [...msgsRef.current, { role: 'user' as const, content: q }];
+      // приветствие Лины — часть разговора: она помнит, о чём сама спросила
+      const before = talk && !msgsRef.current.length ? [{ role: 'assistant' as const, content: hello }] : msgsRef.current;
+      const history = [...before, { role: 'user' as const, content: q }];
       setMsgs([...history, { role: 'assistant', content: '' }]);
       setBusy(true);
       const ctrl = new AbortController();
@@ -202,7 +215,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         setBusy(false);
       }
     },
-    [game, talk, where],
+    [game, talk, where, hello],
   );
 
   // кнопка микрофона: одна реплика голосом — ответ голосом
@@ -344,7 +357,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             <div className="flex flex-col gap-3">
               <p className="rounded-[14px] rounded-tl-[4px] bg-paper px-4 py-3 text-[15.5px] shadow-sticker">
                 {talk
-                  ? 'Hi! I’m Lina 👋 Let’s chat in English. Пиши, говори в микрофон или нажми «Разговор» — поболтаем голосом, я мягко поправлю ошибки. What did you do today?'
+                  ? `${hello} (Пиши или жми «Разговор» и говори голосом — я подстроюсь под твой уровень и мягко поправлю ошибки.)`
                   : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
               </p>
               {!talk && (

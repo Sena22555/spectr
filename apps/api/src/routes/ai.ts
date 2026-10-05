@@ -38,14 +38,23 @@ function systemPrompt(game: Persona) {
 }
 
 const TALK_LEVELS = ['Starter', 'A1', 'A2', 'B1'];
+/**
+ * Лина в разговорной практике — живая собеседница, а не анкета: у неё своя жизнь и мнения,
+ * она реагирует на сказанное, делится своим, спрашивает не каждый раз и не повторяется.
+ */
 function talkPromptFor(level: string) {
+  const easy = level === 'Starter' || level === 'A1';
   return [
-    `You are Lina, a friendly English speaking partner for a Russian school student (English level: ${level}).`,
-    level === 'Starter' || level === 'A1' ? 'Use very simple English: short sentences, basic words, Present Simple.' : 'Use simple everyday English (A2–B1).',
-    'Reply in 1–3 short sentences and always finish with one easy question to keep the conversation going.',
-    'If the student makes a grammar or word mistake, start with a gentle correction like: "Better: I went to school." Then continue.',
-    'If the student writes in Russian, translate the idea into simple English, and ask them to try saying it in English.',
-    'Be warm and fun. No rude words. Do not ask for personal data (address, phone, surname).',
+    'You are Lina, 19, a student from Brighton, England. You chat with a Russian teenager who is learning English. This is a real friendly conversation, like texting a friend — not an interview.',
+    'Your life: you study design, work part-time in a little café, have a lazy ginger cat called Toast, love skateboarding, indie music, baking pancakes and bad horror movies. You have a younger brother, Sam (13), who plays video games all day. You can tell small stories from your day.',
+    easy ? 'Language: very simple English, short sentences, common words.' : 'Language: simple, natural everyday English (A2–B1).',
+    'How to talk:',
+    '- React to what the student actually said: show feelings, agree or disagree, add your own opinion or a short story about yourself.',
+    '- Ask a question only sometimes (about every second message), and only a follow-up about what they just said. Never ask about favourite colour, favourite food or "how are you" more than once. Never repeat a question from earlier in the chat.',
+    '- If the conversation gets slow, suggest something fun: a role-play (ordering in your café, a trip to London), "Would you rather…?", guessing a word, or telling a mini story together.',
+    '- If the student makes a mistake, first repeat the correct version naturally: "Oh, you went to the park? Cool!" or, for a real mistake, "(Better: I went…)". Do not lecture.',
+    '- If the student writes in Russian, help them say it in English and keep chatting.',
+    '- Keep each reply short: 1–3 sentences. Be warm, curious and a bit funny. No rude words, no personal data (address, phone, surname).',
   ].join('\n');
 }
 
@@ -152,7 +161,13 @@ export async function aiRoutes(app: FastifyInstance) {
       .parse(req.body);
     if (!llmEnabled()) return reply.code(503).send({ error: 'Помощник сейчас отдыхает. Загляни чуть позже!' });
     // окно модели — 3 тыс. токенов на разговор: берём недавнюю историю и обрезаем длинные реплики
-    body.messages = body.messages.filter((m) => m.content.trim()).slice(-6).map((m) => ({ ...m, content: m.content.slice(0, m.role === 'user' ? 800 : 700) }));
+    // окно модели — 3 тыс. токенов на разговор: берём недавнюю историю и обрезаем длинные реплики;
+    // в разговорной практике реплики короткие — помним больше, чтобы Лина не повторялась
+    const isTalk = body.game === 'lingo' && body.mode === 'talk';
+    body.messages = body.messages
+      .filter((m) => m.content.trim())
+      .slice(isTalk ? -16 : -6)
+      .map((m) => ({ ...m, content: m.content.slice(0, isTalk ? 400 : m.role === 'user' ? 800 : 700) }));
     if (!body.messages.length || body.messages[body.messages.length - 1]!.role !== 'user') return reply.code(400).send({ error: 'Напиши вопрос — я отвечу' });
     if (llmBusy()) return reply.code(429).send({ error: 'Помощник сейчас отвечает другим ребятам — попробуй через минутку 🙂' });
     const userId = await optionalUser(req);
@@ -176,7 +191,7 @@ export async function aiRoutes(app: FastifyInstance) {
     // переменная часть — отдельным сообщением после постоянной, чтобы кеш модели не сбрасывался
     const about = [notes.length ? `Об ученике: ${notes.join(' ')}` : '', body.where ? `Ученик сейчас в разделе: ${body.where}.` : ''].filter(Boolean).join('\n');
     const messages: ChatMsg[] = talk
-      ? [{ role: 'system', content: talkPrompt }, ...body.messages.slice(-8)]
+      ? [{ role: 'system', content: talkPrompt }, ...body.messages]
       : [{ role: 'system', content: systemPrompt(body.game) }, ...(about ? [{ role: 'system' as const, content: about }] : []), ...body.messages.slice(-8)];
     // голосовой разговор: коротко, как в живой беседе, без формул и списков
     if (body.voice && !talk)
@@ -205,7 +220,7 @@ export async function aiRoutes(app: FastifyInstance) {
     };
     try {
       await chatStream(
-        talk ? 150 : body.voice ? 200 : 300,
+        talk ? 120 : body.voice ? 200 : 300,
         messages,
         (t) => {
           full += t;
@@ -221,6 +236,7 @@ export async function aiRoutes(app: FastifyInstance) {
           }
         },
         abort.signal,
+        talk ? { temperature: 0.85, presence: 0.7 } : undefined,
       );
       if (sentence.trim()) emit(sentence);
       // для голосового режима — подписанные фразы: английские читает английский голос, русские — голос помощника

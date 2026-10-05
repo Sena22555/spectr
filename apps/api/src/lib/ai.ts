@@ -264,7 +264,7 @@ async function readStream(res: Response, onToken: (t: string) => void) {
 }
 
 /** Потоковый ответ: GigaChat, если подключён, иначе (или при его сбое до первого слова) — своя модель. */
-export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal) {
+export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number } = {}) {
   active++;
   try {
     if (GIGA_KEY()) {
@@ -274,7 +274,7 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
         const res = await fetch('https://gigachat.devices.sberbank.ru/api/v1/chat/completions', {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'text/event-stream', authorization: `Bearer ${token}` },
-          body: JSON.stringify({ model: GIGA_MODEL(), messages: forGiga(messages), stream: true, max_tokens: maxTokens, temperature: 0.5 }),
+          body: JSON.stringify({ model: GIGA_MODEL(), messages: forGiga(messages), stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5 }),
           signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
         });
         await readStream(res, (t) => {
@@ -291,7 +291,7 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
       headers: llmHeaders(),
-      body: JSON.stringify({ ...llmModel(), ...NO_CJK, messages, stream: true, max_tokens: maxTokens, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
+      body: JSON.stringify({ ...llmModel(), ...NO_CJK, messages, stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5, top_p: 0.9, presence_penalty: opts.presence ?? 0, repeat_penalty: opts.presence ? 1.15 : 1.0, cache_prompt: true }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
     });
     await readStream(res, onToken);
