@@ -6,6 +6,7 @@ import { requireRole } from '../lib/auth.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
 import { schoolDay } from '../lib/time.js';
 import { GENERATORS, checkGen, genAnswerText, genProblemId, makeProblem, rngFrom } from '../practice/generators.js';
+import { cleanName, isRude } from '../lib/names.js';
 
 // «Турнир недели»: 10 задач для своей лиги, 20 минут, одна попытка. Таблица лидеров и сертификат каждому.
 // Задачи одинаковые для всей лиги на неделе — их собирают генераторы по зерну «неделя + лига».
@@ -60,15 +61,6 @@ export function tournamentProblems(week: string, league: League) {
   }
   return out.slice(0, TASKS);
 }
-
-// грубые слова в никнеймах: таблица лидеров публичная, её видят дети
-const BAD = /(хуй|хуе|хуё|хуя|пизд|ебан|ебат|ебал|ебуч|ёб|бля[дт]|\bбля\b|\bсука|\bсуки|мудак|мудил|говн|залуп|шлюх|дрочи|пидор|пидар)/i;
-const cleanName = (raw: string) =>
-  raw
-    .replace(/[^\p{L}\p{N} .\-_]/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 24);
 
 async function myEntry(week: string, league: string, userId: string | null, visitorId: string | null) {
   if (!userId && !visitorId) return null;
@@ -140,7 +132,7 @@ export async function tournamentRoutes(app: FastifyInstance) {
       let display = cleanName(name);
       if (!display && userId) display = (await prisma.user.findUnique({ where: { id: userId } }))?.name.split(' ')[0] ?? '';
       if (display.length < 2) return reply.code(400).send({ error: 'Как вас подписать в таблице? Имя или ник — от 2 букв' });
-      if (BAD.test(display)) return reply.code(400).send({ error: 'Давайте выберем другое имя для таблицы 🙂' });
+      if (isRude(display)) return reply.code(400).send({ error: 'Давайте выберем другое имя для таблицы 🙂' });
       entry = await prisma.tournamentEntry.create({ data: { week, league, userId, visitorId, name: display } });
       void track({ type: 'tournament_start', userId, visitorId, label: league });
     }

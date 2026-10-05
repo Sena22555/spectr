@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageTitle } from '../../lib/title';
-import { Link, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, BookOpen, Flame, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowRight, BookOpen, Flame, RotateCcw, Swords, Trophy } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { ProblemCard } from '../../components/practice/ProblemCard';
 import { Button, ButtonLink, ErrorNote, Loading } from '../../components/ui';
@@ -12,6 +12,8 @@ import { api } from '../../lib/api';
 import { SUBJECT_HUE, gradesLabel, type PracticeProblem, type Trainer } from '../../lib/practice';
 import { isMiniApp } from '../../lib/platform';
 import { plural } from '../../lib/format';
+import { useAuth } from '../../lib/auth';
+import { saveNick, savedNick } from '../../lib/nick';
 
 const ROUND = 10;
 interface Next {
@@ -187,6 +189,7 @@ export default function Train() {
                   Другие тренажёры
                 </ButtonLink>
               </div>
+              <ChallengeInvite trainerId={t.id} />
             </motion.section>
           ) : (
             <motion.div key={problem.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col gap-4">
@@ -207,6 +210,7 @@ export default function Train() {
           <p>
             Как это работает: задачи бесконечные — числа каждый раз новые. Ошиблись — появится «Почти!» и подсказка, со второй попытки откроется решение. Каждые {ROUND} задач — итог.
           </p>
+          {!roundDone && <ChallengeInvite trainerId={t.id} compact />}
           {results.length > 0 && (
             <p>
               Сегодня решено: <b className="text-ink">{results.filter(Boolean).length}</b> {plural(results.filter(Boolean).length, 'задача', 'задачи', 'задач')}.
@@ -215,5 +219,56 @@ export default function Train() {
         </aside>
       </div>
     </Container>
+  );
+}
+
+/** «Вызвать друга»: 5 задач этого тренажёра на время, ссылка для друзей с общей таблицей. */
+function ChallengeInvite({ trainerId, compact }: { trainerId: string; compact?: boolean }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(() => savedNick() || user?.name.split(' ')[0] || '');
+  const create = useMutation({
+    mutationFn: () => api<{ id: string }>('/challenge', { method: 'POST', json: { trainerId, name } }),
+    onSuccess: (r) => {
+      saveNick(name);
+      navigate(`/challenge/${r.id}?new=1`);
+    },
+  });
+  if (!open)
+    return compact ? (
+      <button type="button" onClick={() => setOpen(true)} className="link inline-flex w-fit items-center gap-2 text-ink">
+        <Swords className="size-4" /> Вызвать друга: 5 задач на время, кто решит лучше
+      </button>
+    ) : (
+      <button type="button" onClick={() => setOpen(true)} className="press inline-flex w-fit items-center gap-2 rounded-full border border-ink/30 bg-paper px-4 py-2 text-[15px] font-[550] hover:bg-mark">
+        <Swords className="size-4" /> Вызвать друга
+      </button>
+    );
+  return (
+    <form
+      className="flex flex-wrap items-end gap-3 rounded-[12px] bg-paper p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        create.mutate();
+      }}
+    >
+      <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">
+        <span className="text-[14px] font-[550] text-ink">Как подписать вас в таблице вызова</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={24}
+          autoFocus
+          placeholder="Имя или ник"
+          className="h-11 rounded-ctl border-[1.5px] border-ink/25 bg-paper px-3 text-[16px] focus-visible:border-ink focus-visible:shadow-[0_0_0_4px_var(--mark)] focus-visible:outline-none"
+        />
+      </label>
+      <Button type="submit" loading={create.isPending} disabled={name.trim().length < 2}>
+        <Swords className="size-4" /> Создать вызов
+      </Button>
+      {create.error && <p className="w-full text-[14px] text-ink">{(create.error as Error).message}</p>}
+      <p className="w-full text-[13.5px] text-muted">Сначала решите 5 задач сами, потом отправьте ссылку — у друзей будут те же задачи.</p>
+    </form>
   );
 }

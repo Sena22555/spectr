@@ -451,3 +451,28 @@ model TournamentEntry {
   @@index([userId])
   @@index([visitorId])
 }
+
+// ─── Вызов другу: те же 5 задач тренажёра для всех, кто открыл ссылку ───
+
+model Challenge {
+  id          String         @id @default(cuid())
+  trainerId   String
+  seed        Int
+  creatorName String
+  createdAt   DateTime       @default(now())
+  runs        ChallengeRun[]
+}
+
+model ChallengeRun {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  name        String
+  score       Int
+  timeMs      Int
+  visitorId   String?
+  userId      String?
+  createdAt   DateTime  @default(now())
+
+  @@index([challengeId])
+}

@@ -19,6 +19,7 @@ interface TelegramWebApp {
   onEvent(event: string, cb: () => void): void;
   BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   HapticFeedback?: { impactOccurred(style: 'light' | 'medium' | 'heavy'): void; notificationOccurred(t: 'success' | 'error' | 'warning'): void };
+  openTelegramLink?(url: string): void;
 }
 
 interface MaxWebApp {
@@ -240,4 +241,29 @@ export function startPath(): string | null {
   if (!param || param === 'home') return null;
   if (!/^[A-Za-z0-9_-]{1,200}$/.test(param)) return null;
   return `/${param.replace(/___/g, '#').replace(/__/g, '/')}`;
+}
+
+/**
+ * Поделиться ссылкой: в Telegram — окно выбора чата, на телефоне — системное меню «Поделиться»,
+ * иначе ссылка копируется. Возвращает 'copied', если пришлось копировать.
+ */
+export async function shareLink(url: string, text: string): Promise<'shared' | 'copied' | 'failed'> {
+  if (platform === 'telegram' && tg?.openTelegramLink) {
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
+    return 'shared';
+  }
+  if (navigator.share) {
+    try {
+      await navigator.share({ url, text });
+      return 'shared';
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return 'shared';
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
 }

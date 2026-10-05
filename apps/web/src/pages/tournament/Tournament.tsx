@@ -9,6 +9,7 @@ import { RichText } from '../../components/Tex';
 import { Button, ButtonLink, Chip, ErrorNote, Input, Loading } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { saveNick, savedNick } from '../../lib/nick';
 import { isMiniApp } from '../../lib/platform';
 import { plural } from '../../lib/format';
 import { usePageTitle } from '../../lib/title';
@@ -128,11 +129,14 @@ export default function Tournament() {
 
 function LeagueBlock({ league, info, onStarted, onResult }: { league: Info['leagues'][number]; info: Info; onStarted(s: Started): void; onResult(r: Finished): void }) {
   const { user } = useAuth();
-  const [name, setName] = useState(user?.name.split(' ')[0] ?? '');
+  const [name, setName] = useState(() => savedNick() || user?.name.split(' ')[0] || '');
   const mine = info.mine.find((m) => m.league === league.key);
   const board = useQuery({ queryKey: ['tournament', 'board', league.key], queryFn: () => api<{ top: { id: string; name: string; score: number; timeMs: number }[] }>(`/tournament/${league.key}/leaderboard`) });
   const start = useMutation({
-    mutationFn: () => api<Started>(`/tournament/${league.key}/start`, { method: 'POST', json: { name } }),
+    mutationFn: () => {
+      saveNick(name);
+      return api<Started>(`/tournament/${league.key}/start`, { method: 'POST', json: { name } });
+    },
     onSuccess: (s) => (s.entry.finished ? showResult.mutate() : onStarted(s)),
   });
   const showResult = useMutation({ mutationFn: () => api<Finished>(`/tournament/${league.key}/finish`, { method: 'POST', json: { answers: {} } }), onSuccess: onResult });

@@ -7,7 +7,7 @@ import { progressFor, schoolFor } from '../lib/progress.js';
 import { parseTasks, statuses } from '../lib/homework.js';
 import { PRACTICE, answerText, checkAnswer, dailyProblem, findProblem, texToPlain } from '../practice/content.js';
 import { ALL_COLORS, COLORS, COLOR_TEST } from './quiz.js';
-import { GENERATORS, checkGen, genAnswerText, genProblemId, makeProblem, parseGenId } from '../practice/generators.js';
+import { GENERATORS, checkGen, findGenerator, genAnswerText, genProblemId, makeProblem, parseGenId } from '../practice/generators.js';
 import { randomInt } from 'node:crypto';
 import type { Adapter, Btn, Inbound, Platform, Screen } from './types.js';
 
@@ -150,6 +150,7 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
       '🧩 каждый день — задача с разбором',
       '🏋️ тренажёр по классам 5–11 и ОГЭ/ЕГЭ — задачи не кончаются',
       '🌈 «Радуга знаний»: собери семь цветов',
+      '🏆 Турнир недели с сертификатом каждому участнику',
       '📚 шпаргалки с формулами по физике, математике и информатике',
       '📅 расписание и ссылка на урок за 15 минут',
       '✍️ запись на занятие за минуту',
@@ -194,14 +195,14 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
   const rows: Btn[][] = [];
   rows.push([{ text: '🚀 Открыть Спектр', app: '/' }]);
   rows.push([cb('🧩 Задача дня', 'daily'), cb('🏋️ Тренажёр', 'tr')]);
-  rows.push([cb('🌈 Радуга знаний', 'quiz'), cb('📚 Шпаргалки', 'f')]);
+  rows.push([cb('🌈 Радуга знаний', 'quiz'), { text: '🏆 Турнир недели', app: '/tournament' }]);
   if (user && (isStudent || user.role === 'ADMIN')) {
     rows.push([cb('📅 Расписание', 'lessons'), cb(homework ? `📝 Домашка · ${homework}` : '📝 Домашка', 'hw')]);
   } else {
-    rows.push([cb('🎨 Какой ты цвет?', 'test'), cb('📅 Расписание', 'lessons')]);
+    rows.push([cb('📚 Шпаргалки', 'f'), cb('📅 Расписание', 'lessons')]);
   }
   rows.push([cb('✍️ Записаться', 'book'), cb('💬 Написать в школу', 'ask')]);
-  const extra: Btn[] = [cb('🎁 Друзья', 'invite'), cb('⚙️ Настройки', 'settings')];
+  const extra: Btn[] = user && (isStudent || user.role === 'ADMIN') ? [cb('📚 Шпаргалки', 'f'), cb('🎁 Друзья', 'invite'), cb('⚙️', 'settings')] : [cb('🎨 Какой ты цвет?', 'test'), cb('🎁 Друзья', 'invite'), cb('⚙️', 'settings')];
   if (user?.teacher) extra.unshift(cb('👩‍🏫 Мои уроки', 't'));
   if (user?.role === 'ADMIN') extra.unshift(cb('🛠 Админка', 'adm'));
   rows.push(extra);
@@ -960,6 +961,18 @@ async function parentReport(token: string): Promise<Screen | null> {
   return { text: lines.join('\n'), rows };
 }
 
+// «Вызов другу» по ссылке из бота: показываем, кто зовёт, и открываем задачи в мини-приложении
+async function challengeScreen(id: string): Promise<Screen> {
+  const c = /^[a-z0-9]{10,40}$/.test(id) ? await prisma.challenge.findUnique({ where: { id }, include: { runs: { orderBy: [{ score: 'desc' }, { timeMs: 'asc' }], take: 1 } } }) : null;
+  if (!c) return { text: 'Этот вызов не нашёлся — зато можно создать свой в любом тренажёре 🙂', rows: [[{ text: '🏋️ Тренажёры', app: '/practice/trainers' }], MENU] };
+  const gen = findGenerator(c.trainerId);
+  const best = c.runs[0];
+  return {
+    text: `⚔️ <b>${esc(c.creatorName)} бросает вам вызов!</b>\n\n5 задач «${esc(gen?.title ?? 'тренажёр')}» — у всех одинаковые.${best ? `\nПланка: <b>${best.score} из 5</b> (${esc(best.name)}).` : ''}\n\nСможете лучше?`,
+    rows: [[{ text: '⚔️ Принять вызов', app: `/challenge/${c.id}` }], MENU],
+  };
+}
+
 async function parentSubscribe(m: Inbound, player: BotPlayer, token: string) {
   const report = await parentReport(token);
   if (!report) return show(m, player, { text: 'Ссылка на отчёт больше не действует. Попросите ребёнка поделиться новой в «Моём прогрессе».', rows: [MENU] });
@@ -1019,6 +1032,7 @@ async function route(m: Inbound) {
     if (!existed && payload.startsWith('src_')) await prisma.botPlayer.update({ where: { chatId: m.chatId }, data: { source: payload.slice(4, 60) } });
     if (payload.startsWith('l_')) return linkAsk(m, player, payload.slice(2));
     if (payload.startsWith('p_')) return parentSubscribe(m, player, payload.slice(2));
+    if (payload.startsWith('ch_')) return show(m, player, await challengeScreen(payload.slice(3)));
     if (payload === 'book') return bookStart(m, player);
     if (payload === 'daily') return show(m, player, await dailyScreen(player));
     if (payload === 'quiz') return show(m, player, await quizScreen(m, player));
@@ -1317,11 +1331,42 @@ async function dailyPush() {
   for (const p of players) {
     if (p.dailyPushDay === today || !adapters.has(p.platform as Platform)) continue;
     await prisma.botPlayer.update({ where: { chatId: p.chatId }, data: { dailyPushDay: today } });
+    const monday = schoolWeekday() === 1;
     await sendTo(p.chatId, {
-      text: `🧩 <b>Задача дня ждёт</b>\n${subject.emoji} ${subject.title} → ${esc(topic.title)}${p.dailyStreak ? `\n\n🔥 Серия ${p.dailyStreak} — не прерывайте!` : ''}`,
-      rows: [[cb('🧩 Решить', 'daily')], [cb('🔕 Не напоминать', 'np')]],
+      text:
+        `🧩 <b>Задача дня ждёт</b>\n${subject.emoji} ${subject.title} → ${esc(topic.title)}${p.dailyStreak ? `\n\n🔥 Серия ${p.dailyStreak} — не прерывайте!` : ''}` +
+        (monday ? '\n\n🏆 А ещё стартовал новый Турнир недели: 10 задач, 20 минут, сертификат каждому.' : ''),
+      rows: [[cb('🧩 Решить', 'daily')], ...(monday ? [[{ text: '🏆 Турнир недели', app: '/tournament' } as Btn]] : []), [cb('🔕 Не напоминать', 'np')]],
     });
     await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+/** Напоминания о сроке домашки: за сутки и за два часа, если задание ещё не сделано. */
+async function homeworkReminders() {
+  const now = Date.now();
+  const list = await prisma.assignment.findMany({
+    where: { dueAt: { gte: new Date(now), lte: new Date(now + 24 * 3_600_000) }, createdAt: { lte: new Date(now - 3_600_000) } },
+    include: { marks: true, teacher: { include: { user: true } }, group: { include: { members: true } } },
+  });
+  for (const a of list) {
+    const left = a.dueAt!.getTime() - now;
+    const kind = left <= 2 * 3_600_000 ? 'hw2' : 'hw24';
+    const userIds = a.studentId ? [a.studentId] : (a.group?.members.map((m) => m.userId) ?? []);
+    const st = await statuses([a], userIds);
+    for (const uid of userIds) {
+      if (st.get(`${a.id}:${uid}`)?.complete) continue;
+      const user = await prisma.user.findUnique({ where: { id: uid } });
+      if (!user) continue;
+      for (const chat of chatsOfUser(user)) {
+        const fresh = await prisma.botReminder.create({ data: { lessonId: `${kind}:${a.id}`, chatId: chat } }).catch(() => null);
+        if (!fresh) continue;
+        await sendTo(chat, {
+          text: `📝 <b>${kind === 'hw2' ? 'Скоро сдавать домашку' : 'Завтра сдавать домашку'}</b>\n«${esc(a.title)}» · ${esc(a.teacher.user.name)}\nСрок: ${fmtWhen(a.dueAt!)}\n\nЕщё есть время — всё получится 💪`,
+          rows: [[{ text: '📝 Открыть домашку', app: '/app/homework' }], [cb('Меню бота', 'menu')]],
+        });
+      }
+    }
   }
 }
 
@@ -1332,6 +1377,7 @@ export function startLoops() {
   setInterval(() => lessonReminders().catch((err) => log.error({ err }, 'бот: напоминания')), 60_000);
   setInterval(() => dailyPush().catch((err) => log.error({ err }, 'бот: задача дня')), 10 * 60_000);
   setInterval(() => weeklyParentReports().catch((err) => log.error({ err }, 'бот: отчёты родителям')), 10 * 60_000);
+  setInterval(() => homeworkReminders().catch((err) => log.error({ err }, 'бот: напоминания о домашке')), 10 * 60_000);
 }
 
 export { findProblem };

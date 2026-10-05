@@ -94,6 +94,37 @@ export async function practiceRoutes(app: FastifyInstance) {
     };
   });
 
+  // ——— пробный вариант: по заданию на каждый номер экзамена, где есть тренажёр ———
+  const VARIANTS: Record<string, { exam: 'ОГЭ' | 'ЕГЭ'; subject: string; title: string }> = {
+    'oge-math': { exam: 'ОГЭ', subject: 'математика', title: 'ОГЭ по математике' },
+    'ege-math': { exam: 'ЕГЭ', subject: 'профильная математика', title: 'ЕГЭ по профильной математике' },
+    'oge-inf': { exam: 'ОГЭ', subject: 'информатика', title: 'ОГЭ по информатике' },
+    'ege-inf': { exam: 'ЕГЭ', subject: 'информатика', title: 'ЕГЭ по информатике' },
+  };
+  app.get('/practice/variants', async () => ({
+    variants: Object.entries(VARIANTS).map(([key, v]) => {
+      const tasks = new Set(GENERATORS.flatMap((g) => (g.exams ?? []).filter((e) => e.exam === v.exam && e.subject === v.subject).map((e) => e.task)));
+      return { key, title: v.title, tasks: tasks.size };
+    }),
+  }));
+  app.get('/practice/variant/:key', async (req, reply) => {
+    const { key } = req.params as { key: string };
+    const v = VARIANTS[key];
+    if (!v) return reply.code(404).send({ error: 'Вариант не найден' });
+    const byTask = new Map<number, (typeof GENERATORS)[number][]>();
+    for (const g of GENERATORS) for (const e of g.exams ?? []) if (e.exam === v.exam && e.subject === v.subject) byTask.set(e.task, [...(byTask.get(e.task) ?? []), g]);
+    const items = [...byTask.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([task, gens]) => {
+        const gen = gens[randomInt(0, gens.length)]!;
+        const seed = randomInt(1, 2_000_000_000);
+        const { problem } = makeProblem(gen.id, seed)!;
+        return { task, trainer: { id: gen.id, title: gen.title }, problem: { id: genProblemId(gen.id, seed), text: problem.text, kind: problem.kind ?? 'number', unit: problem.unit ?? null } };
+      });
+    void track({ type: 'variant_start', visitorId: visitorIdOf(req), userId: await optionalUser(req), label: key });
+    return { key, title: v.title, exam: v.exam, items };
+  });
+
   // Какие задачи уже решены этим гостем или учеником
   app.get('/practice/progress', async (req) => {
     const visitorId = visitorIdOf(req);

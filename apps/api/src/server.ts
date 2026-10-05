@@ -20,6 +20,7 @@ import { analyticsRoutes } from './routes/analytics.js';
 import { homeworkRoutes } from './routes/homework.js';
 import { progressRoutes } from './routes/progress.js';
 import { tournamentRoutes } from './routes/tournament.js';
+import { challengeRoutes } from './routes/challenge.js';
 import { startEventPruning } from './lib/track.js';
 
 // За Caddy адрес клиента приходит в X-Forwarded-For: доверяем ему только от локального прокси
@@ -101,6 +102,7 @@ await app.register(
     await api.register(homeworkRoutes);
     await api.register(progressRoutes);
     await api.register(tournamentRoutes);
+    await api.register(challengeRoutes);
   },
   { prefix: '/api' },
 );

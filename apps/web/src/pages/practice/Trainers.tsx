@@ -9,6 +9,7 @@ import { isMiniApp } from '../../lib/platform';
 import { plural } from '../../lib/format';
 
 const GRADES = [5, 6, 7, 8, 9, 10, 11];
+const VARIANT_KEY: Record<string, string> = { 'ОГЭ|математика': 'oge-math', 'ЕГЭ|профильная математика': 'ege-math', 'ОГЭ|информатика': 'oge-inf', 'ЕГЭ|информатика': 'ege-inf' };
 const GRADE_KEY = 'spectr.grade';
 
 function savedGrade() {
@@ -151,7 +152,14 @@ function ByExam({ trainers, stats }: { trainers: Trainer[]; stats: Record<string
       </p>
       {groups.map((g) => (
         <div key={g.key} className="flex flex-col gap-3">
-          <h2 className="t-display t-md">{g.title}</h2>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="t-display t-md">{g.title}</h2>
+            {VARIANT_KEY[g.key] && (
+              <Link to={`/practice/variant/${VARIANT_KEY[g.key]}`} className="press inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-[14px] font-[600] text-paper no-underline hover:bg-mark hover:text-forest">
+                Пробный вариант <ArrowRight className="size-4" />
+              </Link>
+            )}
+          </div>
           <ul className="m-0 flex list-none flex-col p-0">
             {g.rows.map((row) => (
               <li key={row.task} className="grid gap-3 border-b border-dashed border-hair-soft py-4 sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center">
