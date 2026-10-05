@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { rl } from '../lib/limits.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
-import { EN_VOICE, chatOnce, chatStream, checkSpeechSig, llmBusy, llmEnabled, signSpeech, speakable, speech, ttsEnabled, type ChatMsg } from '../lib/ai.js';
+import { EN_VOICE, chatOnce, chatStream, checkSpeechSig, llmBusy, llmEnabled, signSpeech, speakable, speech, sttEnabled, transcribe, ttsEnabled, type ChatMsg } from '../lib/ai.js';
 import { COACH_NAMES, COACH_VOICE, coachLines, coachTexts, type CoachId } from '../games/coach.js';
 import { knowledge } from '../games/knowledge.js';
 import { progressFor } from '../lib/progress.js';
@@ -31,6 +31,37 @@ function systemPrompt(game: Persona) {
     `Не спрашивай личные данные. Если вопрос не про учёбу — мягко верни к ${p.subject}.`,
     `Шпаргалка:\n${knowledge(game)}`,
   ].join('\n');
+}
+
+const TALK_LEVELS = ['Starter', 'A1', 'A2', 'B1'];
+function talkPromptFor(level: string) {
+  return [
+    `You are Lina, a friendly English speaking partner for a Russian school student (English level: ${level}).`,
+    level === 'Starter' || level === 'A1' ? 'Use very simple English: short sentences, basic words, Present Simple.' : 'Use simple everyday English (A2–B1).',
+    'Reply in 1–3 short sentences and always finish with one easy question to keep the conversation going.',
+    'If the student makes a grammar or word mistake, start with a gentle correction like: "Better: I went to school." Then continue.',
+    'If the student writes in Russian, translate the idea into simple English, and ask them to try saying it in English.',
+    'Be warm and fun. No rude words. Do not ask for personal data (address, phone, surname).',
+  ].join('\n');
+}
+
+/**
+ * Прогрев: модель заранее читает постоянные подсказки всех помощников, и они остаются в её кеше (у каждого свой слот).
+ * Тогда первый ответ начинается за секунду-две, а не через полминуты.
+ */
+export async function warmChats(log: (m: string) => void) {
+  if (!llmEnabled()) return;
+  const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1')];
+  let ok = 0;
+  for (const content of prompts) {
+    try {
+      await chatOnce([{ role: 'system', content }, { role: 'user', content: 'Привет' }], 1, AbortSignal.timeout(120_000));
+      ok++;
+    } catch {
+      /* занят — прогреем в следующий раз */
+    }
+  }
+  log(`чат: прогрето подсказок — ${ok} из ${prompts.length}`);
 }
 
 export async function aiRoutes(app: FastifyInstance) {
@@ -84,7 +115,24 @@ export async function aiRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get('/ai/status', async () => ({ chat: llmEnabled(), tts: ttsEnabled() }));
+  app.get('/ai/status', async () => ({ chat: llmEnabled(), tts: ttsEnabled(), stt: sttEnabled() }));
+
+  // распознавание речи для голосового общения и «Скажи вслух»: запись из браузера → текст
+  app.post('/ai/stt', { config: rl(40, '5 minutes') }, async (req, reply) => {
+    if (!sttEnabled()) return reply.code(503).send({ error: 'Распознавание речи выключено' });
+    const lang = (req.query as { lang?: string }).lang === 'en' ? 'en' : 'ru';
+    const file = await req.file();
+    if (!file) return reply.code(400).send({ error: 'Нет записи' });
+    const audio = await file.toBuffer();
+    if (audio.length < 1000) return { text: '' };
+    if (audio.length > 3 * 1024 * 1024) return reply.code(413).send({ error: 'Слишком длинная запись' });
+    try {
+      return { text: (await transcribe(audio, lang)).slice(0, 600) };
+    } catch (err) {
+      req.log.warn({ err }, 'распознавание не удалось');
+      return reply.code(503).send({ error: 'Не расслышал — попробуй ещё раз' });
+    }
+  });
 
   app.post('/ai/chat', { config: rl(14, '5 minutes') }, async (req, reply) => {
     const body = z
@@ -114,15 +162,8 @@ export async function aiRoutes(app: FastifyInstance) {
     }
     // разговорная практика английского: Лина говорит по-английски на уровне ученика и мягко поправляет
     const talk = body.game === 'lingo' && body.mode === 'talk';
-    const level = ['Starter', 'A1', 'A2', 'B1'].includes(body.level ?? '') ? body.level! : 'A1';
-    const talkPrompt = [
-      `You are Lina, a friendly English speaking partner for a Russian school student (English level: ${level}).`,
-      level === 'Starter' || level === 'A1' ? 'Use very simple English: short sentences, basic words, Present Simple.' : 'Use simple everyday English (A2–B1).',
-      'Reply in 1–3 short sentences and always finish with one easy question to keep the conversation going.',
-      'If the student makes a grammar or word mistake, start with a gentle correction like: "Better: I went to school." Then continue.',
-      'If the student writes in Russian, translate the idea into simple English, and ask them to try saying it in English.',
-      'Be warm and fun. No rude words. Do not ask for personal data (address, phone, surname).',
-    ].join('\n');
+    const level = TALK_LEVELS.includes(body.level ?? '') ? body.level! : 'A1';
+    const talkPrompt = talkPromptFor(level);
     // переменная часть — отдельным сообщением после постоянной, чтобы кеш модели не сбрасывался
     const about = [notes.length ? `Об ученике: ${notes.join(' ')}` : '', body.where ? `Ученик сейчас в разделе: ${body.where}.` : ''].filter(Boolean).join('\n');
     const messages: ChatMsg[] = talk

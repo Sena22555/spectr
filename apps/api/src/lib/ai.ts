@@ -15,6 +15,34 @@ const llmModel = () => (process.env.LLM_MODEL ? { model: process.env.LLM_MODEL }
 const CACHE = () => process.env.TTS_CACHE ?? join(process.cwd(), 'tts-cache');
 
 export const ttsEnabled = () => Boolean(TTS_URL());
+const STT_URL = () => process.env.STT_URL ?? '';
+export const sttEnabled = () => Boolean(STT_URL());
+
+function ffmpeg(args: string[], input: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', ...args]);
+    const out: Buffer[] = [];
+    ff.stdout.on('data', (d: Buffer) => out.push(d));
+    ff.on('error', reject);
+    ff.on('close', (code) => (code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(`ffmpeg ${code}`))));
+    ff.stdin.on('error', () => undefined);
+    ff.stdin.end(input);
+  });
+}
+
+/** Распознать речь (Whisper на нашем сервере): любой формат из браузера → wav 16 кГц → текст. */
+export async function transcribe(audio: Buffer, lang: 'ru' | 'en') {
+  const wav = await ffmpeg(['-i', 'pipe:0', '-ar', '16000', '-ac', '1', '-f', 'wav', 'pipe:1'], audio);
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'speech.wav');
+  form.append('language', lang);
+  form.append('response_format', 'json');
+  form.append('temperature', '0');
+  const res = await fetch(`${STT_URL()}/inference`, { method: 'POST', body: form, signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`stt ${res.status}`);
+  const d = (await res.json()) as { text?: string };
+  return (d.text ?? '').replace(/\[[^\]]*\]|\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+}
 export const llmEnabled = () => Boolean(LLM_URL());
 
 // озвучку делаем по одной фразе за раз: у сервера два ядра, сайт не должен тормозить

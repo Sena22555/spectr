@@ -6,7 +6,7 @@ import { apiHeaders } from '../../lib/api';
 import { RichText } from '../Tex';
 import { COACH_FACE, useCoachData } from '../../lib/coach';
 import { GAME_META, savedEnLevel, type GameKey } from '../../lib/games';
-import { canRecognize, recognize, resetStream, speakStream, stopVoice } from '../../lib/voice';
+import { canRecognize, canRecord, listenSpeech, resetStream, speakStream, stopVoice, unlockAudio } from '../../lib/voice';
 
 // Чат-помощник игры: Лина (английский), Матвей (математика), Фотон (физика), Байт (информатика).
 // Работает на нашей нейросети. Голосом: говоришь в микрофон — отвечает вслух.
@@ -69,7 +69,8 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   const stopMic = useRef<(() => void) | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
-  const mic = canRecognize();
+  const mic = canRecord() || canRecognize();
+  const [level, setLevel] = useState(0);
 
   useEffect(() => {
     try {
@@ -102,6 +103,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   const send = async (content: string) => {
     const q = content.trim();
     if (!q || busy) return;
+    unlockAudio();
     setError(null);
     setText('');
     resetStream();
@@ -158,18 +160,20 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   };
 
   const speakIn = async () => {
+    unlockAudio();
     if (listening) return stopMic.current?.();
     setError(null);
     setListening(true);
-    const r = recognize(talk ? 'en-US' : 'ru-RU', setText);
+    // голосом спросили — голосом и ответим
+    voiceRef.current = true;
+    setVoice(true);
+    const r = listenSpeech(talk ? 'en' : 'ru', { onLevel: setLevel, onText: setText });
     stopMic.current = r.stop;
     try {
       const said = await r.promise;
       setListening(false);
-      if (said) {
-        setVoice(true);
-        void send(said);
-      }
+      if (said) void send(said);
+      else setError('Не расслышал — нажми на микрофон и скажи ещё раз');
     } catch (e) {
       setListening(false);
       setError((e as Error).message);
@@ -257,7 +261,10 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-dashed border-hair-soft px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
           <button
             type="button"
-            onClick={() => setVoice((v) => !v)}
+            onClick={() => {
+              unlockAudio();
+              setVoice((v) => !v);
+            }}
             className={clsx('press grid size-11 shrink-0 place-items-center rounded-full', voice ? 'bg-mark text-forest' : 'text-muted hover:bg-ink/[0.06]')}
             aria-pressed={voice}
             aria-label={voice ? 'Ответы голосом: вкл' : 'Ответы голосом: выкл'}
@@ -283,7 +290,8 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             <button
               type="button"
               onClick={() => void speakIn()}
-              className={clsx('press grid size-11 shrink-0 place-items-center rounded-full', listening ? 'animate-pulse bg-[var(--ray-0)] text-paper' : 'bg-bone hover:bg-mark')}
+              className={clsx('press grid size-11 shrink-0 place-items-center rounded-full transition-shadow', listening ? 'bg-[var(--ray-0)] text-paper' : 'bg-bone hover:bg-mark')}
+              style={listening ? { boxShadow: `0 0 0 ${4 + level * 14}px color-mix(in oklab, var(--ray-0) 30%, transparent)` } : undefined}
               aria-label={listening ? 'Остановить' : 'Сказать голосом'}
             >
               <Mic className="size-5" />

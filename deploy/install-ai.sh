@@ -55,20 +55,48 @@ systemctl daemon-reload
 systemctl enable --now spectr-tts
 systemctl restart spectr-tts
 
+echo "==> Whisper (распознавание речи): сборка под процессор сервера"
+[ -s "$AI/whisper/ggml-base.bin" ] || { mkdir -p "$AI/whisper"; sudo -u "$OWNER" curl -sSfL -o "$AI/whisper/ggml-base.bin" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin; }
+if [ ! -x "$AI/whisper-src/build/bin/whisper-server" ]; then
+  [ -d "$AI/whisper-src" ] || sudo -u "$OWNER" git clone -q --depth 1 https://github.com/ggml-org/whisper.cpp "$AI/whisper-src"
+  docker run --rm --cpus 2 -v "$AI/whisper-src:/src" -w /src ubuntu:24.04 bash -c "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential cmake >/dev/null && cmake -B build -DGGML_NATIVE=ON -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release >/dev/null && cmake --build build -j2 --target whisper-server whisper-cli >/dev/null"
+  chown -R "$OWNER:$OWNER" "$AI/whisper-src"
+fi
+cat > /etc/systemd/system/spectr-stt.service <<EOF
+[Unit]
+Description=Spectr STT (whisper.cpp)
+After=network.target
+
+[Service]
+User=$OWNER
+WorkingDirectory=$AI
+ExecStart=$AI/whisper-src/build/bin/whisper-server -m $AI/whisper/ggml-base.bin --host 127.0.0.1 --port 8092 -t 2
+Restart=always
+RestartSec=3
+MemoryMax=600M
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now spectr-stt
+systemctl restart spectr-stt
+
 echo "==> llama.cpp"
 docker pull -q ghcr.io/ggml-org/llama.cpp:server >/dev/null
 docker rm -f spectr-llm >/dev/null 2>&1 || true
 docker run -d --name spectr-llm --restart unless-stopped \
-  -p 127.0.0.1:8090:8080 --memory 2900m --cpus 2 \
+  -p 127.0.0.1:8090:8080 --memory 3000m --cpus 2 \
   -v "$AI/models:/models:ro" \
   ghcr.io/ggml-org/llama.cpp:server \
-  -m "/models/$MODEL" -c 16384 -t 2 --parallel 4 -ctk q8_0 -ctv q8_0 --flash-attn on --host 0.0.0.0 --port 8080 >/dev/null
-# 4 слота: у каждого помощника (Лина, Матвей, Фотон, Байт) своя закешированная шпаргалка
+  -m "/models/$MODEL" -c 24576 -t 2 --parallel 6 -ctk q8_0 -ctv q8_0 --flash-attn on --host 0.0.0.0 --port 8080 >/dev/null
+# 6 слотов: у каждого помощника (Лина, Матвей, Фотон, Байт, разговорная практика) своя закешированная подсказка
 
 # сайту — адреса нейросетей
 ENV=/opt/spectr-school/.env
 grep -q '^LLM_URL=' "$ENV" || echo 'LLM_URL="http://127.0.0.1:8090"' >> "$ENV"
 grep -q '^TTS_URL=' "$ENV" || echo 'TTS_URL="http://127.0.0.1:8091"' >> "$ENV"
 grep -q '^TTS_CACHE=' "$ENV" || echo "TTS_CACHE=\"$AI/tts-cache\"" >> "$ENV"
+grep -q '^STT_URL=' "$ENV" || echo 'STT_URL="http://127.0.0.1:8092"' >> "$ENV"
 systemctl restart spectr-school
 echo "Готово: озвучка на 127.0.0.1:8091, чат на 127.0.0.1:8090"

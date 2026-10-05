@@ -27,6 +27,7 @@ import { gamesRoutes } from './routes/games.js';
 import { aiRoutes } from './routes/ai.js';
 import { startEventPruning } from './lib/track.js';
 import { EN_VOICE, ttsEnabled, warmSpeech } from './lib/ai.js';
+import { warmChats } from './routes/ai.js';
 import { coachTexts } from './games/coach.js';
 import { englishTexts } from './english/content.js';
 
@@ -137,6 +138,10 @@ const port = Number(process.env.PORT ?? 4000);
 await app.listen({ port, host: process.env.HOST || '0.0.0.0' });
 startBot(app.log);
 startEventPruning();
+
+// чат: подсказки помощников — в кеш модели сразу после старта и раз в 10 минут (если вытеснились)
+setTimeout(() => void warmChats((m) => app.log.info(m)), 8_000);
+setInterval(() => void warmChats(() => undefined), 10 * 60_000);
 
 // озвучка заранее: сначала фразы комментаторов, потом весь английский курс — чтобы в игре звучало сразу
 if (ttsEnabled() && process.env.TTS_WARM !== '0') {

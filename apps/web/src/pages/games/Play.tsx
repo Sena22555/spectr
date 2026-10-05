@@ -10,7 +10,7 @@ import { Burst } from '../../components/game/Burst';
 import { LevelUp, XpMeter } from '../../components/game/XpMeter';
 import { Beam, BlitzTimer, GameMark, Memory, Stamp, type BeamCell } from '../../components/games/parts';
 import { canSpeak, checkTyped, normalize, speak } from '../../lib/english';
-import { canRecognize, noListen, noSpeak, recognize, setNoListen, setNoSpeak } from '../../lib/voice';
+import { canRecognize, canRecord, listenSpeech, noListen, noSpeak, setNoListen, setNoSpeak, unlockAudio } from '../../lib/voice';
 import { COACH_FACE, useCoach } from '../../lib/coach';
 import { ChatLauncher } from '../../components/games/Chat';
 import { checkSolve, isGame, loadLevel, nextLevelId, saveResult, type AnyStep, type GameKey, type PlayLevel } from '../../lib/games';
@@ -68,7 +68,7 @@ export default function Play() {
     );
   // без микрофона (или «не могу говорить») задания «скажи вслух» убираем
   // и задания на слух — если ученик сказал «не могу слушать»
-  const speakOk = canRecognize() && !noSpeak();
+  const speakOk = (canRecord() || canRecognize()) && !noSpeak();
   const listenOk = !noListen();
   const lv = speakOk && listenOk ? q.data : { ...q.data, steps: q.data.steps.filter((x) => (speakOk || x.type !== 'say') && (listenOk || x.type !== 'listen')) };
   return <Session key={`${id}-${round}`} level={lv} onAgain={() => setRound((r) => r + 1)} />;
@@ -103,6 +103,16 @@ function Session({ level, onAgain }: { level: PlayLevel; onAgain(): void }) {
   const misses = useRef(0);
   const [quiet, setQuiet] = useState(noListen);
   const greeted = useRef(false);
+  // первое касание «будит» звук (на iPhone без этого голос не заиграет)
+  useEffect(() => {
+    const wake = () => unlockAudio();
+    window.addEventListener('pointerdown', wake, { once: true });
+    window.addEventListener('keydown', wake, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', wake);
+      window.removeEventListener('keydown', wake);
+    };
+  }, []);
   useEffect(() => {
     if (!coach.ready || greeted.current) return;
     greeted.current = true;
@@ -877,6 +887,7 @@ function SayAloud({ text, ru, locked, settle, onNoMic }: { text: string; ru: str
   const [state, setState] = useState<'idle' | 'listening' | 'retry'>('idle');
   const [tries, setTries] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
   const stopRef = useRef<(() => void) | null>(null);
   const target = normalize(text).split(' ');
   const score = (said: string) => {
@@ -887,7 +898,7 @@ function SayAloud({ text, ru, locked, settle, onNoMic }: { text: string; ru: str
     setError(null);
     setHeard('');
     setState('listening');
-    const r = recognize('en-US', setHeard);
+    const r = listenSpeech('en', { onText: setHeard, onLevel: setLevel });
     stopRef.current = r.stop;
     try {
       const said = await r.promise;
@@ -915,12 +926,13 @@ function SayAloud({ text, ru, locked, settle, onNoMic }: { text: string; ru: str
           <button
             type="button"
             onClick={() => (state === 'listening' ? stopRef.current?.() : void listen())}
-            className={clsx('press grid size-24 place-items-center rounded-full text-paper shadow-sticker', state === 'listening' ? 'animate-pulse bg-[var(--ray-0)]' : 'bg-ink hover:bg-mark hover:text-forest')}
+            className={clsx('press grid size-24 place-items-center rounded-full text-paper shadow-sticker transition-shadow', state === 'listening' ? 'bg-[var(--ray-0)]' : 'bg-ink hover:bg-mark hover:text-forest')}
+            style={state === 'listening' ? { boxShadow: `0 0 0 ${6 + level * 22}px color-mix(in oklab, var(--ray-0) 25%, transparent)` } : undefined}
             aria-label={state === 'listening' ? 'Остановить запись' : 'Нажмите и говорите'}
           >
             <Mic className="size-10" />
           </button>
-          <p className="min-h-6 text-center text-[16px]">{state === 'listening' ? heard || 'Говорите…' : state === 'retry' ? `Услышал: «${heard || '…'}». Почти — ещё разок!` : 'Нажмите на микрофон и скажите фразу'}</p>
+          <p className="min-h-6 text-center text-[16px]">{state === 'listening' ? heard || 'Говорите… я сам пойму, когда вы закончите' : state === 'retry' ? `Услышал: «${heard || '…'}». Почти — ещё разок!` : 'Нажмите на микрофон и скажите фразу'}</p>
           {error && <p className="rounded-[4px] bg-butter px-3 py-1.5 text-[14px]">{error}</p>}
           <button type="button" onClick={onNoMic} className="link inline-flex items-center gap-1.5 text-[14px] text-muted">
             <MicOff className="size-4" /> Не могу говорить сейчас
