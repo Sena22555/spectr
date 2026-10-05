@@ -575,8 +575,8 @@ export const UNITS: Unit[] = [
 ];
 
 export const LESSONS = [
-  { n: 1, kind: 'words1', title: 'Новые слова', icon: 'sparkles' },
-  { n: 2, kind: 'words2', title: 'Ещё слова', icon: 'book' },
+  { n: 1, kind: 'words1', title: 'Словарик', icon: 'sparkles' },
+  { n: 2, kind: 'words2', title: 'Словарик 2', icon: 'book' },
   { n: 3, kind: 'phrases', title: 'Фразы', icon: 'message' },
   { n: 4, kind: 'grammar', title: 'Грамматика', icon: 'puzzle' },
 ] as const;

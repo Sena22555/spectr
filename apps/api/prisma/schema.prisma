@@ -514,3 +514,20 @@ model EnglishResult {
   @@index([userId])
   @@index([visitorId])
 }
+
+// ─── «Игры Спектра»: МатИгра, ФизИгра, КодИгра — пройденные уровни ───
+
+model GameResult {
+  id        String   @id @default(cuid())
+  game      String
+  levelId   String
+  userId    String?
+  visitorId String?
+  total     Int
+  mistakes  Int
+  xp        Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([visitorId])
+}

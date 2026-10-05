@@ -6,6 +6,7 @@ export interface Progress {
   name: string | null;
   xp: import('./game').Xp;
   english: { lessons: number; week: number };
+  games: { levels: number; week: number };
   solvedTotal: number;
   solvedWeek: number;
   solvedPrevWeek: number;

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, Check, Clock, Dumbbell, FlaskConical, Gauge, Languages, Medal, Sparkles, Target, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Clock, Dumbbell, FlaskConical, Gamepad2, Gauge, Medal, Sparkles, Target, Trophy } from 'lucide-react';
 import { XpMeter } from '../../components/game/XpMeter';
 import { useGame } from '../../lib/game';
 import { Container } from '../../components/Layout';
@@ -54,7 +54,7 @@ export default function PracticeCatalog() {
         {[
           { to: '/practice/trainers', title: 'Сборник 5–11 класс', text: 'Бесконечные тренажёры по классам', hue: 1, Icon: Dumbbell },
           { to: '/practice/trainers?tab=exams', title: 'ОГЭ и ЕГЭ', text: 'Задания по номерам экзамена', hue: 5, Icon: Target },
-          { to: '/english', title: 'Английский: путь', text: 'Уроки по 5 минут, слова с озвучкой', hue: 4, Icon: Languages },
+          { to: '/games', title: 'Игры Спектра', text: 'СпектрLingo, МатИгра, ФизИгра, КодИгра', hue: 4, Icon: Gamepad2 },
           { to: '/practice/check/math', title: 'Проверить уровень', text: '5 минут, без оценок', hue: 2, Icon: Gauge },
           { to: '/tournament', title: 'Турнир недели', text: '10 задач, сертификат каждому', hue: 0, Icon: Medal },
           { to: '/practice/progress', title: 'Мой прогресс', text: 'Достижения и отчёт для родителей', hue: 6, Icon: Trophy },

@@ -153,7 +153,7 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
       '🧩 каждый день — задача с разбором',
       '🏋️ тренажёр по классам 5–11 и ОГЭ/ЕГЭ — задачи не кончаются',
       '🌈 «Радуга знаний»: собери семь цветов',
-      '🇬🇧 английский: уроки по 5 минут, слова с озвучкой',
+      '🎮 Игры Спектра: СпектрLingo, МатИгра, ФизИгра, КодИгра',
       '🏆 Турнир недели с сертификатом каждому участнику',
       '📚 шпаргалки с формулами по физике, математике и информатике',
       '📅 расписание и ссылка на урок за 15 минут',
@@ -199,7 +199,8 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
   const rows: Btn[][] = [];
   rows.push([{ text: '🚀 Открыть Спектр', app: '/' }]);
   rows.push([cb('🧩 Задача дня', 'daily'), cb('🏋️ Тренажёр', 'tr')]);
-  rows.push([cb('🌈 Радуга', 'quiz'), cb('🇬🇧 English', 'ew'), { text: '🏆 Турнир', app: '/tournament' }]);
+  rows.push([{ text: '🎮 Игры Спектра', app: '/games' }, cb('🇬🇧 Слово', 'ew')]);
+  rows.push([cb('🌈 Радуга', 'quiz'), { text: '🏆 Турнир', app: '/tournament' }]);
   if (user && (isStudent || user.role === 'ADMIN')) {
     rows.push([cb('📅 Расписание', 'lessons'), cb(homework ? `📝 Домашка · ${homework}` : '📝 Домашка', 'hw')]);
   } else {
@@ -955,7 +956,7 @@ async function weeklyReport(userId: string, token: string | null): Promise<Scree
     `📅 Дней с занятиями: <b>${p.activeDays7}</b> из 7${p.streak > 1 ? ` · серия 🔥${p.streak}` : ''}`,
   ];
   if (p.bySubject.length) lines.push(`📚 ${p.bySubject.map((x) => `${x.title} — ${x.solved}`).join(', ')}`);
-  if (p.english.week) lines.push(`🇬🇧 Английский: уроков за неделю — ${p.english.week}`);
+  if (p.english.week || p.games.week) lines.push(`🎮 Игры Спектра: уровней за неделю — ${p.english.week + p.games.week}`);
   if (p.mastered.length) lines.push(`✅ Освоено: ${esc(p.mastered.slice(0, 3).map((x) => x.title).join(', '))}`);
   if (p.weak.length) lines.push(`🟡 Стоит подтянуть: ${esc(p.weak.slice(0, 3).map((x) => x.title).join(', '))}`);
   if (school.isStudent) {
@@ -1033,7 +1034,7 @@ async function childScreen(parentId: string, childId: string): Promise<Screen> {
   }
   const p = s.progress;
   lines.push('', `🧩 <b>Практика за неделю:</b> ${p.solvedWeek} задач, дней с занятиями — ${p.activeDays7} из 7${p.streak > 1 ? ` · серия 🔥${p.streak}` : ''}`);
-  if (p.english.week) lines.push(`🇬🇧 Английский: ${p.english.week} ${p.english.week === 1 ? 'урок' : p.english.week < 5 ? 'урока' : 'уроков'} за неделю`);
+  if (p.english.week || p.games.week) lines.push(`🎮 Игры Спектра: ${p.english.week + p.games.week} уровней за неделю`);
   lines.push(`⭐ Уровень ${p.xp.level} · ${esc(p.xp.title)} · ${p.xp.total} XP`);
   if (p.mastered.length) lines.push(`✅ Получается: ${esc(p.mastered.slice(0, 3).map((x) => x.title).join(', '))}`);
   if (p.weak.length) lines.push(`🟡 Стоит подтянуть: ${esc(p.weak.slice(0, 3).map((x) => x.title).join(', '))}`);
@@ -1095,7 +1096,7 @@ function englishWord(note = ''): Screen {
     rows: [
       picks.slice(0, 2).map((k) => cb(unit.words[k]![1], `ewa:${ui}:${wi}:${k}`)),
       picks.slice(2, 4).map((k) => cb(unit.words[k]![1], `ewa:${ui}:${wi}:${k}`)),
-      [{ text: '📚 Уроки английского', app: '/english' }],
+      [{ text: '🎮 СпектрLingo', app: '/games/lingo' }],
       MENU,
     ],
   };

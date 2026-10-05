@@ -1,6 +1,6 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, createHashRouter, RouterProvider, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import './styles.css';
@@ -57,8 +57,15 @@ const Tournament = lazy(() => import('./pages/tournament/Tournament'));
 const Certificate = lazy(() => import('./pages/tournament/Certificate'));
 const Challenge = lazy(() => import('./pages/challenge/Challenge'));
 const Family = lazy(() => import('./pages/family/Family'));
-const EnglishPath = lazy(() => import('./pages/english/Path'));
-const EnglishLesson = lazy(() => import('./pages/english/Lesson'));
+const GamesHub = lazy(() => import('./pages/games/Hub'));
+const GameNotebook = lazy(() => import('./pages/games/Notebook'));
+const GamePlay = lazy(() => import('./pages/games/Play'));
+
+// старые адреса английского ведут в СпектрLingo
+function LegacyLesson() {
+  const { id = '' } = useParams();
+  return <Navigate to={`/games/lingo/play/${id}`} replace />;
+}
 const Homework = lazy(() => import('./pages/app/Homework'));
 const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
@@ -79,8 +86,9 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
   {
     element: <Root />,
     children: [
-      // урок английского — на весь экран, без шапки сайта
-      { path: 'english/lesson/:id', element: s(<EnglishLesson />) },
+      // уровень игры — на весь экран, без шапки сайта
+      { path: 'games/:game/play/:id', element: s(<GamePlay />) },
+      { path: 'english/lesson/:id', element: <LegacyLesson /> },
       {
         element: <SiteLayout />,
         children: [
@@ -102,7 +110,9 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'tournament', element: s(<Tournament />) },
           { path: 'tournament/certificate/:id', element: s(<Certificate />) },
           { path: 'challenge/:id', element: s(<Challenge />) },
-          { path: 'english', element: s(<EnglishPath />) },
+          { path: 'games', element: s(<GamesHub />) },
+          { path: 'games/:game', element: s(<GameNotebook />) },
+          { path: 'english', element: <Navigate to="/games/lingo" replace /> },
           { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },

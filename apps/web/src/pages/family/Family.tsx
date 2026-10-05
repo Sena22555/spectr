@@ -104,7 +104,7 @@ function ChildView({ c }: { c: ChildSummary }) {
           icon={<Sparkles />}
           big={String(c.progress.solvedWeek)}
           label={`${plural(c.progress.solvedWeek, 'задача', 'задачи', 'задач')} за неделю`}
-          sub={`${c.progress.english.week ? `английский: ${c.progress.english.week} ${plural(c.progress.english.week, 'урок', 'урока', 'уроков')} · ` : ''}дней с практикой: ${c.progress.activeDays7} из 7`}
+          sub={`${c.progress.english.week + c.progress.games.week ? `игры: ${c.progress.english.week + c.progress.games.week} ${plural(c.progress.english.week + c.progress.games.week, 'уровень', 'уровня', 'уровней')} · ` : ''}дней с практикой: ${c.progress.activeDays7} из 7`}
         />
       </section>
 

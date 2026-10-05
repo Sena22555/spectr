@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import clsx from 'clsx';
-import { CalendarDays, Home, Menu, Puzzle, UserRound, X, Languages } from 'lucide-react';
+import { CalendarDays, Home, Menu, Puzzle, UserRound, X, Gamepad2 } from 'lucide-react';
 import { Logo } from './Logo';
 import { PencilBuddy } from './Doodles';
 import { Avatar, ButtonLink, Loading } from './ui';
@@ -14,7 +14,7 @@ import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
   { to: '/practice', label: 'Практикум', badge: 'бесплатно' },
-  { to: '/english', label: 'Английский' },
+  { to: '/games', label: 'Игры' },
   { to: '/tournament', label: 'Турнир' },
   { to: '/teachers', label: 'Преподаватели' },
   { to: '/subjects', label: 'Предметы', wide: true },
@@ -331,7 +331,7 @@ export function BottomTabs() {
     { to: '/', label: 'Главная', Icon: Home, end: true },
     { to: teacher ? '/teach' : parent ? '/family' : '/app/schedule', label: teacher ? 'Занятия' : parent ? 'Дети' : 'Расписание', Icon: CalendarDays, end: false },
     { to: '/practice', label: 'Практикум', Icon: Puzzle, end: false },
-    { to: '/english', label: 'Английский', Icon: Languages, end: false },
+    { to: '/games', label: 'Игры', Icon: Gamepad2, end: false },
     { to: user ? homeFor(user.role) : '/login', label: user ? 'Кабинет' : 'Войти', Icon: UserRound, end: true },
   ];
   return (

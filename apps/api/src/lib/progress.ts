@@ -53,6 +53,8 @@ export async function progressFor(who: Who) {
 
   const englishOr = [...(user ? [{ userId: user.id }] : []), ...(visitorIds.size ? [{ visitorId: { in: [...visitorIds] } }] : [])];
   const english = englishOr.length ? await prisma.englishResult.findMany({ where: { OR: englishOr }, select: { lessonId: true, xp: true, createdAt: true } }) : [];
+  // уровни МатИгры, ФизИгры и КодИгры считаются вместе с английским: опыт и дни занятий
+  const games = englishOr.length ? await prisma.gameResult.findMany({ where: { OR: englishOr }, select: { game: true, levelId: true, xp: true, createdAt: true } }) : [];
 
   const now = Date.now();
   const today = schoolDay(new Date(now));
@@ -70,7 +72,7 @@ export async function progressFor(who: Who) {
     const d = schoolDay(a.createdAt);
     xpDays.set(d, (xpDays.get(d) ?? 0) + (st === undefined ? 15 : 10));
   }
-  for (const e of english) xpDays.set(schoolDay(e.createdAt), (xpDays.get(schoolDay(e.createdAt)) ?? 0) + e.xp);
+  for (const e of [...english, ...games]) xpDays.set(schoolDay(e.createdAt), (xpDays.get(schoolDay(e.createdAt)) ?? 0) + e.xp);
   const xpTotal = [...xpDays.values()].reduce((a, b) => a + b, 0);
   const xp = { total: xpTotal, today: xpDays.get(today) ?? 0, goal: DAILY_GOAL, ...levelOf(xpTotal) };
   const englishWeek = english.filter((e) => e.createdAt.getTime() >= now - 7 * 86_400_000).length;
@@ -81,7 +83,7 @@ export async function progressFor(who: Who) {
   const days = new Map<string, number>();
   for (const a of correct) days.set(schoolDay(a.createdAt), (days.get(schoolDay(a.createdAt)) ?? 0) + 1);
   // урок английского тоже считается днём занятий
-  for (const e of english) if (!days.has(schoolDay(e.createdAt))) days.set(schoolDay(e.createdAt), 0);
+  for (const e of [...english, ...games]) if (!days.has(schoolDay(e.createdAt))) days.set(schoolDay(e.createdAt), 0);
 
   // серия: подряд идущие дни с решёнными задачами, заканчивая сегодня или вчера
   let streak = 0;
@@ -177,6 +179,7 @@ export async function progressFor(who: Who) {
     name: user?.name ?? null,
     xp,
     english: { lessons: englishLessons, week: englishWeek },
+    games: { levels: new Set(games.map((g) => `${g.game}:${g.levelId}`)).size, week: games.filter((g) => g.createdAt.getTime() >= now - 7 * 86_400_000).length },
     solvedTotal,
     solvedWeek,
     solvedPrevWeek,

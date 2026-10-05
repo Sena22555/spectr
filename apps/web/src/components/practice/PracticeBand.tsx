@@ -1,4 +1,4 @@
-import { ArrowRight, Dumbbell, FlaskConical, Gauge, Languages, Puzzle, Sparkles, Target } from 'lucide-react';
+import { ArrowRight, Dumbbell, FlaskConical, Gamepad2, Gauge, Puzzle, Sparkles, Target } from 'lucide-react';
 import { Container } from '../Layout';
 import { Reveal } from '../Reveal';
 import { ButtonLink, Chip, Skeleton } from '../ui';
@@ -29,7 +29,7 @@ export function PracticeBand() {
             {[
               { Icon: Dumbbell, text: 'Сборник для 5–11 класса: бесконечные тренажёры, ответ проверяется сразу' },
               { Icon: Target, text: 'ОГЭ и ЕГЭ по номерам заданий: математика, информатика, физика' },
-              { Icon: Languages, text: 'Английский: путь из 48 уроков по 5 минут — слова с картинками и озвучкой, фразы из плиток, грамматика' },
+              { Icon: Gamepad2, text: 'Игры Спектра: СпектрLingo, МатИгра, ФизИгра и КодИгра — уровни по 3–5 минут и альбом стикеров' },
               { Icon: Puzzle, text: `${topics ?? '13'} тем с теорией и ${problems ?? '65'} задачами с разбором` },
               { Icon: FlaskConical, text: 'Опыты: призма Ньютона, цепь, парабола, двоичный код' },
               { Icon: Gauge, text: 'Проверка уровня за 5 минут — без оценок, с советом, что подтянуть' },
@@ -46,8 +46,8 @@ export function PracticeBand() {
             <ButtonLink to="/practice">
               Открыть практикум <ArrowRight className="size-4" />
             </ButtonLink>
-            <ButtonLink to="/english" variant="secondary">
-              Английский
+            <ButtonLink to="/games" variant="secondary">
+              Игры Спектра
             </ButtonLink>
           </div>
           {links.data?.telegramUrl && (

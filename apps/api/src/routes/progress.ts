@@ -53,9 +53,10 @@ export async function progressRoutes(app: FastifyInstance) {
     const userId = await optionalUser(req);
     const week = schoolWeek();
     const since = new Date(Date.parse(`${week.monday}T00:00:00Z`) - 86_400_000);
-    const [attempts, english] = await Promise.all([
+    const [attempts, english, games] = await Promise.all([
       prisma.practiceAttempt.findMany({ where: { userId: { not: null }, createdAt: { gte: since } }, select: { userId: true, problemId: true, correct: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
       prisma.englishResult.findMany({ where: { userId: { not: null }, createdAt: { gte: since } }, select: { userId: true, xp: true, createdAt: true } }),
+      prisma.gameResult.findMany({ where: { userId: { not: null }, createdAt: { gte: since } }, select: { userId: true, xp: true, createdAt: true } }),
     ]);
     const xp = new Map<string, number>();
     const state = new Map<string, 'tried' | 'done'>();
@@ -71,7 +72,7 @@ export async function progressRoutes(app: FastifyInstance) {
       state.set(key, 'done');
       xp.set(a.userId!, (xp.get(a.userId!) ?? 0) + (st === undefined ? 15 : 10));
     }
-    for (const e of english) if (schoolDay(e.createdAt) >= week.monday) xp.set(e.userId!, (xp.get(e.userId!) ?? 0) + e.xp);
+    for (const e of [...english, ...games]) if (schoolDay(e.createdAt) >= week.monday) xp.set(e.userId!, (xp.get(e.userId!) ?? 0) + e.xp);
     const ranked = [...xp.entries()].sort((a, b) => b[1] - a[1]);
     const users = await prisma.user.findMany({ where: { id: { in: ranked.map(([id]) => id) } }, select: { id: true, name: true, role: true } });
     const nameOf = (id: string) => {
