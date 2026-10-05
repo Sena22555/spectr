@@ -154,7 +154,7 @@ export function recognize(lang: 'en-US' | 'en-GB' | 'ru-RU', onText?: (t: string
         .trim();
       onText?.(text);
     };
-    rec.onerror = (e) => (e.error === 'no-speech' || e.error === 'aborted' ? resolve(text) : reject(new Error(e.error === 'not-allowed' ? 'Нет доступа к микрофону' : 'Не расслышал')));
+    rec.onerror = (e) => (e.error === 'no-speech' || e.error === 'aborted' ? resolve(text) : reject(new Error(e.error === 'not-allowed' ? micHelp('NotAllowedError') : 'Не расслышал')));
     rec.onend = () => resolve(text);
     stopVoice();
     rec.start();
@@ -193,8 +193,8 @@ export function listenSpeech(lang: 'ru' | 'en', opts: { onLevel?: (v: number) =>
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch {
-      throw new Error('Нет доступа к микрофону — разреши его в настройках браузера');
+    } catch (e) {
+      throw new Error(micHelp((e as Error).name));
     }
     const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find((t) => MediaRecorder.isTypeSupported?.(t));
     const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
@@ -251,6 +251,16 @@ export function listenSpeech(lang: 'ru' | 'en', opts: { onLevel?: (v: number) =>
     return d.text ?? '';
   })();
   return { promise, stop: () => stopFn() };
+}
+
+/** Понятная подсказка, почему микрофон не включился и что нажать. */
+export function micHelp(errorName: string) {
+  const inApp = /Telegram|VK|MAX/i.test(navigator.userAgent) || Boolean((window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
+  if (errorName === 'NotFoundError' || errorName === 'OverconstrainedError') return 'Микрофон не найден. Подключи наушники с микрофоном или зайди с телефона.';
+  if (inApp) return 'Внутри мессенджера микрофон может быть закрыт. Открой сайт в обычном браузере (Chrome, Safari, Яндекс) — там разговор работает.';
+  if (errorName === 'NotAllowedError' || errorName === 'SecurityError')
+    return 'Браузер не дал микрофон. Нажми на значок замка 🔒 слева от адреса сайта → «Микрофон» → «Разрешить», затем обнови страницу.';
+  return 'Не получилось включить микрофон. Обнови страницу и попробуй ещё раз.';
 }
 
 // ——— режимы «не могу слушать / говорить» и комментатор ———

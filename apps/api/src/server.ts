@@ -64,6 +64,8 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self'",
+  // голос помощников: mp3 с нашего сервера и короткая тишина-«будильник» для iPhone
+  "media-src 'self' blob: data:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -72,7 +74,8 @@ const CSP = [
 app.addHook('onSend', async (req, reply) => {
   reply.header('x-content-type-options', 'nosniff');
   reply.header('referrer-policy', 'strict-origin-when-cross-origin');
-  reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  // микрофон разрешён самому сайту — для голосового разговора с помощниками и «Скажи вслух»
+  reply.header('permissions-policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
   if (req.headers['x-forwarded-proto'] === 'https') reply.header('strict-transport-security', 'max-age=15552000');
   const type = String(reply.getHeader('content-type') ?? '');
   if (type.startsWith('text/html')) reply.header('content-security-policy', CSP);
