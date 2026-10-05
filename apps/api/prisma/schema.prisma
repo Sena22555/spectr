@@ -498,3 +498,19 @@ model FamilyCode {
 
   @@index([userId])
 }
+
+// ─── Английский: пройденные уроки «пути» ───
+
+model EnglishResult {
+  id        String   @id @default(cuid())
+  lessonId  String
+  userId    String?
+  visitorId String?
+  correct   Int
+  total     Int
+  xp        Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([visitorId])
+}

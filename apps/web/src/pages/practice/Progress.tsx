@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { Copy, HeartHandshake, Send } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { ProgressView } from '../../components/practice/ProgressView';
+import { XpMeter } from '../../components/game/XpMeter';
 import { Button, ButtonLink, ErrorNote, Loading } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useMyProgress, type ParentLinkInfo } from '../../lib/progress';
@@ -41,6 +42,7 @@ export default function ProgressPage() {
               </div>
             </div>
           )}
+          <XpMeter xp={q.data.progress.xp} />
           <ProgressView p={q.data.progress} />
           <ParentShare signedIn={q.data.signedIn} link={q.data.parentLink} />
         </>
@@ -76,7 +78,7 @@ function ParentShare({ signedIn, link }: { signedIn: boolean; link: ParentLinkIn
         Покажите родителям, как идут дела
       </h2>
       <p className="max-w-[60ch] text-[16.5px] text-cream/85">
-        Родитель откроет ссылку и увидит, сколько решено, что получается и что стоит подтянуть, — без паролей. А если подпишется на бота, по воскресеньям будет получать короткий отчёт. Контакты и переписка в отчёт не попадают.
+        Родитель откроет ссылку и увидит, сколько решено, что получается и что стоит подтянуть, — без паролей. Из отчёта можно в один клик завести кабинет родителя: расписание, домашка и сводки в Telegram. Контакты и переписка туда не попадают.
       </p>
       {!signedIn ? (
         <div className="flex flex-col items-start gap-3">

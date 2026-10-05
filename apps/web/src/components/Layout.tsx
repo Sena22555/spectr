@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import clsx from 'clsx';
-import { CalendarDays, Home, Menu, Puzzle, UserRound, X } from 'lucide-react';
+import { CalendarDays, Home, Menu, Puzzle, UserRound, X, Languages } from 'lucide-react';
 import { Logo } from './Logo';
 import { PencilBuddy } from './Doodles';
 import { Avatar, ButtonLink, Loading } from './ui';
@@ -14,6 +14,7 @@ import type { Role } from '../lib/types';
 
 const PUBLIC_NAV = [
   { to: '/practice', label: 'Практикум', badge: 'бесплатно' },
+  { to: '/english', label: 'Английский' },
   { to: '/tournament', label: 'Турнир' },
   { to: '/teachers', label: 'Преподаватели' },
   { to: '/subjects', label: 'Предметы' },
@@ -323,11 +324,13 @@ function MiniLayout() {
 export function BottomTabs() {
   const { user } = useAuth();
   const teacher = user && (user.role === 'TEACHER' || (user.role === 'ADMIN' && user.teacherId));
+  const parent = user?.role === 'PARENT';
   const tabs = [
     { to: '/', label: 'Главная', Icon: Home, end: true },
-    { to: teacher ? '/teach' : '/app/schedule', label: teacher ? 'Занятия' : 'Расписание', Icon: CalendarDays, end: false },
+    { to: teacher ? '/teach' : parent ? '/family' : '/app/schedule', label: teacher ? 'Занятия' : parent ? 'Дети' : 'Расписание', Icon: CalendarDays, end: false },
     { to: '/practice', label: 'Практикум', Icon: Puzzle, end: false },
-    { to: user ? '/app' : '/login', label: user ? 'Кабинет' : 'Войти', Icon: UserRound, end: true },
+    { to: '/english', label: 'Английский', Icon: Languages, end: false },
+    { to: user ? homeFor(user.role) : '/login', label: user ? 'Кабинет' : 'Войти', Icon: UserRound, end: true },
   ];
   return (
     <nav
@@ -335,7 +338,7 @@ export function BottomTabs() {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-dashed border-hair-soft bg-paper/95 backdrop-blur-md"
       style={{ paddingBottom: 'var(--safe-bottom)' }}
     >
-      <ul className="mx-auto grid max-w-xl grid-cols-4">
+      <ul className="mx-auto grid max-w-xl grid-cols-5">
         {tabs.map(({ to, label, Icon, end }) => (
           <li key={label}>
             <NavLink to={to} end={end} className="group relative flex h-16 flex-col items-center justify-center gap-1 no-underline">

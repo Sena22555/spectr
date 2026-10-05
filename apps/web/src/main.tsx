@@ -57,6 +57,8 @@ const Tournament = lazy(() => import('./pages/tournament/Tournament'));
 const Certificate = lazy(() => import('./pages/tournament/Certificate'));
 const Challenge = lazy(() => import('./pages/challenge/Challenge'));
 const Family = lazy(() => import('./pages/family/Family'));
+const EnglishPath = lazy(() => import('./pages/english/Path'));
+const EnglishLesson = lazy(() => import('./pages/english/Lesson'));
 const Homework = lazy(() => import('./pages/app/Homework'));
 const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
@@ -77,6 +79,8 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
   {
     element: <Root />,
     children: [
+      // урок английского — на весь экран, без шапки сайта
+      { path: 'english/lesson/:id', element: s(<EnglishLesson />) },
       {
         element: <SiteLayout />,
         children: [
@@ -98,6 +102,7 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'tournament', element: s(<Tournament />) },
           { path: 'tournament/certificate/:id', element: s(<Certificate />) },
           { path: 'challenge/:id', element: s(<Challenge />) },
+          { path: 'english', element: s(<EnglishPath />) },
           { path: 'practice/:subject/:topic', element: s(<PracticeTopic />) },
           { path: 'login', element: <Login /> },
           { path: 'register', element: <Register /> },

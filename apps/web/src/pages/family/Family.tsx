@@ -99,7 +99,13 @@ function ChildView({ c }: { c: ChildSummary }) {
         <Stat hue={5} icon={<CalendarDays />} big={next ? fmtTime(next.startsAt) : '—'} label={next ? `${relativeDay(next.startsAt).toLowerCase()}: ${next.title}` : 'ближайших занятий пока нет'} sub={next ? untilLabel(next.startsAt) : undefined} />
         <Stat hue={3} icon={<NotebookPen />} big={c.homework.length ? `${hwDone}/${c.homework.length}` : '—'} label="домашек сдано" sub={c.homework.length ? undefined : 'заданий пока не было'} />
         <Stat hue={1} icon={<Flame />} big={String(c.progress.streak)} label={`${plural(c.progress.streak, 'день', 'дня', 'дней')} подряд с задачами`} sub={c.progress.bestStreak > c.progress.streak ? `рекорд — ${c.progress.bestStreak}` : undefined} />
-        <Stat hue={6} icon={<Sparkles />} big={String(c.progress.solvedWeek)} label={`${plural(c.progress.solvedWeek, 'задача', 'задачи', 'задач')} за неделю`} sub={`дней с практикой: ${c.progress.activeDays7} из 7`} />
+        <Stat
+          hue={6}
+          icon={<Sparkles />}
+          big={String(c.progress.solvedWeek)}
+          label={`${plural(c.progress.solvedWeek, 'задача', 'задачи', 'задач')} за неделю`}
+          sub={`${c.progress.english.week ? `английский: ${c.progress.english.week} ${plural(c.progress.english.week, 'урок', 'урока', 'уроков')} · ` : ''}дней с практикой: ${c.progress.activeDays7} из 7`}
+        />
       </section>
 
       <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr]">

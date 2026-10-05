@@ -4,6 +4,8 @@ import { useAuth } from './auth';
 
 export interface Progress {
   name: string | null;
+  xp: import('./game').Xp;
+  english: { lessons: number; week: number };
   solvedTotal: number;
   solvedWeek: number;
   solvedPrevWeek: number;

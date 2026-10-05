@@ -14,6 +14,9 @@ import { isMiniApp } from '../../lib/platform';
 import { plural } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
 import { saveNick, savedNick } from '../../lib/nick';
+import { levelOf, sfx, useGame, useRefreshGame, xpForAnswer } from '../../lib/game';
+import { LevelUp, XpMeter } from '../../components/game/XpMeter';
+import { Burst } from '../../components/game/Burst';
 
 const ROUND = 10;
 interface Next {
@@ -39,6 +42,12 @@ export default function Train() {
   const [current, setCurrent] = useState<{ done: boolean; correct: boolean } | null>(null);
   const [streak, setStreak] = useState(0);
   const [best, setBest] = useState(() => readBest(id));
+  const game = useGame();
+  const refreshGame = useRefreshGame();
+  const [gains, setGains] = useState<number[]>([]);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [combo, setCombo] = useState(0);
   // задача засчитывается один раз, даже если после разбора ответить ещё раз
   const doneRef = useRef(false);
   const q = useQuery({ queryKey: ['train', id, n], queryFn: () => api<Next>(`/practice/trainers/${id}/next`), staleTime: Infinity, gcTime: 60_000 });
@@ -54,8 +63,23 @@ export default function Train() {
       doneRef.current = true;
       setCurrent({ done: true, correct: r.correct });
       setResults((list) => [...list, r.correct]);
+      const gain = r.correct ? xpForAnswer(r.firstTry) : 0;
+      setGains((g) => [...g, gain]);
+      if (gain) {
+        const base = (game.data?.xp.total ?? 0) + sessionXp;
+        const after = levelOf(base + gain).level;
+        if (game.data && after > levelOf(base).level) {
+          setLevelUp(after);
+          setTimeout(() => sfx('level'), 350);
+        }
+        setSessionXp((x) => x + gain);
+      }
       setStreak((s) => {
         const next = r.correct ? s + 1 : 0;
+        if (next === 3 || next === 5 || (next >= 10 && next % 5 === 0)) {
+          setCombo(next);
+          setTimeout(() => sfx('combo'), 250);
+        }
         if (next > best) {
           setBest(next);
           try {
@@ -67,11 +91,24 @@ export default function Train() {
         return next;
       });
     },
-    [best, id],
+    [best, id, game.data, sessionXp],
   );
 
-  const roundResults = results.slice(Math.floor((results.length - 1) / ROUND) * ROUND);
+  const roundStart = Math.floor((results.length - 1) / ROUND) * ROUND;
+  const roundResults = results.slice(roundStart);
+  const roundXp = gains.slice(roundStart).reduce((a, b) => a + b, 0);
   const roundDone = current?.done && results.length > 0 && results.length % ROUND === 0;
+  // итог десятки: фанфары и пересчёт опыта на сервере
+  useEffect(() => {
+    if (!roundDone) return;
+    sfx('finish');
+    void refreshGame().then(() => setSessionXp(0));
+  }, [roundDone, refreshGame]);
+  useEffect(() => {
+    if (!combo) return;
+    const t = setTimeout(() => setCombo(0), 1800);
+    return () => clearTimeout(t);
+  }, [combo]);
   const next = () => {
     doneRef.current = false;
     setCurrent(null);
@@ -134,6 +171,9 @@ export default function Train() {
           <p className="text-[17px] text-muted">{t.skill}</p>
         </header>
 
+        <XpMeter xp={game.data?.xp} extra={sessionXp} />
+        <LevelUp level={levelUp} onClose={() => setLevelUp(null)} />
+
         {/* табло: задача раунда, серия, рекорд */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <div className="flex flex-col rounded-[12px] bg-bone px-4 py-3">
@@ -142,7 +182,21 @@ export default function Train() {
               {Math.min(inRound + (current?.done ? 0 : 1), ROUND)} / {ROUND}
             </span>
           </div>
-          <div className={clsx('flex flex-col rounded-[12px] px-4 py-3 transition-colors', streak >= 3 ? 'bg-mark' : 'bg-bone')}>
+          <div className={clsx('relative flex flex-col rounded-[12px] px-4 py-3 transition-colors', streak >= 3 ? 'bg-mark' : 'bg-bone')}>
+            <AnimatePresence>
+              {combo > 0 && (
+                <motion.span
+                  key={combo}
+                  initial={{ opacity: 0, y: 8, scale: 0.6, rotate: -8 }}
+                  animate={{ opacity: 1, y: -26, scale: 1, rotate: -4 }}
+                  exit={{ opacity: 0, y: -40 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+                  className="t-heading absolute top-0 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[var(--ray-0)] px-3 py-1 text-[14px] whitespace-nowrap text-paper shadow-sticker"
+                >
+                  Комбо ×{combo}!
+                </motion.span>
+              )}
+            </AnimatePresence>
             <span className="t-mono text-[11px] text-muted">серия</span>
             <span className="t-heading tnum inline-flex items-center gap-1 text-[24px]">
               <Flame className={clsx('size-5', streak ? 'text-[var(--ray-0)]' : 'text-muted')} /> {streak}
@@ -164,11 +218,29 @@ export default function Train() {
 
         <AnimatePresence mode="wait">
           {roundDone ? (
-            <motion.section key="round" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-5 rounded-[14px] bg-tint p-6 sm:p-8" aria-live="polite">
+            <motion.section key="round" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative flex flex-col gap-5 rounded-[14px] bg-tint p-6 sm:p-8" aria-live="polite">
+              <Burst fire={results.length} count={40} spread={260} className="left-1/2 top-16" />
               <p className="t-mono text-[12px] text-hue">итог десятки</p>
-              <p className="t-display tnum text-[56px] leading-none">
-                {correctInRound} из {ROUND}
-              </p>
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+                <p className="t-display tnum text-[56px] leading-none">
+                  {correctInRound} из {ROUND}
+                </p>
+                <p className="flex gap-1 pb-1" aria-label={`Звёзд: ${correctInRound >= 9 ? 3 : correctInRound >= 6 ? 2 : 1} из 3`}>
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      initial={{ scale: 0, rotate: -40 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ delay: 0.25 + i * 0.18, type: 'spring', stiffness: 380, damping: 14 }}
+                      className={clsx('text-[34px] leading-none', i < (correctInRound >= 9 ? 3 : correctInRound >= 6 ? 2 : 1) ? '' : 'opacity-20 grayscale')}
+                      aria-hidden="true"
+                    >
+                      ⭐
+                    </motion.span>
+                  ))}
+                </p>
+                {roundXp > 0 && <p className="t-heading tnum rounded-full bg-mark px-3 py-1 text-[17px] text-forest">+{roundXp} XP</p>}
+              </div>
               <p className="max-w-[52ch] text-[18px]">
                 {correctInRound >= 9
                   ? 'Блестяще! Навык уверенный — можно переходить к задачам посложнее.'

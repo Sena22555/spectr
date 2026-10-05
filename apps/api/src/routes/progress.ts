@@ -40,6 +40,12 @@ export async function progressRoutes(app: FastifyInstance) {
     return { progress, parentLink: link ? linkPayload(link.token) : null, signedIn: Boolean(userId) };
   });
 
+  // коротко для игровых элементов: опыт, уровень, цель дня, серия
+  app.get('/progress/game', async (req) => {
+    const p = await progressFor({ userId: await optionalUser(req), visitorId: visitorIdOf(req) });
+    return { xp: p.xp, streak: p.streak, bestStreak: p.bestStreak };
+  });
+
   app.post('/progress/parent-link', { preHandler: authenticate, config: rl(10, '1 hour') }, async (req) => {
     const existing = await activeLink(req.user.sub);
     if (existing) return linkPayload(existing.token);

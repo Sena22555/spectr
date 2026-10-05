@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 import clsx from 'clsx';
 import { Check, Lightbulb, Eye, RotateCcw } from 'lucide-react';
 import { RichText } from '../Tex';
 import { useCheck, type CheckResult, type PracticeProblem } from '../../lib/practice';
 import { haptic } from '../../lib/platform';
+import { sfx, xpForAnswer } from '../../lib/game';
+import { Burst, XpFloat } from '../game/Burst';
 
 const LEVELS = ['', 'Разминка', 'Основа', 'Со звёздочкой'];
 
@@ -35,6 +37,9 @@ export function ProblemCard({
   const [wrong, setWrong] = useState(0);
   const [again, setAgain] = useState(false);
   const solved = result?.correct || (solvedBefore && !again);
+  const [fire, setFire] = useState(0);
+  const [gain, setGain] = useState(0);
+  const shake = useAnimationControls();
 
   const submit = async (answer: string) => {
     if (!answer.trim()) return;
@@ -42,10 +47,16 @@ export function ProblemCard({
     setResult(r);
     if (r.correct) {
       haptic('success');
+      sfx('correct');
+      // опыт даём только за первое решение задачи
+      setGain(solvedBefore ? 0 : xpForAnswer(wrong === 0));
+      setFire((n) => n + 1);
       onSolved?.();
       onResult?.({ correct: true, firstTry: wrong === 0 });
     } else {
       haptic('tap');
+      sfx('almost');
+      void shake.start({ x: [0, -7, 7, -4, 4, 0], transition: { duration: 0.4 } });
       setWrong((n) => n + 1);
       if (r.solution) onResult?.({ correct: false, firstTry: false });
     }
@@ -63,7 +74,8 @@ export function ProblemCard({
   };
 
   return (
-    <article
+    <motion.article
+      animate={shake}
       id={problem.id}
       className={clsx(
         `hue-${hue}`,
@@ -71,6 +83,8 @@ export function ProblemCard({
         solved ? 'border-transparent bg-tint' : problem.self ? 'dashed-box bg-paper' : 'border-ink/15 bg-paper',
       )}
     >
+      <Burst fire={fire} className="left-1/2 top-1/2" />
+      {gain > 0 && <XpFloat fire={fire} amount={gain} />}
       <header className="flex flex-wrap items-center gap-2">
         {index !== undefined && <span className="t-mono rounded-full bg-ink px-2.5 py-1 text-[11px] text-paper">задача {index}</span>}
         {problem.level > 0 && (
@@ -223,6 +237,6 @@ export function ProblemCard({
           </motion.div>
         )}
       </AnimatePresence>
-    </article>
+    </motion.article>
   );
 }

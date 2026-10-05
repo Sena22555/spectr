@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
-import { ArrowRight, BookOpen, Check, Clock, Dumbbell, FlaskConical, Gauge, Medal, Sparkles, Target, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Clock, Dumbbell, FlaskConical, Gauge, Languages, Medal, Sparkles, Target, Trophy } from 'lucide-react';
+import { XpMeter } from '../../components/game/XpMeter';
+import { useGame } from '../../lib/game';
 import { Container } from '../../components/Layout';
 import { Reveal } from '../../components/Reveal';
 import { DailyTask } from '../../components/practice/DailyTask';
@@ -18,6 +20,7 @@ export default function PracticeCatalog() {
   const totalTopics = subjects.reduce((n, s) => n + s.topics.length, 0);
   const labs = subjects.reduce((n, s) => n + s.topics.filter((t) => t.widget).length, 0);
   const solved = progress.data?.solved.size ?? 0;
+  const game = useGame();
 
   return (
     <Container className={clsx('flex flex-col gap-14', isMiniApp ? 'pt-5 pb-8' : 'pt-8 pb-10 sm:pt-12')}>
@@ -51,7 +54,7 @@ export default function PracticeCatalog() {
         {[
           { to: '/practice/trainers', title: 'Сборник 5–11 класс', text: 'Бесконечные тренажёры по классам', hue: 1, Icon: Dumbbell },
           { to: '/practice/trainers?tab=exams', title: 'ОГЭ и ЕГЭ', text: 'Задания по номерам экзамена', hue: 5, Icon: Target },
-          { to: '#topics', title: 'Темы с теорией', text: 'Коротко, с формулами и опытами', hue: 3, Icon: BookOpen },
+          { to: '/english', title: 'Английский: путь', text: 'Уроки по 5 минут, слова с озвучкой', hue: 4, Icon: Languages },
           { to: '/practice/check/math', title: 'Проверить уровень', text: '5 минут, без оценок', hue: 2, Icon: Gauge },
           { to: '/tournament', title: 'Турнир недели', text: '10 задач, сертификат каждому', hue: 0, Icon: Medal },
           { to: '/practice/progress', title: 'Мой прогресс', text: 'Достижения и отчёт для родителей', hue: 6, Icon: Trophy },
@@ -75,6 +78,8 @@ export default function PracticeCatalog() {
           ),
         )}
       </nav>
+
+      {(game.data?.xp.total ?? 0) > 0 && <XpMeter xp={game.data?.xp} className="-mt-6 max-w-2xl" />}
 
       {solved > 0 && (
         <p className="-mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-mark px-4 py-2 text-[15px] text-forest">

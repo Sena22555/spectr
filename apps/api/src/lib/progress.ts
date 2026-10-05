@@ -9,6 +9,23 @@ import { statuses } from './homework.js';
 
 const SUBJECT_NAME: Record<string, string> = { math: 'Математика', physics: 'Физика', informatics: 'Информатика' };
 
+// Опыт: 15 за задачу с первой попытки, 10 — если получилось не сразу; плюс опыт за уроки английского.
+// Уровни растут всё медленнее: 100, 150, 200… опыта до следующего. Цвет уровня — по кругу спектра.
+export const DAILY_GOAL = 50;
+const LEVEL_COLORS = ['Красный', 'Оранжевый', 'Жёлтый', 'Зелёный', 'Голубой', 'Синий', 'Фиолетовый'];
+export function levelOf(xp: number) {
+  let level = 1;
+  let from = 0;
+  let step = 100;
+  while (xp >= from + step) {
+    from += step;
+    level++;
+    step += 50;
+  }
+  const round = Math.floor((level - 1) / 7);
+  return { level, from, to: from + step, hue: (level - 1) % 7, title: `${LEVEL_COLORS[(level - 1) % 7]} луч${round ? ` · ${round + 1}-й круг` : ''}` };
+}
+
 export interface Who {
   userId?: string | null;
   visitorId?: string | null;
@@ -34,12 +51,37 @@ export async function progressFor(who: Who) {
     ? await prisma.practiceAttempt.findMany({ where: { OR: or }, select: { problemId: true, correct: true, createdAt: true }, orderBy: { createdAt: 'asc' } })
     : [];
 
+  const englishOr = [...(user ? [{ userId: user.id }] : []), ...(visitorIds.size ? [{ visitorId: { in: [...visitorIds] } }] : [])];
+  const english = englishOr.length ? await prisma.englishResult.findMany({ where: { OR: englishOr }, select: { lessonId: true, xp: true, createdAt: true } }) : [];
+
   const now = Date.now();
+  const today = schoolDay(new Date(now));
+  // каждая задача приносит опыт один раз: 15 с первой попытки, 10 — со второй и дальше
+  const xpState = new Map<string, 'tried' | 'done'>();
+  const xpDays = new Map<string, number>();
+  for (const a of attempts) {
+    const st = xpState.get(a.problemId);
+    if (st === 'done') continue;
+    if (!a.correct) {
+      xpState.set(a.problemId, 'tried');
+      continue;
+    }
+    xpState.set(a.problemId, 'done');
+    const d = schoolDay(a.createdAt);
+    xpDays.set(d, (xpDays.get(d) ?? 0) + (st === undefined ? 15 : 10));
+  }
+  for (const e of english) xpDays.set(schoolDay(e.createdAt), (xpDays.get(schoolDay(e.createdAt)) ?? 0) + e.xp);
+  const xpTotal = [...xpDays.values()].reduce((a, b) => a + b, 0);
+  const xp = { total: xpTotal, today: xpDays.get(today) ?? 0, goal: DAILY_GOAL, ...levelOf(xpTotal) };
+  const englishWeek = english.filter((e) => e.createdAt.getTime() >= now - 7 * 86_400_000).length;
+  const englishLessons = new Set(english.map((e) => e.lessonId)).size;
   const weekAgo = now - 7 * 86_400_000;
   const twoWeeksAgo = now - 14 * 86_400_000;
   const correct = attempts.filter((a) => a.correct);
   const days = new Map<string, number>();
   for (const a of correct) days.set(schoolDay(a.createdAt), (days.get(schoolDay(a.createdAt)) ?? 0) + 1);
+  // урок английского тоже считается днём занятий
+  for (const e of english) if (!days.has(schoolDay(e.createdAt))) days.set(schoolDay(e.createdAt), 0);
 
   // серия: подряд идущие дни с решёнными задачами, заканчивая сегодня или вчера
   let streak = 0;
@@ -115,7 +157,7 @@ export async function progressFor(who: Who) {
   const solvedWeek = correct.filter((a) => a.createdAt.getTime() >= weekAgo).length;
   const solvedPrevWeek = correct.filter((a) => a.createdAt.getTime() >= twoWeeksAgo && a.createdAt.getTime() < weekAgo).length;
   const accuracy = attempts.length ? Math.round((correct.length / attempts.length) * 100) : 0;
-  const activeDays7 = last14.slice(7).filter((d) => d.solved > 0).length;
+  const activeDays7 = last14.slice(7).filter((d) => days.has(d.day)).length;
   const diagnostics = or.length ? await prisma.event.count({ where: { type: 'diagnostic_done', OR: or.filter((x) => !('playerId' in x)) } }) : 0;
 
   const achievements = [
@@ -133,6 +175,8 @@ export async function progressFor(who: Who) {
 
   return {
     name: user?.name ?? null,
+    xp,
+    english: { lessons: englishLessons, week: englishWeek },
     solvedTotal,
     solvedWeek,
     solvedPrevWeek,
