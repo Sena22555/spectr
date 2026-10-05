@@ -6,7 +6,7 @@ import { apiHeaders } from '../../lib/api';
 import { RichText } from '../Tex';
 import { COACH_FACE, useCoachData } from '../../lib/coach';
 import { GAME_META, savedEnLevel, type GameKey } from '../../lib/games';
-import { canRecognize, playQueue, recognize, stopVoice } from '../../lib/voice';
+import { canRecognize, recognize, resetStream, speakStream, stopVoice } from '../../lib/voice';
 
 // Чат-помощник игры: Лина (английский), Матвей (математика), Фотон (физика), Байт (информатика).
 // Работает на нашей нейросети. Голосом: говоришь в микрофон — отвечает вслух.
@@ -15,7 +15,6 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
 }
-type Say = { t: string; v: string; sig: string }[];
 
 const SUGGEST: Record<GameKey, string[]> = {
   lingo: ['Объясни Present Perfect по-простому', 'Чем отличается a и the?', 'Как сказать «я опоздал» по-английски?', 'Что мне подтянуть?'],
@@ -64,6 +63,8 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voice, setVoice] = useState(false);
+  const voiceRef = useRef(false);
+  voiceRef.current = voice;
   const [listening, setListening] = useState(false);
   const stopMic = useRef<(() => void) | null>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -80,7 +81,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   }, [msgs, game, talk]);
   useEffect(() => () => {
     abort.current?.abort();
-    stopVoice();
+    resetStream();
   }, []);
   // Esc закрывает окно
   useEffect(() => {
@@ -103,7 +104,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     if (!q || busy) return;
     setError(null);
     setText('');
-    stopVoice();
+    resetStream();
     const history = [...msgs, { role: 'user' as const, content: q }];
     setMsgs([...history, { role: 'assistant', content: '' }]);
     setBusy(true);
@@ -124,7 +125,6 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
       const dec = new TextDecoder();
       let buf = '';
       let answer = '';
-      let say: Say = [];
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -134,19 +134,19 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
           const chunk = buf.slice(0, i).replace(/^data:\s*/, '');
           buf = buf.slice(i + 2);
           try {
-            const d = JSON.parse(chunk) as { t?: string; done?: boolean; say?: Say; error?: string };
+            const d = JSON.parse(chunk) as { t?: string; s?: { t: string; v: string; sig: string }; done?: boolean; error?: string };
             if (d.t) {
               answer += d.t;
               setMsgs([...history, { role: 'assistant', content: answer }]);
             }
             if (d.error) throw new Error(d.error);
-            if (d.say) say = d.say;
+            // голосовой режим: говорим по предложениям, пока ответ ещё пишется
+            if (d.s && voiceRef.current) speakStream(d.s);
           } catch (e) {
             if (e instanceof Error && e.message && !(e instanceof SyntaxError)) throw e;
           }
         }
       }
-      if (voice && say.length) void playQueue(say);
     } catch (e) {
       if (!ctrl.signal.aborted) {
         setError((e as Error).message);

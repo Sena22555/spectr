@@ -47,6 +47,21 @@ export async function playQueue(items: { t: string; v: string; sig?: string }[])
   }
 }
 
+// потоковая речь: фразы приходят по одной, играем по очереди без пауз
+let streamChain: Promise<unknown> = Promise.resolve();
+let streamToken = 0;
+export function speakStream(item: { t: string; v: string; sig?: string }) {
+  const token = streamToken;
+  const url = ttsUrl(item.t, item.v, { sig: item.sig });
+  void fetch(url).catch(() => undefined);
+  streamChain = streamChain.then(() => (token === streamToken ? playUrl(url) : undefined));
+}
+export function resetStream() {
+  streamToken++;
+  streamChain = Promise.resolve();
+  stopVoice();
+}
+
 /** Заранее подгрузить фразы (кеш браузера). */
 export function preload(urls: string[]) {
   for (const u of urls) void fetch(u).catch(() => undefined);

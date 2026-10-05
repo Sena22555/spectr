@@ -136,15 +136,36 @@ export async function aiRoutes(app: FastifyInstance) {
     const abort = new AbortController();
     req.raw.on('close', () => abort.abort());
     let full = '';
+    // голосовой режим: каждое законченное предложение сразу подписываем — браузер начнёт говорить, не дожидаясь конца ответа
+    let sentence = '';
+    let spoken = 0;
+    const voiceOf = (t: string) => ((t.match(/[a-z]/gi) ?? []).length > (t.match(/[а-яё]/gi) ?? []).length ? EN_VOICE : COACH_VOICE[body.game]);
+    const emit = (raw: string) => {
+      const t = speakable(raw.replace(/\\[()[\]]/g, ''));
+      if (t.length < 2 || spoken >= 14) return;
+      spoken++;
+      const v = voiceOf(t);
+      res.write(`data: ${JSON.stringify({ s: { t, v, sig: signSpeech(v, t) } })}\n\n`);
+    };
     try {
       await chatStream(
         messages,
         (t) => {
           full += t;
+          sentence += t;
           res.write(`data: ${JSON.stringify({ t })}\n\n`);
+          // режем по концу предложения, только когда после знака уже пришёл пробел (иначе «3.5» порвётся)
+          for (;;) {
+            const m = /[.!?…]+(?=\s)|\n/.exec(sentence);
+            if (!m) break;
+            const cut = m.index + m[0].length;
+            emit(sentence.slice(0, cut));
+            sentence = sentence.slice(cut);
+          }
         },
         abort.signal,
       );
+      if (sentence.trim()) emit(sentence);
       // для голосового режима — подписанные фразы: английские читает английский голос, русские — голос помощника
       const say = speakable(full)
         .split(/(?<=[.!?])\s+/)
