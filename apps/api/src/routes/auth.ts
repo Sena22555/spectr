@@ -11,12 +11,17 @@ import { LETTERS, sendMail } from '../lib/mail.js';
 import { getBotUsername, getMaxUsername } from '../bot/index.js';
 import { linkVisitor, track, visitorIdOf } from '../lib/track.js';
 import { randomBytes } from 'node:crypto';
+import { claimChild } from './family.js';
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, 'Имя слишком короткое').max(80),
   email: z.email('Некорректный email').transform((v) => v.toLowerCase()),
   password: z.string().min(8, 'Пароль — минимум 8 символов').max(128),
   phone: z.string().trim().max(32).optional(),
+  // родитель может сразу привязать ребёнка кодом или ссылкой на отчёт
+  as: z.enum(['STUDENT', 'PARENT']).default('STUDENT'),
+  familyCode: z.string().max(20).optional(),
+  familyToken: z.string().max(80).optional(),
 });
 
 const emailField = z.email('Некорректный email').transform((v) => v.toLowerCase());
@@ -41,11 +46,13 @@ export async function authRoutes(app: FastifyInstance) {
         email: body.email,
         phone: body.phone,
         passwordHash: await bcrypt.hash(body.password, 10),
+        role: body.as,
       },
       include: { teacher: true },
     });
     void linkVisitor(visitorIdOf(req), user.id);
-    void track({ type: 'register', visitorId: visitorIdOf(req), userId: user.id });
+    void track({ type: 'register', visitorId: visitorIdOf(req), userId: user.id, label: body.as === 'PARENT' ? 'parent' : undefined });
+    if (body.as === 'PARENT' && (body.familyCode || body.familyToken)) await claimChild(user.id, { code: body.familyCode, token: body.familyToken }).catch(() => null);
     const code = await issueCode(body.email, 'VERIFY');
     if (code) await sendMail(body.email, LETTERS.verify(user.name, code)).catch((err) => app.log.error(err, 'письмо с кодом не ушло'));
     return { token: sign(user.id, user.role), user: publicUser(user) };

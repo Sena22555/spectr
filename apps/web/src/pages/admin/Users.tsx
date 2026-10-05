@@ -8,7 +8,7 @@ import { Avatar, ErrorNote, Loading, PageHeader } from '../../components/ui';
 import { FilterChip } from '../Teachers';
 import type { Role, User } from '../../lib/types';
 
-const ROLES: Role[] = ['STUDENT', 'TEACHER', 'ADMIN'];
+const ROLES: Role[] = ['STUDENT', 'PARENT', 'TEACHER', 'ADMIN'];
 
 export default function AdminUsers() {
   const qc = useQueryClient();

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import clsx from 'clsx';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { haptic, isMiniApp, platform, platformLabel } from '../lib/platform';
@@ -123,6 +124,10 @@ export function Register() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<'form' | 'code'>('form');
+  // ?as=parent&code=K7Q2MX (код от ребёнка) или &family=<токен ссылки на отчёт>
+  const [as, setAs] = useState<'STUDENT' | 'PARENT'>(params.get('as') === 'parent' ? 'PARENT' : 'STUDENT');
+  const [familyCode, setFamilyCode] = useState((params.get('code') ?? '').toUpperCase().slice(0, 6));
+  const familyToken = params.get('family') ?? undefined;
 
   if (step === 'code' && user) {
     return <VerifyEmail email={user.email ?? form.email} onDone={(u) => navigate(params.get('next') ?? homeFor(u.role), { replace: true })} />;
@@ -134,7 +139,7 @@ export function Register() {
     setBusy(true);
     setError(null);
     try {
-      const u = await register({ ...form, phone: form.phone || undefined });
+      const u = await register({ ...form, phone: form.phone || undefined, as, ...(as === 'PARENT' ? { familyCode: familyCode || undefined, familyToken } : {}) });
       haptic('success');
       if (u.emailVerified || __DEMO__) navigate(params.get('next') ?? homeFor(u.role), { replace: true });
       else setStep('code');
@@ -149,7 +154,7 @@ export function Register() {
   return (
     <AuthFrame
       title="Регистрация"
-      lead="Аккаунт ученика: расписание, переносы и поддержка в одном месте."
+      lead={as === 'PARENT' ? 'Кабинет родителя: расписание ребёнка, домашка, отзывы преподавателей и сводки в Telegram.' : 'Аккаунт ученика: расписание, домашка, практикум и поддержка в одном месте.'}
       footer={
         <p>
           Уже есть аккаунт?{' '}
@@ -160,7 +165,27 @@ export function Register() {
       }
     >
       <form className="flex flex-col gap-5" onSubmit={submit}>
-        <Input label="Имя и фамилия" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" required minLength={2} />
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Кто регистрируется">
+          {(
+            [
+              ['STUDENT', 'Я ученик', 'учусь или хочу учиться'],
+              ['PARENT', 'Я родитель', 'слежу за успехами ребёнка'],
+            ] as const
+          ).map(([key, title, note]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={as === key}
+              onClick={() => setAs(key)}
+              className={clsx('press flex flex-col items-start rounded-[10px] border-[1.5px] px-4 py-3 text-left', as === key ? 'border-ink bg-mark' : 'border-ink/20 hover:border-ink/50')}
+            >
+              <span className="text-[16px] font-[650]">{title}</span>
+              <span className="text-[13px] text-ink/70">{note}</span>
+            </button>
+          ))}
+        </div>
+        <Input label={as === 'PARENT' ? 'Ваше имя' : 'Имя и фамилия'} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" required minLength={2} />
         <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" required />
         <Input label="Телефон" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" hint="Необязательно — чтобы администратор мог позвонить" />
         <Input
@@ -173,6 +198,16 @@ export function Register() {
           minLength={8}
           hint="Минимум 8 символов"
         />
+        {as === 'PARENT' && !familyToken && (
+          <Input
+            label="Код ребёнка"
+            value={familyCode}
+            onChange={(e) => setFamilyCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+            hint="Необязательно сейчас: ребёнок найдёт код в «Профиль → Родители». Можно ввести и потом в кабинете."
+            autoComplete="off"
+          />
+        )}
+        {as === 'PARENT' && familyToken && <p className="rounded-[8px] bg-bone px-3 py-2 text-[14.5px]">После регистрации ребёнок сразу появится в вашем кабинете.</p>}
         {error && (
           <p className="t-caption text-ember-text" role="alert">
             {error}

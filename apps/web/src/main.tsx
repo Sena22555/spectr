@@ -56,6 +56,7 @@ const Parents = lazy(() => import('./pages/Parents'));
 const Tournament = lazy(() => import('./pages/tournament/Tournament'));
 const Certificate = lazy(() => import('./pages/tournament/Certificate'));
 const Challenge = lazy(() => import('./pages/challenge/Challenge'));
+const Family = lazy(() => import('./pages/family/Family'));
 const Homework = lazy(() => import('./pages/app/Homework'));
 const TeachHomework = lazy(() => import('./pages/teach/Homework'));
 
@@ -116,6 +117,11 @@ const router = (__DEMO__ ? createHashRouter : createBrowserRouter)([
           { path: 'support/:id', element: s(<Ticket />) },
           { path: 'profile', element: s(<Profile />) },
         ],
+      },
+      {
+        path: 'family',
+        element: <AppLayout roles={['PARENT', 'ADMIN']} />,
+        children: [{ index: true, element: s(<Family />) }],
       },
       {
         path: 'teach',

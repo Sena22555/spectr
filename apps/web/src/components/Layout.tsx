@@ -363,7 +363,7 @@ interface NavItem {
 }
 
 export function homeFor(role: Role) {
-  return role === 'ADMIN' ? '/admin' : role === 'TEACHER' ? '/teach' : '/app';
+  return role === 'ADMIN' ? '/admin' : role === 'TEACHER' ? '/teach' : role === 'PARENT' ? '/family' : '/app';
 }
 
 function sectionsFor(role: Role, hasTeacher: boolean) {
@@ -379,6 +379,16 @@ function sectionsFor(role: Role, hasTeacher: boolean) {
         { to: '/practice', label: 'Практикум' },
         { to: '/app/requests', label: 'Переносы' },
         { to: '/app/support', label: 'Поддержка' },
+      ],
+    });
+  }
+  if (role === 'PARENT') {
+    sections.push({
+      title: 'Семья',
+      items: [
+        { to: '/family', label: 'Дети', end: true },
+        { to: '/practice', label: 'Практикум' },
+        { to: '/app/support', label: 'Написать в школу' },
       ],
     });
   }

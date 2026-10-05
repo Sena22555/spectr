@@ -6,7 +6,7 @@ import { startMax } from './max.js';
 // Боты «Спектра»: Telegram и MAX работают на одном ядре (core.ts) внутри процесса API.
 // Telegram включается при TELEGRAM_BOT_TOKEN, MAX — при MAX_BOT_TOKEN. BOT_POLLING=0 выключает оба.
 
-export { botSendTo, notifyNewBooking, notifyTicketFromWeb, notifyTicketReply, notifyUser } from './core.js';
+export { botSendTo, notifyNewBooking, notifyParents, notifyTicketFromWeb, notifyTicketReply, notifyUser } from './core.js';
 
 export const getBotUsername = () => getAdapter('telegram')?.username ?? null;
 export const getMaxUsername = () => getAdapter('max')?.username ?? null;

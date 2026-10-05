@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate, requireRole } from '../lib/auth.js';
 import { findProblem, publicProblem } from '../practice/content.js';
-import { notifyUser } from '../bot/index.js';
+import { notifyParents, notifyUser } from '../bot/index.js';
+
+const esc = (t: string) => t.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]!);
 import { fmtWhen } from '../lib/time.js';
 import { parseTasks, statuses } from '../lib/homework.js';
 import { GENERATORS, findGenerator } from '../practice/generators.js';
@@ -155,7 +157,11 @@ export async function homeworkRoutes(app: FastifyInstance) {
         create: { assignmentId: id, userId, comment },
         update: { comment },
       });
-      if (comment) void notifyUser(userId, `💬 <b>Комментарий к домашке</b> «${a.title}»\n\n${comment.replace(/[<>&]/g, '')}`, { app: '/app/homework', label: '📝 Открыть домашку' });
+      if (comment) {
+        void notifyUser(userId, `💬 <b>Комментарий к домашке</b> «${esc(a.title)}»\n\n${esc(comment)}`, { app: '/app/homework', label: '📝 Открыть домашку' });
+        const child = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+        void notifyParents(userId, `💬 ${esc(child?.name.split(' ')[0] ?? 'Ребёнок')}: преподаватель прокомментировал домашку «${esc(a.title)}»\n\n${esc(comment.slice(0, 600))}`);
+      }
       return { mark };
     });
 
@@ -229,7 +235,8 @@ export async function homeworkRoutes(app: FastifyInstance) {
       });
       if (body.done) {
         const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-        void notifyUser(a.teacher.userId, `✅ ${me?.name ?? 'Ученик'} сдал домашку «${a.title}»`, { app: '/teach/homework', label: 'Посмотреть' });
+        void notifyUser(a.teacher.userId, `✅ ${esc(me?.name ?? 'Ученик')} сдал домашку «${esc(a.title)}»`, { app: '/teach/homework', label: 'Посмотреть' });
+        void notifyParents(userId, `✅ ${esc(me?.name.split(' ')[0] ?? 'Ребёнок')} сдал(а) домашку «${esc(a.title)}» 👏`);
       }
       return { mark };
     });

@@ -8,7 +8,7 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   login(email: string, password: string): Promise<User>;
-  register(data: { name: string; email: string; password: string; phone?: string }): Promise<User>;
+  register(data: { name: string; email: string; password: string; phone?: string; as?: 'STUDENT' | 'PARENT'; familyCode?: string; familyToken?: string }): Promise<User>;
   verifyEmail(code: string): Promise<User>;
   resendCode(): Promise<void>;
   requestReset(email: string): Promise<void>;

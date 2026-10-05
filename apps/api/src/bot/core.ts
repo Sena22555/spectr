@@ -5,6 +5,7 @@ import { track } from '../lib/track.js';
 import { fmtDate, fmtTime, fmtWhen, schoolDay, schoolHour, schoolWeekday } from '../lib/time.js';
 import { progressFor, schoolFor } from '../lib/progress.js';
 import { parseTasks, statuses } from '../lib/homework.js';
+import { childIdsOf, childSummary, parentIdsOf } from '../lib/family.js';
 import { PRACTICE, answerText, checkAnswer, dailyProblem, findProblem, texToPlain } from '../practice/content.js';
 import { ALL_COLORS, COLORS, COLOR_TEST } from './quiz.js';
 import { GENERATORS, checkGen, findGenerator, genAnswerText, genProblemId, makeProblem, parseGenId } from '../practice/generators.js';
@@ -141,6 +142,7 @@ export async function notifyAdmins(text: string, rows: Btn[][]) {
 
 async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
   const user = await linkedUser(player.chatId);
+  if (user?.role === 'PARENT') return parentHome(user, fresh);
   const name = esc(user?.name.split(' ')[0] ?? player.firstName);
   const lines: string[] = [];
   if (fresh) {
@@ -937,7 +939,11 @@ const siteUrl = () =>
 async function parentReport(token: string): Promise<Screen | null> {
   const link = await prisma.parentLink.findUnique({ where: { token } });
   if (!link || link.revokedAt) return null;
-  const [p, school] = await Promise.all([progressFor({ userId: link.userId }), schoolFor(link.userId)]);
+  return weeklyReport(link.userId, token);
+}
+
+async function weeklyReport(userId: string, token: string | null): Promise<Screen> {
+  const [p, school] = await Promise.all([progressFor({ userId }), schoolFor(userId)]);
   const name = esc((p.name ?? 'Ученик').split(' ')[0]!);
   const diff = p.solvedWeek - p.solvedPrevWeek;
   const lines = [
@@ -956,9 +962,113 @@ async function parentReport(token: string): Promise<Screen | null> {
   }
   if (!p.solvedWeek && !school.isStudent) lines.push('', 'На этой неделе задач пока не было — самое время для задачи дня 🙂');
   const rows: Btn[][] = [];
-  if (siteUrl()) rows.push([{ text: '📊 Подробный отчёт', url: `${siteUrl()}/parents/${token}` }]);
-  rows.push([cb('🔕 Отписаться от отчётов', `pu:${token}`)]);
+  if (token) {
+    if (siteUrl()) rows.push([{ text: '📊 Подробный отчёт', url: `${siteUrl()}/parents/${token}` }]);
+    rows.push([cb('🔕 Отписаться от отчётов', `pu:${token}`)]);
+  } else rows.push([cb('🧒 Подробно', `fc:${userId}`)], [{ text: '📊 Кабинет родителя', app: '/family' }]);
   return { text: lines.join('\n'), rows };
+}
+
+// ─── родителям: дети, расписание, домашка ───
+
+const firstName = (name: string) => esc(name.split(' ')[0] ?? name);
+
+async function childLines(childId: string) {
+  const s = await childSummary(childId);
+  if (!s) return null;
+  const lines = [`🧒 <b>${firstName(s.child.name)}</b>`];
+  const next = s.upcoming.find((l) => l.startsAt.getTime() > Date.now() - 30 * 60_000);
+  lines.push(next ? `📅 ${fmtWhen(next.startsAt)} — ${esc(next.title)}` : '📅 Ближайших занятий пока нет');
+  const waiting = s.homework.filter((h) => !h.complete && !h.overdue).length;
+  const overdue = s.homework.filter((h) => h.overdue).length;
+  if (waiting || overdue) lines.push(`📝 Домашка: ${waiting ? `${waiting} в работе` : ''}${waiting && overdue ? ' · ' : ''}${overdue ? `🟡 ${overdue} ждёт сдачи после срока` : ''}`);
+  else if (s.homework.length) lines.push('📝 Домашка сдана ✅');
+  const p = s.progress;
+  lines.push(`🧩 За неделю: ${p.solvedWeek} ${p.solvedWeek % 10 === 1 && p.solvedWeek % 100 !== 11 ? 'задача' : 'задач'}${p.streak > 1 ? ` · серия 🔥${p.streak}` : ''}`);
+  return { s, text: lines.join('\n') };
+}
+
+async function parentHome(user: User, fresh: boolean): Promise<Screen> {
+  const ids = await childIdsOf(user.id);
+  const lines = [fresh ? `Здравствуйте, ${firstName(user.name)}! Это кабинет родителя в <b>«Спектре»</b> 🌈\nЗдесь — расписание, домашка и успехи ваших детей.` : `👨‍👩‍👧 <b>Спектр</b> · кабинет родителя`, ''];
+  const rows: Btn[][] = [];
+  if (!ids.length) {
+    lines.push('Пока ни один ребёнок не привязан.', '', 'Попросите ребёнка открыть в «Спектре» <b>Профиль → Родители</b> и продиктовать код из 6 символов, а затем введите его в кабинете 👇');
+    rows.push([{ text: '➕ Добавить ребёнка', app: '/family' }]);
+  } else {
+    for (const id of ids) {
+      const c = await childLines(id);
+      if (!c) continue;
+      lines.push(c.text, '');
+      rows.push([cb(`🧒 ${c.s.child.name.split(' ')[0]} — подробно`, `fc:${id}`)]);
+    }
+    lines.push('<i>Утром пришлём, что у ребёнка сегодня, и напомним об уроке за 15 минут. По воскресеньям — сводка за неделю.</i>');
+    rows.push([{ text: '📊 Кабинет родителя', app: '/family' }]);
+  }
+  rows.push([cb('✍️ Записать на занятие', 'book'), cb('💬 Написать в школу', 'ask')]);
+  rows.push([cb('🧩 Задача дня', 'daily'), cb('⚙️', 'settings')]);
+  return { text: lines.join('\n').trim(), rows };
+}
+
+async function childScreen(parentId: string, childId: string): Promise<Screen> {
+  const linked = await prisma.familyLink.findUnique({ where: { parentId_childId: { parentId, childId } } });
+  const s = linked ? await childSummary(childId) : null;
+  if (!s) return { text: 'Не нашли этого ребёнка в вашем кабинете.', rows: [[cb('◀️ Назад', 'fam')]] };
+  const name = firstName(s.child.name);
+  const lines = [`🧒 <b>${name}</b> — сводка`, '', '📅 <b>Расписание</b>'];
+  const upcoming = s.upcoming.filter((l) => l.startsAt.getTime() > Date.now() - 30 * 60_000).slice(0, 6);
+  if (upcoming.length) for (const l of upcoming) lines.push(`• ${fmtWhen(l.startsAt)} — ${esc(l.title)} · ${esc(l.teacher)}`);
+  else lines.push('Ближайших занятий пока нет.');
+  if (s.homework.length) {
+    lines.push('', '📝 <b>Домашка</b>');
+    for (const h of s.homework.slice(0, 5)) {
+      const state = h.complete ? '✅ сдано' : h.overdue ? '🟡 срок прошёл, ещё не сдано' : h.dueAt ? `⏳ до ${fmtWhen(h.dueAt)}` : '⏳ в работе';
+      lines.push(`• «${esc(h.title)}» — ${state}`);
+    }
+    const comment = s.homework.find((h) => h.comment)?.comment;
+    if (comment) lines.push('', `💬 Преподаватель: «${esc(comment.slice(0, 300))}»`);
+  }
+  const p = s.progress;
+  lines.push('', `🧩 <b>Практика за неделю:</b> ${p.solvedWeek} задач, дней с занятиями — ${p.activeDays7} из 7${p.streak > 1 ? ` · серия 🔥${p.streak}` : ''}`);
+  if (p.mastered.length) lines.push(`✅ Получается: ${esc(p.mastered.slice(0, 3).map((x) => x.title).join(', '))}`);
+  if (p.weak.length) lines.push(`🟡 Стоит подтянуть: ${esc(p.weak.slice(0, 3).map((x) => x.title).join(', '))}`);
+  return { text: lines.join('\n'), rows: [[{ text: '📊 Подробно в кабинете', app: `/family?child=${childId}` }], [cb('◀️ Все дети', 'fam'), ...MENU]] };
+}
+
+/** Публичное: написать родителям ребёнка (сдал домашку, комментарий преподавателя). */
+export async function notifyParents(childId: string, text: string, button?: { app?: string; label: string }) {
+  if (!anyBot()) return;
+  for (const pid of await parentIdsOf(childId)) await notifyUser(pid, text, button ?? { app: '/family', label: '📊 Кабинет родителя' });
+}
+
+/** Утренняя сводка родителю: занятия сегодня и домашка со сроком до завтра. */
+async function parentMorning() {
+  if (schoolHour() !== Number(process.env.BOT_PARENT_HOUR ?? 8)) return;
+  const today = schoolDay();
+  const links = await prisma.familyLink.findMany();
+  for (const link of links) {
+    const parent = await prisma.user.findUnique({ where: { id: link.parentId } });
+    const chats = parent ? chatsOfUser(parent) : [];
+    if (!chats.length) continue;
+    const s = await childSummary(link.childId);
+    if (!s) continue;
+    const lessons = s.upcoming.filter((l) => schoolDay(l.startsAt) === today);
+    const due = s.homework.filter((h) => !h.complete && h.dueAt && h.dueAt.getTime() - Date.now() < 36 * 3_600_000 && h.dueAt.getTime() > Date.now());
+    if (!lessons.length && !due.length) continue;
+    const name = firstName(s.child.name);
+    const lines = [`☀️ <b>${name} — сегодня</b>`];
+    for (const l of lessons) lines.push(`📅 ${fmtTime(l.startsAt)} — ${esc(l.title)} · ${esc(l.teacher)}`);
+    for (const h of due) lines.push(`📝 «${esc(h.title)}» — сдать до ${fmtWhen(h.dueAt!)}`);
+    if (lessons.length) lines.push('', 'За 15 минут до урока напомним здесь.');
+    for (const chat of chats) {
+      const player = await prisma.botPlayer.findUnique({ where: { chatId: chat } });
+      if (player && !player.reminders) continue;
+      const fresh = await prisma.botReminder.create({ data: { lessonId: `pm:${today}:${link.childId}`, chatId: chat } }).catch(() => null);
+      if (!fresh) continue;
+      await sendTo(chat, { text: lines.join('\n'), rows: [[cb(`🧒 ${s.child.name.split(' ')[0]} — подробно`, `fc:${link.childId}`)], [cb('Меню бота', 'menu')]] });
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
 }
 
 // «Вызов другу» по ссылке из бота: показываем, кто зовёт, и открываем задачи в мини-приложении
@@ -987,14 +1097,28 @@ async function parentSubscribe(m: Inbound, player: BotPlayer, token: string) {
 async function weeklyParentReports() {
   if (schoolWeekday() !== 0 || schoolHour() !== Number(process.env.BOT_REPORT_HOUR ?? 19)) return;
   const today = schoolDay();
+  // родители с кабинетом получают сводку по каждому ребёнку
+  for (const link of await prisma.familyLink.findMany()) {
+    const parent = await prisma.user.findUnique({ where: { id: link.parentId } });
+    for (const chat of parent ? chatsOfUser(parent) : []) {
+      const fresh = await prisma.botReminder.create({ data: { lessonId: `pw:${today}:${link.childId}`, chatId: chat } }).catch(() => null);
+      if (!fresh) continue;
+      await sendTo(chat, await weeklyReport(link.childId, null));
+      await new Promise((r) => setTimeout(r, 60));
+    }
+  }
   const subs = await prisma.parentSub.findMany({ where: { OR: [{ lastSent: null }, { lastSent: { not: today } }] } });
   for (const sub of subs) {
     await prisma.parentSub.update({ where: { id: sub.id }, data: { lastSent: today } });
+    const link = await prisma.parentLink.findUnique({ where: { token: sub.token } });
     const report = await parentReport(sub.token);
-    if (!report) {
+    if (!report || !link) {
       await prisma.parentSub.delete({ where: { id: sub.id } }).catch(() => {});
       continue;
     }
+    // этот чат уже получил сводку по ребёнку через кабинет родителя
+    const dup = await prisma.botReminder.create({ data: { lessonId: `pw:${today}:${link.userId}`, chatId: sub.chatId } }).catch(() => null);
+    if (!dup) continue;
     await sendTo(sub.chatId, report);
     await new Promise((r) => setTimeout(r, 60));
   }
@@ -1129,6 +1253,12 @@ async function onCallback(m: Inbound, player: BotPlayer) {
     await prisma.parentSub.deleteMany({ where: { token: data.slice(3), chatId: m.chatId } });
     if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, 'Отписали от отчётов');
     return show(m, player, { text: '🔕 Больше не будем присылать отчёты. Подписаться снова можно по ссылке от ребёнка.', rows: [MENU] });
+  }
+  if (data === 'fam' || data.startsWith('fc:')) {
+    if (m.callbackId) await a.toast(m.callbackId);
+    const user = await linkedUser(m.chatId);
+    if (!user) return show(m, player, notLinkedScreen('Сводка о детях доступна в аккаунте родителя.'));
+    return show(m, player, data === 'fam' ? await parentHome(user, false) : await childScreen(user.id, data.slice(3)));
   }
   if (data.startsWith('lk:')) {
     if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId);
@@ -1317,6 +1447,24 @@ async function lessonReminders() {
         });
       }
     }
+    // родителям учеников: «через 15 минут у Ивана урок»
+    const kids = [...(l.group?.members.map((x) => x.user) ?? []), ...(l.student ? [l.student] : [])];
+    for (const kid of kids) {
+      for (const pid of await parentIdsOf(kid.id)) {
+        const parent = await prisma.user.findUnique({ where: { id: pid } });
+        for (const chat of parent ? chatsOfUser(parent) : []) {
+          const player = await prisma.botPlayer.findUnique({ where: { chatId: chat } });
+          if (player && !player.reminders) continue;
+          const fresh = await prisma.botReminder.create({ data: { lessonId: `${l.id}:${kid.id}`, chatId: chat } }).catch(() => null);
+          if (!fresh) continue;
+          const minutes = Math.max(1, Math.round((l.startsAt.getTime() - now) / 60_000));
+          await sendTo(chat, {
+            text: `⏰ ${firstName(kid.name)}: через ${minutes} мин занятие <b>${esc(l.title)}</b> в ${fmtTime(l.startsAt)}\nПреподаватель: ${esc(l.teacher.user.name)}`,
+            rows: [[cb(`🧒 ${kid.name.split(' ')[0]} — подробно`, `fc:${kid.id}`)], [cb('Меню бота', 'menu')]],
+          });
+        }
+      }
+    }
   }
 }
 
@@ -1378,6 +1526,7 @@ export function startLoops() {
   setInterval(() => dailyPush().catch((err) => log.error({ err }, 'бот: задача дня')), 10 * 60_000);
   setInterval(() => weeklyParentReports().catch((err) => log.error({ err }, 'бот: отчёты родителям')), 10 * 60_000);
   setInterval(() => homeworkReminders().catch((err) => log.error({ err }, 'бот: напоминания о домашке')), 10 * 60_000);
+  setInterval(() => parentMorning().catch((err) => log.error({ err }, 'бот: утро родителям')), 10 * 60_000);
 }
 
 export { findProblem };

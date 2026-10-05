@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import { usePageTitle } from '../lib/title';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, CalendarDays, GraduationCap, NotebookPen } from 'lucide-react';
+import { Bell, CalendarDays, GraduationCap, NotebookPen, UserRound } from 'lucide-react';
 import { Container } from '../components/Layout';
 import { ProgressView } from '../components/practice/ProgressView';
-import { ButtonLink, ErrorNote, Loading } from '../components/ui';
+import { Button, ButtonLink, ErrorNote, Loading } from '../components/ui';
 import { api } from '../lib/api';
 import { fmtFull } from '../lib/format';
 import type { ParentLinkInfo, Progress } from '../lib/progress';
@@ -99,6 +102,8 @@ export default function Parents() {
 
       <ProgressView p={progress} forParent />
 
+      <ParentCabinetInvite token={token} child={child} />
+
       <section className="grid gap-4 rounded-[14px] bg-forest-2 p-6 text-cream sm:grid-cols-[1.4fr_1fr] sm:items-center sm:p-8">
         <div className="flex flex-col gap-2">
           <p className="t-mono inline-flex items-center gap-2 text-[12px] text-mark">
@@ -129,5 +134,45 @@ export default function Parents() {
         </ButtonLink>
       </section>
     </Container>
+  );
+}
+
+/** Из отчёта — в кабинет родителя: расписание по дням, домашка, слово преподавателя, сводки в боте. */
+function ParentCabinetInvite({ token, child }: { token: string; child: string }) {
+  const { user, refresh } = useAuth();
+  const navigate = useNavigate();
+  const claim = useMutation({
+    mutationFn: () => api<{ childId: string; roleChanged: boolean }>('/family/claim', { method: 'POST', json: { token } }),
+    onSuccess: (r) => {
+      if (r.roleChanged) refresh();
+      navigate(`/family?child=${r.childId}`);
+    },
+  });
+  const canClaim = user && (user.role === 'PARENT' || user.role === 'ADMIN' || user.role === 'STUDENT');
+  return (
+    <section className="hue-4 grid gap-5 rounded-[14px] bg-tint p-6 sm:p-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+      <div className="flex flex-col gap-2">
+        <p className="t-mono inline-flex items-center gap-2 text-[12px] text-hue">
+          <UserRound className="size-4" /> кабинет родителя · бесплатно
+        </p>
+        <p className="t-display text-[clamp(24px,3vw,32px)] leading-tight">Расписание, домашка и слово преподавателя — в одном месте</p>
+        <p className="text-[15.5px] text-ink/80">Утром бот пришлёт, какие сегодня занятия, за 15 минут напомнит об уроке, а в воскресенье — подведёт итог недели. Можно добавить нескольких детей.</p>
+      </div>
+      <div className="flex flex-col gap-2 lg:items-end">
+        {canClaim ? (
+          <Button loading={claim.isPending} onClick={() => claim.mutate()}>
+            Добавить в мой кабинет: {child}
+          </Button>
+        ) : (
+          <>
+            <ButtonLink to={`/register?as=parent&family=${encodeURIComponent(token)}`}>Завести кабинет родителя</ButtonLink>
+            <ButtonLink to={`/login?next=${encodeURIComponent(`/parents/${token}`)}`} variant="ghost">
+              У меня уже есть аккаунт
+            </ButtonLink>
+          </>
+        )}
+        {claim.error && <p className="rounded-[8px] bg-butter px-3 py-2 text-[14.5px]">{(claim.error as Error).message}</p>}
+      </div>
+    </section>
   );
 }

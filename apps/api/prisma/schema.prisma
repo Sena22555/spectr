@@ -19,7 +19,7 @@ model User {
   name             String
   phone            String?
   avatarUrl        String?
-  // STUDENT | TEACHER | ADMIN
+  // STUDENT | PARENT | TEACHER | ADMIN
   role             String    @default("STUDENT")
   telegramId       String?   @unique
   vkId             String?   @unique
@@ -475,4 +475,26 @@ model ChallengeRun {
   createdAt   DateTime  @default(now())
 
   @@index([challengeId])
+}
+
+// ─── Семья: родитель видит расписание, домашку и прогресс ребёнка ───
+
+model FamilyLink {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, childId])
+  @@index([childId])
+}
+
+// короткий код, который ребёнок диктует родителю (живёт 3 дня)
+model FamilyCode {
+  code      String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

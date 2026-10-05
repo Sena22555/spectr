@@ -80,6 +80,7 @@ export const STATUS_LABEL: Record<string, string> = {
   NEW: 'Новая',
   CONTACTED: 'Связались',
   STUDENT: 'Ученик',
+  PARENT: 'Родитель',
   TEACHER: 'Преподаватель',
   ADMIN: 'Администратор',
   INDIVIDUAL: 'Индивидуально',

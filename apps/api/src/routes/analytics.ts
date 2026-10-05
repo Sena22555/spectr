@@ -432,7 +432,7 @@ async function buildPeople(): Promise<Person[]> {
       bookings: myBookings.length,
       lastBookingStatus: myBookings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.status ?? null,
       isStudent,
-      stage: u.role !== 'STUDENT' ? (u.role === 'ADMIN' ? 'Администратор' : 'Преподаватель') : stageOf(isStudent, myBookings.length, solved, views),
+      stage: u.role !== 'STUDENT' ? (u.role === 'ADMIN' ? 'Администратор' : u.role === 'PARENT' ? 'Родитель' : 'Преподаватель') : stageOf(isStudent, myBookings.length, solved, views),
       interests: interestsFrom(evs.map((e) => e.path)),
     });
   }
