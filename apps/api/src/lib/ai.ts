@@ -5,13 +5,17 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 // Нейросети на том же сервере (deploy/install-ai.sh):
-// озвучка — Piper (TTS_URL), чат — Qwen2.5-1.5B в llama.cpp (LLM_URL). Обе слушают только 127.0.0.1.
+// озвучка — Piper (TTS_URL), распознавание — Whisper (STT_URL), чат — Qwen2.5-3B в llama.cpp (LLM_URL).
+// Если задан ключ GigaChat (GIGACHAT_KEY), чат отвечает через GigaChat от Сбера — быстрее и умнее на двух ядрах,
+// а своя модель остаётся запасной: если GigaChat недоступен, ответит она.
 
 const TTS_URL = () => process.env.TTS_URL ?? '';
 const LLM_URL = () => process.env.LLM_URL ?? '';
 // можно подключить внешнюю модель с OpenAI-совместимым API (например, YandexGPT): ключ и имя модели
 const llmHeaders = (): Record<string, string> => ({ 'content-type': 'application/json', ...(process.env.LLM_KEY ? { authorization: process.env.LLM_KEY.includes(' ') ? process.env.LLM_KEY : `Bearer ${process.env.LLM_KEY}` } : {}) });
 const llmModel = () => (process.env.LLM_MODEL ? { model: process.env.LLM_MODEL } : {});
+// модель Qwen иногда переходит на китайский посреди ответа — запрещаем иероглифы прямо при генерации (грамматика llama.cpp)
+const NO_CJK = process.env.LLM_KEY ? {} : { grammar: 'root ::= [^\\u3000-\\u9fff\\uac00-\\ud7af\\uff00-\\uffef]*' };
 const CACHE = () => process.env.TTS_CACHE ?? join(process.cwd(), 'tts-cache');
 
 export const ttsEnabled = () => Boolean(TTS_URL());
@@ -43,7 +47,36 @@ export async function transcribe(audio: Buffer, lang: 'ru' | 'en') {
   const d = (await res.json()) as { text?: string };
   return (d.text ?? '').replace(/\[[^\]]*\]|\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
 }
-export const llmEnabled = () => Boolean(LLM_URL());
+// ——— GigaChat ———
+const GIGA_KEY = () => process.env.GIGACHAT_KEY ?? '';
+const GIGA_SCOPE = () => process.env.GIGACHAT_SCOPE ?? 'GIGACHAT_API_PERS';
+const GIGA_MODEL = () => process.env.GIGACHAT_MODEL ?? 'GigaChat';
+let gigaToken: { token: string; until: number } | null = null;
+
+/** Токен доступа GigaChat живёт 30 минут — берём новый заранее. */
+async function gigaAuth() {
+  if (gigaToken && gigaToken.until > Date.now() + 60_000) return gigaToken.token;
+  const res = await fetch('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', {
+    method: 'POST',
+    headers: { authorization: `Basic ${GIGA_KEY()}`, rqUID: crypto.randomUUID(), 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+    body: `scope=${GIGA_SCOPE()}`,
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`gigachat auth ${res.status}`);
+  const d = (await res.json()) as { access_token: string; expires_at: number };
+  gigaToken = { token: d.access_token, until: d.expires_at };
+  return d.access_token;
+}
+
+/** GigaChat принимает системное сообщение только первым — склеиваем все в одно. */
+function forGiga(messages: ChatMsg[]) {
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  return [...(system ? [{ role: 'system' as const, content: system }] : []), ...messages.filter((m) => m.role !== 'system')];
+}
+
+export const gigaEnabled = () => Boolean(GIGA_KEY());
+export const llmEnabled = () => Boolean(LLM_URL() || GIGA_KEY());
+export const localLlmEnabled = () => Boolean(LLM_URL());
 
 // озвучку делаем по одной фразе за раз: у сервера два ядра, сайт не должен тормозить
 let chain: Promise<unknown> = Promise.resolve();
@@ -189,47 +222,79 @@ export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: 
 // ——— чат ———
 let active = 0;
 
-export const llmBusy = () => active >= 3;
+// своя модель на двух ядрах тянет немного разговоров сразу; GigaChat — больше
+export const llmBusy = () => active >= (GIGA_KEY() ? 10 : 3);
 
 export interface ChatMsg {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-/** Потоковый ответ модели: вызывает onToken для каждого кусочка текста. */
+/** Читать поток «data: {...}» в формате OpenAI и отдавать текст по кусочкам. */
+async function readStream(res: Response, onToken: (t: string) => void) {
+  if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let got = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i: number;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return got;
+      try {
+        // модель иногда вставляет китайские слова — вырезаем их на всякий случай
+        const t = (JSON.parse(data).choices?.[0]?.delta?.content as string | undefined)?.replace(/[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, '');
+        if (t) {
+          got = true;
+          onToken(t);
+        }
+      } catch {
+        /* неполная строка */
+      }
+    }
+  }
+  return got;
+}
+
+/** Потоковый ответ: GigaChat, если подключён, иначе (или при его сбое до первого слова) — своя модель. */
 export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal) {
   active++;
   try {
+    if (GIGA_KEY()) {
+      let started = false;
+      try {
+        const token = await gigaAuth();
+        const res = await fetch('https://gigachat.devices.sberbank.ru/api/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'text/event-stream', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ model: GIGA_MODEL(), messages: forGiga(messages), stream: true, max_tokens: maxTokens, temperature: 0.5 }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+        });
+        await readStream(res, (t) => {
+          started = true;
+          onToken(t);
+        });
+        return;
+      } catch (err) {
+        // уже начали отвечать или ученик сам закрыл чат — продолжать своей моделью нельзя
+        if (started || signal.aborted || !LLM_URL()) throw err;
+        if ((err as Error).message.includes('auth')) gigaToken = null;
+      }
+    }
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
       headers: llmHeaders(),
-      body: JSON.stringify({ ...llmModel(), messages, stream: true, max_tokens: maxTokens, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
+      body: JSON.stringify({ ...llmModel(), ...NO_CJK, messages, stream: true, max_tokens: maxTokens, temperature: 0.5, top_p: 0.9, cache_prompt: true }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
     });
-    if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let i: number;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i).trim();
-        buf = buf.slice(i + 1);
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (data === '[DONE]') return;
-        try {
-          // модель иногда вставляет китайские слова — вырезаем их
-          const t = (JSON.parse(data).choices?.[0]?.delta?.content as string | undefined)?.replace(/[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, '');
-          if (t) onToken(t);
-        } catch {
-          /* неполная строка */
-        }
-      }
-    }
+    await readStream(res, onToken);
   } finally {
     active--;
   }

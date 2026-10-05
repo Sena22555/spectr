@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { rl } from '../lib/limits.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
-import { EN_VOICE, chatOnce, chatStream, checkSpeechSig, llmBusy, llmEnabled, signSpeech, speakable, speech, sttEnabled, transcribe, ttsEnabled, type ChatMsg } from '../lib/ai.js';
+import { EN_VOICE, localLlmEnabled, chatOnce, chatStream, checkSpeechSig, llmBusy, llmEnabled, signSpeech, speakable, speech, sttEnabled, transcribe, ttsEnabled, type ChatMsg } from '../lib/ai.js';
 import { COACH_NAMES, COACH_VOICE, coachLines, coachTexts, type CoachId } from '../games/coach.js';
 import { knowledge } from '../games/knowledge.js';
 import { progressFor } from '../lib/progress.js';
@@ -53,7 +53,7 @@ function talkPromptFor(level: string) {
  * Тогда первый ответ начинается за секунду-две, а не через полминуты.
  */
 export async function warmChats(log: (m: string) => void) {
-  if (!llmEnabled()) return;
+  if (!localLlmEnabled()) return;
   const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1')];
   let ok = 0;
   for (const content of prompts) {

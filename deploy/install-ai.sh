@@ -99,5 +99,8 @@ grep -q '^LLM_URL=' "$ENV" || echo 'LLM_URL="http://127.0.0.1:8090"' >> "$ENV"
 grep -q '^TTS_URL=' "$ENV" || echo 'TTS_URL="http://127.0.0.1:8091"' >> "$ENV"
 grep -q '^TTS_CACHE=' "$ENV" || echo "TTS_CACHE=\"$AI/tts-cache\"" >> "$ENV"
 grep -q '^STT_URL=' "$ENV" || echo 'STT_URL="http://127.0.0.1:8092"' >> "$ENV"
+# корневой сертификат Минцифры — нужен для GigaChat (если в .env добавить GIGACHAT_KEY)
+[ -s "$AI/russian_trusted_root_ca.pem" ] || curl -sSfL -o "$AI/russian_trusted_root_ca.pem" https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt || true
+[ -s "$AI/russian_trusted_root_ca.pem" ] && { grep -q '^NODE_EXTRA_CA_CERTS=' "$ENV" || echo "NODE_EXTRA_CA_CERTS=\"$AI/russian_trusted_root_ca.pem\"" >> "$ENV"; }
 systemctl restart spectr-school
 echo "Готово: озвучка на 127.0.0.1:8091, чат на 127.0.0.1:8090"
