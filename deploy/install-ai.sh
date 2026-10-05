@@ -85,12 +85,12 @@ systemctl restart spectr-stt
 echo "==> llama.cpp"
 docker pull -q ghcr.io/ggml-org/llama.cpp:server >/dev/null
 docker rm -f spectr-llm >/dev/null 2>&1 || true
-# модель закреплена в оперативке (mlock): система не выгружает её на диск — без этого ответы «лагают»
+# лимит с запасом: если модели тесно, система выгружает её куски на диск, и ответы «лагают»
 docker run -d --name spectr-llm --restart unless-stopped \
-  -p 127.0.0.1:8090:8080 --memory 3200m --ulimit memlock=-1:-1 --cpus 2 \
+  -p 127.0.0.1:8090:8080 --memory 3300m --cpus 2 \
   -v "$AI/models:/models:ro" \
   ghcr.io/ggml-org/llama.cpp:server \
-  -m "/models/$MODEL" -c 18432 -t 2 --parallel 6 -ctk q8_0 -ctv q8_0 --flash-attn on --mlock --host 0.0.0.0 --port 8080 >/dev/null
+  -m "/models/$MODEL" -c 18432 -t 2 --parallel 6 -ctk q8_0 -ctv q8_0 --flash-attn on --host 0.0.0.0 --port 8080 >/dev/null
 # 6 слотов: у каждого помощника (Лина, Матвей, Фотон, Байт, разговорная практика) своя закешированная подсказка
 
 # сайту — адреса нейросетей
