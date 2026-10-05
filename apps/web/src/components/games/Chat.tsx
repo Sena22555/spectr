@@ -78,9 +78,8 @@ async function askHelper(args: { game: GameKey; history: Msg[]; talk: boolean; v
     headers: apiHeaders(),
     body: JSON.stringify({
       game: args.game,
-      messages: args.history
-        .filter((m) => m.content.trim())
-        .slice(args.talk ? -16 : -10)
+      // разговор — окном, которое сдвигается блоками (как на сервере): начало истории стабильно, модель отвечает из кеша
+      messages: ((h) => (args.talk ? (h.length <= 24 ? h : h.slice(Math.ceil((h.length - 24) / 8) * 8)) : h.slice(-10)))(args.history.filter((m) => m.content.trim()))
         .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) })),
       where: args.where,
       mode: args.talk ? 'talk' : 'help',

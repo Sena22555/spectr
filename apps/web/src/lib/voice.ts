@@ -224,7 +224,7 @@ export function listenSpeech(lang: 'ru' | 'en', opts: { onLevel?: (v: number) =>
           spoke = true;
           quietSince = now;
         }
-        if ((spoke && now - quietSince > 1300) || now - started > 20_000 || (!spoke && now - started > 8000)) {
+        if ((spoke && now - quietSince > 1000) || now - started > 20_000 || (!spoke && now - started > 8000)) {
           if (rec.state === 'recording') rec.stop();
           return;
         }

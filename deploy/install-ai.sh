@@ -91,8 +91,8 @@ docker run -d --name spectr-llm --restart unless-stopped \
   -p 127.0.0.1:8090:8080 --memory 3300m --cpus 2 \
   -v "$AI/models:/models:ro" \
   ghcr.io/ggml-org/llama.cpp:server \
-  -m "/models/$MODEL" -c 6144 -t 2 --parallel 2 -ctk q8_0 -ctv q4_0 --flash-attn on --cache-ram 192 --host 0.0.0.0 --port 8080 >/dev/null
-# --cache-ram 192: прочитанные подсказки всех помощников хранятся в памяти и подставляются в любой слот.
+  -m "/models/$MODEL" -c 6144 -t 2 --parallel 2 -ctk q8_0 -ctv q4_0 --flash-attn on --cache-ram 384 --host 0.0.0.0 --port 8080 >/dev/null
+# --cache-ram 384: прочитанные подсказки всех помощников хранятся в памяти и подставляются в любой слот.
 # По умолчанию llama.cpp берёт под это до 8 ГБ — на нашем сервере это вытесняло модель на диск и давало «лаги».
 
 # сайту — адреса нейросетей

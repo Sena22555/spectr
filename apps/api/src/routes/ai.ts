@@ -38,15 +38,21 @@ function systemPrompt(game: Persona) {
 }
 
 const TALK_LEVELS = ['Starter', 'A1', 'A2', 'B1'];
+
+/** Последние реплики, но начало окна двигается шагами — так у модели остаётся в кеше одинаковое начало разговора. */
+export function stableWindow<T>(list: T[], max: number, step: number) {
+  if (list.length <= max) return list;
+  return list.slice(Math.ceil((list.length - max) / step) * step);
+}
 /**
  * Лина в разговорной практике — живая собеседница, а не анкета. Маленькая модель лучше учится на примерах,
  * чем на запретах, поэтому правила короткие, а манера задана образцами диалога.
  */
 function talkPromptFor(level: string) {
   const easy = level === 'Starter' || level === 'A1';
+  // уровень — последней строкой: всё, что выше, одинаково для всех учеников и лежит в кеше модели готовым
   return [
     'You are Lina, a friendly 19-year-old girl from Brighton (England). You chat in English with a Russian teenager to help them practise. Talk like a real friend in a messenger.',
-    easy ? 'Use very simple English and short sentences.' : 'Use simple, natural everyday English.',
     'Rules:',
     '1. If the student\'s message has a grammar mistake, start your reply with one line: ✏️ and the corrected sentence. If there is no mistake, skip this line.',
     '2. Then reply naturally in 1–2 short sentences: react to what they said and share something about yourself or your opinion.',
@@ -64,6 +70,8 @@ function talkPromptFor(level: string) {
     'Student: my brother is play computer all day',
     'Lina: ✏️ My brother plays computer games all day.',
     'Haha, that sounds like a lot of brothers! Which game is he obsessed with?',
+    '',
+    easy ? 'This student is a beginner: use very simple English and short sentences.' : 'Use simple, natural everyday English.',
   ].join('\n');
 }
 
@@ -73,7 +81,7 @@ function talkPromptFor(level: string) {
  */
 export async function warmChats(log: (m: string) => void) {
   if (!localLlmEnabled()) return;
-  const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1')];
+  const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1'), talkPromptFor('B1')];
   let ok = 0;
   for (const content of prompts) {
     try {
@@ -169,14 +177,12 @@ export async function aiRoutes(app: FastifyInstance) {
       })
       .parse(req.body);
     if (!llmEnabled()) return reply.code(503).send({ error: 'Помощник сейчас отдыхает. Загляни чуть позже!' });
-    // окно модели — 3 тыс. токенов на разговор: берём недавнюю историю и обрезаем длинные реплики
     // окно модели — 3 тыс. токенов на разговор: берём недавнюю историю и обрезаем длинные реплики;
-    // в разговорной практике реплики короткие — помним больше, чтобы Лина не повторялась
+    // в разговорной практике реплики короткие — помним больше, чтобы Лина не повторялась.
+    // Окно разговора сдвигается блоками по 8 реплик: начало истории не меняется каждый ход, и модель не перечитывает её заново
     const isTalk = body.game === 'lingo' && body.mode === 'talk';
-    body.messages = body.messages
-      .filter((m) => m.content.trim())
-      .slice(isTalk ? -16 : -6)
-      .map((m) => ({ ...m, content: m.content.slice(0, isTalk ? 400 : m.role === 'user' ? 800 : 700) }));
+    const recent = body.messages.filter((m) => m.content.trim());
+    body.messages = (isTalk ? stableWindow(recent, 24, 8) : recent.slice(-6)).map((m) => ({ ...m, content: m.content.slice(0, isTalk ? 400 : m.role === 'user' ? 800 : 700) }));
     if (!body.messages.length || body.messages[body.messages.length - 1]!.role !== 'user') return reply.code(400).send({ error: 'Напиши вопрос — я отвечу' });
     if (llmBusy()) return reply.code(429).send({ error: 'Помощник сейчас отвечает другим ребятам — попробуй через минутку 🙂' });
     const userId = await optionalUser(req);
@@ -230,7 +236,7 @@ export async function aiRoutes(app: FastifyInstance) {
     };
     try {
       await chatStream(
-        talk ? 120 : body.voice ? 200 : 300,
+        talk ? 90 : body.voice ? 200 : 300,
         messages,
         (t) => {
           full += t;
