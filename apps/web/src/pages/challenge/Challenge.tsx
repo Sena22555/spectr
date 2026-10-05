@@ -12,6 +12,8 @@ import { gradesLabel } from '../../lib/practice';
 import { haptic, isMiniApp, platform, shareLink } from '../../lib/platform';
 import { usePageTitle } from '../../lib/title';
 import { saveNick, savedNick } from '../../lib/nick';
+import { sfx } from '../../lib/game';
+import { Burst } from '../../components/game/Burst';
 
 interface ChallengeData {
   id: string;
@@ -59,6 +61,8 @@ export default function ChallengePage() {
     onSuccess: (r) => {
       setResult(r);
       haptic(r.run.score >= 4 ? 'success' : 'tap');
+      sfx('finish');
+      void qc.invalidateQueries({ queryKey: ['game'] });
       void qc.invalidateQueries({ queryKey: ['challenge', id] });
       void qc.invalidateQueries({ queryKey: ['practice-progress'] });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -144,7 +148,8 @@ export default function ChallengePage() {
       </header>
 
       {done && (
-        <section className="hue-6 flex flex-col gap-4 rounded-[14px] bg-tint p-6 sm:p-8" aria-live="polite">
+        <section className="hue-6 relative flex flex-col gap-4 rounded-[14px] bg-tint p-6 sm:p-8" aria-live="polite">
+          {result && result.run.score > 0 && <Burst fire={1} count={40} spread={260} className="left-1/4 top-14" />}
           {result ? (
             <>
               <p className="t-display tnum text-[56px] leading-none">

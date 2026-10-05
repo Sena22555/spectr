@@ -6,6 +6,7 @@ import { Container } from '../../components/Layout';
 import { Chip, ErrorNote, Skeleton } from '../../components/ui';
 import { BackpackDoodle, PencilBuddy, PlaneDoodle } from '../../components/Doodles';
 import { XpMeter } from '../../components/game/XpMeter';
+import { LeagueBoard } from '../../components/game/League';
 import { useCourse, type CourseUnit } from '../../lib/english';
 import { useGame } from '../../lib/game';
 import { isMiniApp } from '../../lib/platform';
@@ -67,6 +68,8 @@ export default function EnglishPath() {
           ))}
         </ol>
       )}
+
+      <LeagueBoard />
 
       <p className="rounded-[12px] bg-bone px-4 py-3 text-[15px] text-muted">
         Прогресс сохраняется на этом устройстве, а после входа в аккаунт — везде. Хотите заниматься с преподавателем английского?{' '}

@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { rl } from '../lib/limits.js';
 import { prisma } from '../lib/prisma.js';
+import { schoolDay } from '../lib/time.js';
+import { schoolWeek } from './tournament.js';
 import { authenticate } from '../lib/auth.js';
 import { optionalUser, track, visitorIdOf } from '../lib/track.js';
 import { progressFor, schoolFor } from '../lib/progress.js';
@@ -44,6 +46,44 @@ export async function progressRoutes(app: FastifyInstance) {
   app.get('/progress/game', async (req) => {
     const p = await progressFor({ userId: await optionalUser(req), visitorId: visitorIdOf(req) });
     return { xp: p.xp, streak: p.streak, bestStreak: p.bestStreak };
+  });
+
+  // «Лига недели»: опыт с понедельника у учеников с аккаунтом (имя и первая буква фамилии)
+  app.get('/progress/league', async (req) => {
+    const userId = await optionalUser(req);
+    const week = schoolWeek();
+    const since = new Date(Date.parse(`${week.monday}T00:00:00Z`) - 86_400_000);
+    const [attempts, english] = await Promise.all([
+      prisma.practiceAttempt.findMany({ where: { userId: { not: null }, createdAt: { gte: since } }, select: { userId: true, problemId: true, correct: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
+      prisma.englishResult.findMany({ where: { userId: { not: null }, createdAt: { gte: since } }, select: { userId: true, xp: true, createdAt: true } }),
+    ]);
+    const xp = new Map<string, number>();
+    const state = new Map<string, 'tried' | 'done'>();
+    for (const a of attempts) {
+      if (schoolDay(a.createdAt) < week.monday) continue;
+      const key = `${a.userId}:${a.problemId}`;
+      const st = state.get(key);
+      if (st === 'done') continue;
+      if (!a.correct) {
+        state.set(key, 'tried');
+        continue;
+      }
+      state.set(key, 'done');
+      xp.set(a.userId!, (xp.get(a.userId!) ?? 0) + (st === undefined ? 15 : 10));
+    }
+    for (const e of english) if (schoolDay(e.createdAt) >= week.monday) xp.set(e.userId!, (xp.get(e.userId!) ?? 0) + e.xp);
+    const ranked = [...xp.entries()].sort((a, b) => b[1] - a[1]);
+    const users = await prisma.user.findMany({ where: { id: { in: ranked.map(([id]) => id) } }, select: { id: true, name: true, role: true } });
+    const nameOf = (id: string) => {
+      const u = users.find((x) => x.id === id);
+      const [first, last] = (u?.name ?? 'Ученик').split(' ');
+      return `${first}${last ? ` ${last[0]}.` : ''}`;
+    };
+    // в лиге — только ученики (преподаватели и родители не соревнуются с детьми)
+    const players = ranked.filter(([id]) => users.find((u) => u.id === id)?.role === 'STUDENT');
+    const top = players.slice(0, 20).map(([id, v], i) => ({ place: i + 1, name: nameOf(id), xp: v, me: id === userId }));
+    const myIndex = userId ? players.findIndex(([id]) => id === userId) : -1;
+    return { week: week.key, sunday: week.sunday, top, me: myIndex >= 0 ? { place: myIndex + 1, xp: players[myIndex]![1], players: players.length } : null, signedIn: Boolean(userId) };
   });
 
   app.post('/progress/parent-link', { preHandler: authenticate, config: rl(10, '1 hour') }, async (req) => {

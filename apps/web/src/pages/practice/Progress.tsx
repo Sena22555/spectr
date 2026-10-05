@@ -6,6 +6,7 @@ import { Copy, HeartHandshake, Send } from 'lucide-react';
 import { Container } from '../../components/Layout';
 import { ProgressView } from '../../components/practice/ProgressView';
 import { XpMeter } from '../../components/game/XpMeter';
+import { LeagueBoard } from '../../components/game/League';
 import { Button, ButtonLink, ErrorNote, Loading } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useMyProgress, type ParentLinkInfo } from '../../lib/progress';
@@ -44,6 +45,7 @@ export default function ProgressPage() {
           )}
           <XpMeter xp={q.data.progress.xp} />
           <ProgressView p={q.data.progress} />
+          <LeagueBoard />
           <ParentShare signedIn={q.data.signedIn} link={q.data.parentLink} />
         </>
       )}

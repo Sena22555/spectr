@@ -6,6 +6,7 @@ import { fmtDate, fmtTime, fmtWhen, schoolDay, schoolHour, schoolWeekday } from 
 import { progressFor, schoolFor } from '../lib/progress.js';
 import { parseTasks, statuses } from '../lib/homework.js';
 import { childIdsOf, childSummary, parentIdsOf } from '../lib/family.js';
+import { UNITS as EN_UNITS } from '../english/content.js';
 import { PRACTICE, answerText, checkAnswer, dailyProblem, findProblem, texToPlain } from '../practice/content.js';
 import { ALL_COLORS, COLORS, COLOR_TEST } from './quiz.js';
 import { GENERATORS, checkGen, findGenerator, genAnswerText, genProblemId, makeProblem, parseGenId } from '../practice/generators.js';
@@ -198,7 +199,7 @@ async function homeScreen(player: BotPlayer, fresh: boolean): Promise<Screen> {
   const rows: Btn[][] = [];
   rows.push([{ text: '🚀 Открыть Спектр', app: '/' }]);
   rows.push([cb('🧩 Задача дня', 'daily'), cb('🏋️ Тренажёр', 'tr')]);
-  rows.push([cb('🌈 Радуга', 'quiz'), { text: '🇬🇧 Английский', app: '/english' }, { text: '🏆 Турнир', app: '/tournament' }]);
+  rows.push([cb('🌈 Радуга', 'quiz'), cb('🇬🇧 English', 'ew'), { text: '🏆 Турнир', app: '/tournament' }]);
   if (user && (isStudent || user.role === 'ADMIN')) {
     rows.push([cb('📅 Расписание', 'lessons'), cb(homework ? `📝 Домашка · ${homework}` : '📝 Домашка', 'hw')]);
   } else {
@@ -1075,6 +1076,41 @@ async function parentMorning() {
   }
 }
 
+// ─── английское слово: перевод одним нажатием ───
+
+function englishWord(note = ''): Screen {
+  const ui = randomInt(EN_UNITS.length);
+  const unit = EN_UNITS[ui]!;
+  const wi = randomInt(unit.words.length);
+  const w = unit.words[wi]!;
+  const others = unit.words.map((_, i) => i).filter((i) => i !== wi);
+  const picks = [wi];
+  while (picks.length < 4) {
+    const k = others.splice(randomInt(others.length), 1)[0]!;
+    picks.push(k);
+  }
+  picks.sort(() => Math.random() - 0.5);
+  return {
+    text: `${note}🇬🇧 <b>Как переводится слово?</b>\n\n<b>${esc(w[0])}</b> ${w[2] ?? ''}\n\n<i>Раздел «${esc(unit.ru)}», ${unit.level}</i>`,
+    rows: [
+      picks.slice(0, 2).map((k) => cb(unit.words[k]![1], `ewa:${ui}:${wi}:${k}`)),
+      picks.slice(2, 4).map((k) => cb(unit.words[k]![1], `ewa:${ui}:${wi}:${k}`)),
+      [{ text: '📚 Уроки английского', app: '/english' }],
+      MENU,
+    ],
+  };
+}
+
+function englishAnswer(data: string): { screen: Screen; ok: boolean } {
+  const [, u, w, k] = data.split(':').map(Number);
+  const unit = EN_UNITS[u!];
+  const word = unit?.words[w!];
+  if (!unit || !word) return { screen: englishWord(), ok: false };
+  const ok = w === k;
+  const note = ok ? `✅ <b>Верно!</b> ${esc(word[0])} — ${esc(word[1])}\n\n` : `🟡 <b>Почти!</b> ${esc(word[0])} — это «${esc(word[1])}»\n\n`;
+  return { screen: englishWord(note), ok };
+}
+
 // «Вызов другу» по ссылке из бота: показываем, кто зовёт, и открываем задачи в мини-приложении
 async function challengeScreen(id: string): Promise<Screen> {
   const c = /^[a-z0-9]{10,40}$/.test(id) ? await prisma.challenge.findUnique({ where: { id }, include: { runs: { orderBy: [{ score: 'desc' }, { timeMs: 'asc' }], take: 1 } } }) : null;
@@ -1257,6 +1293,15 @@ async function onCallback(m: Inbound, player: BotPlayer) {
     await prisma.parentSub.deleteMany({ where: { token: data.slice(3), chatId: m.chatId } });
     if (m.callbackId) await adapters.get(m.platform)!.toast(m.callbackId, 'Отписали от отчётов');
     return show(m, player, { text: '🔕 Больше не будем присылать отчёты. Подписаться снова можно по ссылке от ребёнка.', rows: [MENU] });
+  }
+  if (data === 'ew') {
+    if (m.callbackId) await a.toast(m.callbackId);
+    return show(m, player, englishWord());
+  }
+  if (data.startsWith('ewa:')) {
+    const r = englishAnswer(data);
+    if (m.callbackId) await a.toast(m.callbackId, r.ok ? 'Верно! 🎉' : 'Почти! Запомним 👇');
+    return show(m, player, r.screen);
   }
   if (data === 'fam' || data.startsWith('fc:')) {
     if (m.callbackId) await a.toast(m.callbackId);

@@ -9,6 +9,8 @@ import { RichText } from '../../components/Tex';
 import { Button, ButtonLink, Chip, ErrorNote, Input, Loading } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { sfx } from '../../lib/game';
+import { Burst } from '../../components/game/Burst';
 import { saveNick, savedNick } from '../../lib/nick';
 import { isMiniApp } from '../../lib/platform';
 import { plural } from '../../lib/format';
@@ -227,6 +229,8 @@ function Run({ started, league, minutes, onFinish }: { started: Started; league:
         /* ignore */
       }
       qc.invalidateQueries({ queryKey: ['tournament'] });
+      qc.invalidateQueries({ queryKey: ['game'] });
+      sfx('finish');
       onFinish(r);
     },
   });
@@ -310,10 +314,12 @@ function Run({ started, league, minutes, onFinish }: { started: Started; league:
 
 function Results({ r, league, onTable }: { r: Finished; league: string; onTable(): void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [fire] = useState(1);
   const wrongTrainers = [...new Set(r.results.filter((x) => !x.correct).map((x) => x.trainer))];
   return (
     <section className="flex flex-col gap-7" aria-live="polite">
-      <div className="hue-2 flex flex-col gap-3 rounded-[14px] bg-tint p-6 sm:p-8">
+      <div className="hue-2 relative flex flex-col gap-3 rounded-[14px] bg-tint p-6 sm:p-8">
+        {r.entry.score > 0 && <Burst fire={fire} count={40} spread={260} className="left-1/3 top-16" />}
         <p className="t-mono inline-flex items-center gap-2 text-[12px] text-hue">
           <Medal className="size-4" /> {league} · {r.entry.name}
         </p>

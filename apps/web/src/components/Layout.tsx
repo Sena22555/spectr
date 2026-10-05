@@ -17,8 +17,8 @@ const PUBLIC_NAV = [
   { to: '/english', label: 'Английский' },
   { to: '/tournament', label: 'Турнир' },
   { to: '/teachers', label: 'Преподаватели' },
-  { to: '/subjects', label: 'Предметы' },
-  { to: '/groups', label: 'Группы' },
+  { to: '/subjects', label: 'Предметы', wide: true },
+  { to: '/groups', label: 'Группы', wide: true },
 ];
 
 
@@ -176,11 +176,13 @@ function SiteHeader() {
                 clsx(
                   'press rounded-full px-3.5 py-2 text-[14px] font-[560] no-underline',
                   isActive ? 'bg-mark text-forest' : 'hover:bg-ink/[0.06]',
+                  // на узких экранах эти разделы — в меню-«бургере»
+                  'wide' in n && n.wide && 'hidden xl:inline-flex',
                 )
               }
             >
               {n.label}
-              {'badge' in n && n.badge && <span className="t-mono ml-1.5 rounded-full bg-[var(--tint-raw-3)] px-1.5 py-0.5 align-[1px] text-[10px] text-[var(--ink-3)]">{n.badge}</span>}
+              {'badge' in n && n.badge && <span className="t-mono ml-1.5 hidden rounded-full xl:inline bg-[var(--tint-raw-3)] px-1.5 py-0.5 align-[1px] text-[10px] text-[var(--ink-3)]">{n.badge}</span>}
             </NavLink>
           ))}
         </nav>
@@ -206,7 +208,7 @@ function SiteHeader() {
             </>
           )}
           <button
-            className="press grid size-11 place-items-center rounded-full hover:bg-ink/[0.06] lg:hidden"
+            className="press grid size-11 place-items-center rounded-full hover:bg-ink/[0.06] xl:hidden"
             onClick={() => setOpen(true)}
             aria-label="Открыть меню"
             aria-expanded={open}
