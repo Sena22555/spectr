@@ -403,7 +403,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
           <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{COACH_FACE[game]}</span>
           <div className="flex min-w-0 flex-1 flex-col">
             <b className="t-heading text-[18px] leading-tight">{name}</b>
-            <span className="t-mono text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : `помощник · ${GAME_META[game].subject.toLowerCase()}`}</span>
+            <span className="t-mono truncate text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : `помощник · ${GAME_META[game].subject.toLowerCase()}`}</span>
           </div>
           {mic && (
             <button

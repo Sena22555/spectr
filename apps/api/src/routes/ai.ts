@@ -73,9 +73,9 @@ function mixPromptFor(level: string) {
 const HELP_CLOUD_NOTE =
   'Главное про стиль: ты не учебник, а старший друг в мессенджере. Строго до 120 слов, без заголовков и без «#». Суть одной фразой → 2–4 пункта списком → короткий пример → один вопрос для самопроверки.';
 const TALK_CLOUD_NOTE =
-  "Before replying, check the student's last message for grammar or word mistakes. If there is any mistake (wrong tense, missing article, word order, wrong verb form), the first line MUST be ✏️ and the corrected sentence. Then 1–2 short, natural sentences. Never more than 3 sentences in total.";
+  "Before replying, check the student's last message for grammar or word mistakes. Point out only real mistakes, never invent one. If there is any mistake (wrong tense, missing article, word order, wrong verb form), the first line MUST be ✏️ and the corrected sentence. Then 1–2 short, natural sentences. Never more than 3 sentences in total.";
 const MIX_CLOUD_NOTE =
-  "Before replying, check the student's last message for mistakes. If there is any mistake, the first line MUST be ✏️ and the corrected sentence, the second line 💡 and a short explanation in Russian. Questions in Russian get a short answer in Russian. The chat itself stays in English, 1–2 short sentences.";
+  "Before replying, check the student's last message for mistakes. If there is any mistake, the first line MUST be ✏️ and the corrected sentence, the second line 💡 and a short explanation in Russian. Point out only real mistakes — never invent one («my friend» needs no article). Questions in Russian get a short answer in Russian. The chat itself stays in English, 1–2 short sentences.";
 
 /** Последние реплики, но начало окна двигается шагами — так у модели остаётся в кеше одинаковое начало разговора. */
 export function stableWindow<T>(list: T[], max: number, step: number) {
