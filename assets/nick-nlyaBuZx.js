@@ -1,0 +1,1 @@
+var e=`spectr.nick`;function t(){try{return localStorage.getItem(e)??``}catch{return``}}function n(t){try{localStorage.setItem(e,t.trim())}catch{}}export{t as n,n as t};
