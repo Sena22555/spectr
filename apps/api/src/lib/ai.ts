@@ -312,12 +312,12 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
   active++;
   try {
     if (cloudEnabled()) {
-      // посредник иногда «зависает» без ответа: не ждём минуту — если за 12 с нет первого слова, спрашиваем ещё раз
+      // посредник иногда «зависает» без ответа: не ждём минуту — если за 7 с нет первого слова, спрашиваем ещё раз (до трёх попыток)
       let started = false;
       const withNote = opts.cloudNote ? [...messages, { role: 'system' as const, content: opts.cloudNote }] : messages;
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         const stall = new AbortController();
-        const timer = setTimeout(() => stall.abort(), 12_000);
+        const timer = setTimeout(() => stall.abort(), 7_000);
         try {
           const res = await cloudRequest(withNote, maxTokens, opts.temperature ?? 0.5, true, AbortSignal.any([signal, stall.signal, AbortSignal.timeout(60_000)]));
           const got = await readStream(res, (t) => {
