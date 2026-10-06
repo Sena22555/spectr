@@ -1,18 +1,30 @@
 import { Fragment, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { RichText } from '../Tex';
 
-// Простой Markdown для ответов помощников: абзацы, списки, **жирный**, `код`, формулы $…$.
+// Простой Markdown для ответов помощников: абзацы, списки, **жирный**, `код`, формулы $…$, ссылки на страницы школы.
 // Без сторонних библиотек и без HTML из ответа — только безопасные элементы.
 
 function inline(text: string, key: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+  // ссылки — только внутренние (/teachers/…); внешний адрес показываем просто текстом
+  const re = /\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(<RichText key={`${key}-t${i++}`} text={text.slice(last, m.index)} />);
     if (m[1]) out.push(<b key={`${key}-b${i++}`}>{m[1]}</b>);
+    else if (m[3])
+      out.push(
+        /^\/(?!\/)/.test(m[4]!) ? (
+          <Link key={`${key}-a${i++}`} to={m[4]!} className="font-[600] text-hue underline decoration-mark decoration-2 underline-offset-2">
+            {m[3]}
+          </Link>
+        ) : (
+          <span key={`${key}-a${i++}`}>{m[3]}</span>
+        ),
+      );
     else out.push(<code key={`${key}-c${i++}`} className="rounded-[4px] bg-ink/[0.07] px-1 font-mono text-[0.92em]">{m[2]}</code>);
     last = m.index + m[0].length;
   }

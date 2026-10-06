@@ -18,7 +18,7 @@ export function useTeachers() {
 }
 
 /** Запись на занятие. Работает без аккаунта; если вошли — подставляем имя и контакт. */
-export function BookingForm({ subjectSlug, teacherSlug, note, compact = false }: { subjectSlug?: string; teacherSlug?: string; note?: string; compact?: boolean }) {
+export function BookingForm({ subjectSlug, teacherSlug, note, compact = false, narrow = false }: { subjectSlug?: string; teacherSlug?: string; note?: string; compact?: boolean; narrow?: boolean }) {
   const { user } = useAuth();
   const subjects = useSubjects();
   const teachers = useTeachers();
@@ -99,7 +99,8 @@ export function BookingForm({ subjectSlug, teacherSlug, note, compact = false }:
 
   return (
     <form
-      className={compact ? 'grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : 'grid gap-5 sm:grid-cols-2'}
+      // narrow — узкая колонка (форма внутри чата): все поля друг под другом
+      className={narrow ? 'grid gap-4 [&>*]:col-span-1!' : compact ? 'grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : 'grid gap-5 sm:grid-cols-2'}
       onFocusCapture={markOpened}
       onSubmit={(e) => {
         e.preventDefault();

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
 import { Headphones, MessagesSquare, Mic, Phone, PhoneOff, Send, SquarePen, Trash2, X } from 'lucide-react';
-import { apiHeaders } from '../../lib/api';
+import { api, apiHeaders } from '../../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { BookingForm } from '../BookingForm';
+import { isMiniApp } from '../../lib/platform';
 import { Markdown } from './Markdown';
 import { COACH_FACE, useCoachData } from '../../lib/coach';
 import { GAME_META, savedEnLevel, type GameKey } from '../../lib/games';
@@ -19,7 +22,18 @@ interface Msg {
 // help — вопросы помощнику по-русски; у Лины два раздела практики: mix — болтаем по-английски, ошибки объясняет по-русски, en — только английский
 type Mode = 'help' | 'mix' | 'en';
 
-const SUGGEST: Record<GameKey, string[]> = {
+// school — Луч, общий помощник школы на главной; остальные — помощники игр
+export type HelperKey = GameKey | 'school';
+const HELPERS: HelperKey[] = ['school', 'lingo', 'math', 'physics', 'code'];
+const HELPER_NAME: Record<HelperKey, string> = { school: 'Луч', lingo: 'Лина', math: 'Матвей', physics: 'Фотон', code: 'Байт' };
+const faceOf = (h: HelperKey) => (h === 'school' ? '🌈' : COACH_FACE[h]);
+const hueOf = (h: HelperKey) => (h === 'school' ? 2 : GAME_META[h].hue);
+const roleOf = (h: HelperKey) => (h === 'school' ? 'школа «Спектр»' : GAME_META[h].subject.toLowerCase());
+// метка записи из ответа Луча: под сообщением появляется форма (личные данные в чат не пишем)
+const SIGNUP = /\[\[запись(?::([\w-]+))?\]\]/;
+
+const SUGGEST: Record<HelperKey, string[]> = {
+  school: ['Расскажи, как устроена школа', 'Хочу подготовиться к ОГЭ по математике', 'Кто преподаёт физику?', 'Хочу записаться на занятие'],
   lingo: ['Объясни Present Perfect по-простому', 'Чем отличается a и the?', 'Как сказать «я опоздал» по-английски?', 'Что мне подтянуть?'],
   math: ['Объясни, как складывать дроби', 'Как решать квадратные уравнения?', 'Дай мне задачку на проценты', 'Что мне подтянуть?'],
   physics: ['Что такое импульс простыми словами?', 'Как запомнить закон Ома?', 'Почему небо голубое?', 'Что мне подтянуть?'],
@@ -50,7 +64,7 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 const titleOf = (msgs: Msg[]) => (msgs.find((m) => m.role === 'user')?.content ?? 'Новый чат').replace(/\s+/g, ' ').trim().slice(0, 60);
 const clean = (msgs: Msg[]) => msgs.filter((m) => m.content?.trim());
 
-function loadThreads(game: GameKey, mode: Mode): Thread[] {
+function loadThreads(game: HelperKey, mode: Mode): Thread[] {
   try {
     const raw = localStorage.getItem(`spectr.chats.${game}${SUFFIX[mode]}`);
     if (raw) return (JSON.parse(raw) as Thread[]).filter((t) => t?.id && Array.isArray(t.msgs));
@@ -61,7 +75,7 @@ function loadThreads(game: GameKey, mode: Mode): Thread[] {
     return [];
   }
 }
-function saveThreads(game: GameKey, mode: Mode, list: Thread[]) {
+function saveThreads(game: HelperKey, mode: Mode, list: Thread[]) {
   try {
     localStorage.setItem(`spectr.chats.${game}${SUFFIX[mode]}`, JSON.stringify(list));
   } catch {
@@ -105,7 +119,7 @@ export function ChatLauncher({ game, where }: { game: GameKey; where?: string })
 }
 
 /** Один запрос к помощнику: текст приходит потоком, в голосовом режиме каждое предложение сразу звучит. */
-async function askHelper(args: { game: GameKey; history: Msg[]; mode: Mode; voice: boolean; where?: string; signal: AbortSignal; onText(t: string): void; speak: boolean }) {
+async function askHelper(args: { game: HelperKey; history: Msg[]; mode: Mode; voice: boolean; where?: string; signal: AbortSignal; onText(t: string): void; speak: boolean }) {
   const res = await fetch('/api/ai/chat', {
     method: 'POST',
     headers: apiHeaders(),
@@ -156,7 +170,36 @@ async function askHelper(args: { game: GameKey; history: Msg[]; mode: Mode; voic
 
 type CallState = 'listening' | 'thinking' | 'speaking' | 'paused';
 
-function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string; where?: string; onClose(): void }) {
+/** Луч на главной: одна кнопка, а внутри можно переключиться на любого помощника. */
+export function HelperHub() {
+  const status = useQuery({ queryKey: ['ai-status'], queryFn: () => api<{ chat: boolean }>('/ai/status'), staleTime: 60_000, retry: false });
+  const [open, setOpen] = useState(false);
+  const [helper, setHelper] = useState<HelperKey>('school');
+  if (!status.data?.chat) return null;
+  return (
+    <>
+      <motion.button
+        type="button"
+        onClick={() => {
+          unlockAudio();
+          setOpen(true);
+        }}
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        // в мини-приложении снизу вкладки — поднимаем кнопку над ними
+        style={isMiniApp ? { bottom: 84 } : undefined}
+        className="hue-2 press fixed right-4 bottom-[max(16px,env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-full bg-ink py-2 pr-5 pl-2 text-[15px] font-[650] text-paper shadow-sticker hover:bg-mark hover:text-forest sm:right-6 sm:bottom-6"
+        aria-label="Помощник «Спектра»"
+      >
+        <span className="grid size-10 place-items-center rounded-full bg-tint text-[22px]">{faceOf('school')}</span>
+        Спросить «Спектр»
+      </motion.button>
+      <AnimatePresence>{open && <ChatPanel key={helper} game={helper} name={HELPER_NAME[helper]} onSwitch={setHelper} onClose={() => setOpen(false)} />}</AnimatePresence>
+    </>
+  );
+}
+
+function ChatPanel({ game, name, where, onClose, onSwitch }: { game: HelperKey; name: string; where?: string; onClose(): void; onSwitch?: (h: HelperKey) => void }) {
   const [mode, setMode] = useState<Mode>(game === 'lingo' ? 'mix' : 'help');
   const talk = mode !== 'help';
   const [hello, setHello] = useState(helloLine);
@@ -227,8 +270,8 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     const rest = full.slice(shown);
     const gap = /^\s+/.exec(rest)?.[0] ?? '';
     const step = gap.includes('\n\n') ? gap.length : (/^\s*\S+/.exec(rest)?.[0] ?? rest).length;
-    const atBreak = talk && shown > 0 && /\n\s*\n\s*$/.test(full.slice(0, shown));
-    const id = setTimeout(() => setShown(shown + step), atBreak ? 700 : rest.length > 400 ? 15 : 40);
+    const atBreak = shown > 0 && /\n\s*\n\s*$/.test(full.slice(0, shown));
+    const id = setTimeout(() => setShown(shown + step), atBreak ? (talk ? 700 : 450) : rest.length > 400 ? 15 : 40);
     return () => clearTimeout(id);
   }, [shown, msgs, busy, talk]);
   useEffect(
@@ -417,13 +460,13 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-        className={clsx(`hue-${GAME_META[game].hue}`, 'relative flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] bg-paper shadow-sticker sm:h-full sm:max-w-[440px] sm:rounded-none sm:rounded-l-[18px]')}
+        className={clsx(`hue-${hueOf(game)}`, 'relative flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] bg-paper shadow-sticker sm:h-full sm:max-w-[440px] sm:rounded-none sm:rounded-l-[18px]')}
       >
         <header className="flex items-center gap-3 border-b border-dashed border-hair-soft bg-tint px-4 py-3">
-          <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{COACH_FACE[game]}</span>
+          <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{faceOf(game)}</span>
           <div className="flex min-w-0 flex-1 flex-col">
             <b className="t-heading text-[18px] leading-tight">{name}</b>
-            <span className="t-mono truncate text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : `помощник · ${GAME_META[game].subject.toLowerCase()}`}</span>
+            <span className="t-mono truncate text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : roleOf(game)}</span>
           </div>
           {mic && (
             <button
@@ -452,6 +495,24 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             <X className="size-5" />
           </button>
         </header>
+
+        {onSwitch && (
+          <div className="flex gap-1.5 overflow-x-auto border-b border-dashed border-hair-soft px-3 py-2" role="tablist" aria-label="Помощники">
+            {HELPERS.map((h) => (
+              <button
+                key={h}
+                type="button"
+                role="tab"
+                aria-selected={h === game}
+                onClick={() => h !== game && onSwitch(h)}
+                className={clsx('press flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1.5 text-[13.5px] font-[600]', h === game ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}
+              >
+                <span className="text-[16px]">{faceOf(h)}</span>
+                {HELPER_NAME[h]}
+              </button>
+            ))}
+          </div>
+        )}
 
         {game === 'lingo' && (
           <div className="flex gap-1 border-b border-dashed border-hair-soft px-3 py-2" role="tablist">
@@ -506,7 +567,9 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
                     ? mode === 'mix'
                       ? `${hello} (Болтаем по-английски, а ошибки объясню по-русски. Не знаешь, как сказать, — спроси по-русски. Можно голосом: жми «Разговор».)`
                       : `${hello} (English only! Write or press «Разговор» and just talk — I'll gently fix your mistakes.)`
-                    : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
+                    : game === 'school'
+                      ? 'Привет! Я Луч, помощник «Спектра» 🌈 Расскажу о школе и преподавателях, помогу выбрать предмет и записаться на занятие. С чем помочь?'
+                      : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
                 </p>
                 {!talk && (
                   <div className="flex flex-wrap gap-2">
@@ -521,14 +584,16 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             )}
             {msgs.map((m, i) => {
               const live = shown !== null && i === msgs.length - 1 && m.role === 'assistant';
-              const text = live ? m.content.slice(0, shown) : m.content;
-              // в разговоре ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
-              const parts = m.role === 'assistant' && talk ? text.split(/\n\s*\n/) : [text];
-              return parts.map((part, j) => {
+              const signup = m.role === 'assistant' && !live ? SIGNUP.exec(m.content) : null;
+              // метку записи не показываем — ни целиком, ни недопечатанной
+              const text = (live ? m.content.slice(0, shown) : m.content).replace(new RegExp(SIGNUP, 'g'), '').replace(/\[\[[^\]]*\]?$/, '');
+              // ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
+              const parts = m.role === 'assistant' ? text.split(/\n\s*\n/) : [text];
+              const bubbles = parts.map((part, j) => {
                 const body = part.trim();
                 if (!body && !(live && j === parts.length - 1)) return null;
                 return (
-                  <p
+                  <div
                     key={`${i}.${j}`}
                     className={clsx(
                       'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
@@ -537,9 +602,16 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
                     )}
                   >
                     {body ? m.role === 'assistant' ? <Markdown text={body} /> : body : <Dots />}
-                  </p>
+                  </div>
                 );
               });
+              if (!signup) return bubbles;
+              return [
+                ...bubbles,
+                <div key={`${i}.form`} className="w-full rounded-[14px] bg-bone p-4 shadow-sticker">
+                  <BookingForm compact narrow subjectSlug={signup[1]} note="Заявка из чата с Лучом" />
+                </div>,
+              ];
             })}
             {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
           </div>
@@ -616,7 +688,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
                     style={call === 'thinking' ? { borderStyle: 'dashed' } : undefined}
                   />
                 ))}
-                <span className="grid size-40 place-items-center rounded-full bg-tint text-[72px] shadow-sticker">{COACH_FACE[game]}</span>
+                <span className="grid size-40 place-items-center rounded-full bg-tint text-[72px] shadow-sticker">{faceOf(game)}</span>
               </button>
               <div className="flex w-full flex-col items-center gap-5">
                 <p className="min-h-[3.5em] max-w-sm text-center text-[16px] text-cream/90">

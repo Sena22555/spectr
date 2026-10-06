@@ -34,6 +34,7 @@ import { ParentsBand } from '../components/ParentsBand';
 import { DailyTask } from '../components/practice/DailyTask';
 import { usePractice } from '../lib/practice';
 import { Reveal } from '../components/Reveal';
+import { HelperHub } from '../components/games/Chat';
 import {
   ArrowDoodle,
   BackpackDoodle,
@@ -54,7 +55,12 @@ import { ButtonLink, Chip, Monogram, SectionTitle, Skeleton, Squiggle } from '..
 import type { GroupCard as Group, Lesson, Subject } from '../lib/types';
 
 export default function Home() {
-  return isMiniApp ? <MiniHome /> : <Landing />;
+  return (
+    <>
+      {isMiniApp ? <MiniHome /> : <Landing />}
+      <HelperHub />
+    </>
+  );
 }
 
 function useGroups() {
