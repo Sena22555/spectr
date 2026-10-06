@@ -85,7 +85,7 @@ export async function warmChats(log: (m: string) => void) {
   let ok = 0;
   for (const content of prompts) {
     try {
-      await chatOnce([{ role: 'system', content }, { role: 'user', content: 'Привет' }], 1, AbortSignal.timeout(120_000));
+      await chatOnce([{ role: 'system', content }, { role: 'user', content: 'Привет' }], 1, AbortSignal.timeout(120_000), true);
       ok++;
     } catch {
       /* занят — прогреем в следующий раз */

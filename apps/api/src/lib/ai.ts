@@ -7,7 +7,7 @@ import { join } from 'node:path';
 // Нейросети на том же сервере (deploy/install-ai.sh):
 // озвучка — Piper (TTS_URL), распознавание — Whisper (STT_URL), чат — RuadaptQwen3-4B в llama.cpp (LLM_URL).
 // Если задан ключ GigaChat (GIGACHAT_KEY), чат отвечает через GigaChat от Сбера — быстрее и умнее на двух ядрах,
-// а своя модель остаётся запасной: если GigaChat недоступен, ответит она.
+// а своя модель остаётся запасной: если GigaChat недоступен, ответит она. Так же подключается облачная модель (CLOUD_LLM_*).
 
 const TTS_URL = () => process.env.TTS_URL ?? '';
 const LLM_URL = () => process.env.LLM_URL ?? '';
@@ -74,8 +74,15 @@ function forGiga(messages: ChatMsg[]) {
   return [...(system ? [{ role: 'system' as const, content: system }] : []), ...messages.filter((m) => m.role !== 'system')];
 }
 
+// облачная модель с OpenAI-совместимым API (например, Claude Haiku через посредника): адрес вида https://…/v1, ключ и имя модели.
+// Ключ владелец сам вписывает в /opt/spectr-school/.env; своя модель на сервере остаётся запасной
+const CLOUD_URL = () => (process.env.CLOUD_LLM_URL ?? '').replace(/\/+$/, '');
+const CLOUD_KEY = () => process.env.CLOUD_LLM_KEY ?? '';
+const CLOUD_MODEL = () => process.env.CLOUD_LLM_MODEL ?? 'claude-haiku-4-5-20251001';
+export const cloudEnabled = () => Boolean(CLOUD_URL() && CLOUD_KEY());
+
 export const gigaEnabled = () => Boolean(GIGA_KEY());
-export const llmEnabled = () => Boolean(LLM_URL() || GIGA_KEY());
+export const llmEnabled = () => Boolean(LLM_URL() || GIGA_KEY() || cloudEnabled());
 export const localLlmEnabled = () => Boolean(LLM_URL());
 
 // озвучку делаем по одной фразе за раз: у сервера два ядра, сайт не должен тормозить
@@ -201,10 +208,27 @@ export async function warmSpeech(items: { text: string; voice: string }[], log: 
 }
 
 /** Короткий ответ модели целиком (для разбора ошибки голосом). */
-export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: AbortSignal) {
-  if (active >= 2) throw new Error('busy');
+export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: AbortSignal, localOnly = false) {
+  const cloud = cloudEnabled() && !localOnly;
+  if (active >= (cloud ? 10 : 2)) throw new Error('busy');
   active++;
   try {
+    if (cloud) {
+      try {
+        const res = await fetch(`${CLOUD_URL()}/chat/completions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${CLOUD_KEY()}` },
+          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(messages), max_tokens: maxTokens, temperature: 0.8 }),
+          signal: signal ?? AbortSignal.timeout(20_000),
+        });
+        if (!res.ok) throw new Error(`cloud ${res.status}`);
+        const d = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        const text = (d.choices?.[0]?.message?.content ?? '').trim();
+        if (text) return text;
+      } catch (err) {
+        if (!LLM_URL()) throw err;
+      }
+    }
     const res = await fetch(`${LLM_URL()}/v1/chat/completions`, {
       method: 'POST',
       headers: llmHeaders(),
@@ -223,7 +247,7 @@ export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: 
 let active = 0;
 
 // своя модель на двух ядрах тянет немного разговоров сразу; GigaChat — больше
-export const llmBusy = () => active >= (GIGA_KEY() ? 10 : 3);
+export const llmBusy = () => active >= (cloudEnabled() || GIGA_KEY() ? 10 : 3);
 
 export interface ChatMsg {
   role: 'system' | 'user' | 'assistant';
@@ -267,6 +291,26 @@ async function readStream(res: Response, onToken: (t: string) => void) {
 export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number } = {}) {
   active++;
   try {
+    if (cloudEnabled()) {
+      let started = false;
+      try {
+        const res = await fetch(`${CLOUD_URL()}/chat/completions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'text/event-stream', authorization: `Bearer ${CLOUD_KEY()}` },
+          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(messages), stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5 }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+        });
+        const got = await readStream(res, (t) => {
+          started = true;
+          onToken(t);
+        });
+        if (got) return;
+        throw new Error('cloud empty');
+      } catch (err) {
+        if (started || signal.aborted || (!LLM_URL() && !GIGA_KEY())) throw err;
+        console.warn('облачная модель не ответила, отвечает своя:', (err as Error).message);
+      }
+    }
     if (GIGA_KEY()) {
       let started = false;
       try {
