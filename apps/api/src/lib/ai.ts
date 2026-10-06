@@ -308,24 +308,33 @@ async function readStream(res: Response, onToken: (t: string) => void) {
 }
 
 /** Потоковый ответ: GigaChat, если подключён, иначе (или при его сбое до первого слова) — своя модель. */
-export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number; cloudNote?: string } = {}) {
+export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number; cloudNote?: string; cloudOnly?: boolean } = {}) {
   active++;
   try {
     if (cloudEnabled()) {
+      // посредник иногда «зависает» без ответа: не ждём минуту — если за 12 с нет первого слова, спрашиваем ещё раз
       let started = false;
-      try {
-        const withNote = opts.cloudNote ? [...messages, { role: 'system' as const, content: opts.cloudNote }] : messages;
-        const res = await cloudRequest(withNote, maxTokens, opts.temperature ?? 0.5, true, AbortSignal.any([signal, AbortSignal.timeout(60_000)]));
-        const got = await readStream(res, (t) => {
-          started = true;
-          onToken(t);
-        });
-        if (got) return;
-        throw new Error('cloud empty');
-      } catch (err) {
-        if (started || signal.aborted || (!LLM_URL() && !GIGA_KEY())) throw err;
-        console.warn('облачная модель не ответила, отвечает своя:', (err as Error).message);
+      const withNote = opts.cloudNote ? [...messages, { role: 'system' as const, content: opts.cloudNote }] : messages;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const stall = new AbortController();
+        const timer = setTimeout(() => stall.abort(), 12_000);
+        try {
+          const res = await cloudRequest(withNote, maxTokens, opts.temperature ?? 0.5, true, AbortSignal.any([signal, stall.signal, AbortSignal.timeout(60_000)]));
+          const got = await readStream(res, (t) => {
+            if (!started) clearTimeout(timer);
+            started = true;
+            onToken(t);
+          });
+          if (got) return;
+        } catch (err) {
+          if (started || signal.aborted) throw err;
+          console.warn(`облачная модель не ответила (попытка ${attempt + 1}):`, (err as Error).message);
+        } finally {
+          clearTimeout(timer);
+        }
       }
+      // справка школы слишком длинная для своей модели на двух ядрах — лучше честно сказать, чем молчать минутами
+      if (opts.cloudOnly || (!LLM_URL() && !GIGA_KEY())) throw new Error('cloud unavailable');
     }
     if (GIGA_KEY()) {
       let started = false;

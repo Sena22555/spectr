@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import clsx from 'clsx';
 import { Headphones, MessagesSquare, Mic, Phone, PhoneOff, Send, SquarePen, Trash2, X } from 'lucide-react';
 import { api, apiHeaders } from '../../lib/api';
@@ -194,12 +194,41 @@ export function HelperHub() {
         <span className="grid size-10 place-items-center rounded-full bg-tint text-[22px]">{faceOf('school')}</span>
         Спросить «Спектр»
       </motion.button>
-      <AnimatePresence>{open && <ChatPanel key={helper} game={helper} name={HELPER_NAME[helper]} onSwitch={setHelper} onClose={() => setOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{open && <ChatPanel game={helper} name={HELPER_NAME[helper]} onSwitch={setHelper} onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   );
 }
 
-function ChatPanel({ game, name, where, onClose, onSwitch }: { game: HelperKey; name: string; where?: string; onClose(): void; onSwitch?: (h: HelperKey) => void }) {
+type PanelProps = { game: HelperKey; name: string; where?: string; onClose(): void; onSwitch?: (h: HelperKey) => void };
+
+/**
+ * Окно чата. Рамка одна на всё время, а при смене помощника меняется только содержимое (key):
+ * если пересоздавать окно целиком, старое ещё «уезжает» поверх нового и перехватывает нажатия.
+ */
+function ChatPanel(props: PanelProps) {
+  const { game, name, onClose } = props;
+  // закрытое окно ещё полсекунды «уезжает» — в это время оно не должно ловить нажатия (например, «Спросить» снова)
+  const present = useIsPresent();
+  return (
+    <motion.div className={clsx('fixed inset-0 z-50 flex items-end justify-end bg-forest/30 sm:items-stretch', !present && 'pointer-events-none')} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <motion.section
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Чат: ${name}`}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+        className={clsx(`hue-${hueOf(game)}`, 'relative flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] bg-paper shadow-sticker sm:h-full sm:max-w-[440px] sm:rounded-none sm:rounded-l-[18px]')}
+      >
+        <ChatBody key={game} {...props} />
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
   const [mode, setMode] = useState<Mode>(game === 'lingo' ? 'mix' : 'help');
   const talk = mode !== 'help';
   const [hello, setHello] = useState(helloLine);
@@ -450,260 +479,248 @@ function ChatPanel({ game, name, where, onClose, onSwitch }: { game: HelperKey; 
   };
 
   return (
-    <motion.div className="fixed inset-0 z-50 flex items-end justify-end bg-forest/30 sm:items-stretch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-      <motion.section
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Чат: ${name}`}
-        onClick={(e) => e.stopPropagation()}
-        initial={{ y: 40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 40, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-        className={clsx(`hue-${hueOf(game)}`, 'relative flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] bg-paper shadow-sticker sm:h-full sm:max-w-[440px] sm:rounded-none sm:rounded-l-[18px]')}
+    <>
+    <header className="flex items-center gap-3 border-b border-dashed border-hair-soft bg-tint px-4 py-3">
+      <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{faceOf(game)}</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <b className="t-heading text-[18px] leading-tight">{name}</b>
+        <span className="t-mono truncate text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : roleOf(game)}</span>
+      </div>
+      {mic && (
+        <button
+          type="button"
+          onClick={() => void startCall()}
+          className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-3 text-[13px] font-[650] text-paper hover:bg-mark hover:text-forest"
+          title="Поговорить голосом, как по телефону"
+        >
+          <Phone className="size-4" /> Разговор
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setShowList((v) => !v)}
+        className={clsx('press grid size-9 place-items-center rounded-full', showList ? 'bg-ink text-paper' : 'text-muted hover:bg-ink/[0.06]')}
+        aria-label="Мои чаты"
+        aria-expanded={showList}
+        title="Мои чаты"
       >
-        <header className="flex items-center gap-3 border-b border-dashed border-hair-soft bg-tint px-4 py-3">
-          <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{faceOf(game)}</span>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <b className="t-heading text-[18px] leading-tight">{name}</b>
-            <span className="t-mono truncate text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : roleOf(game)}</span>
-          </div>
-          {mic && (
-            <button
-              type="button"
-              onClick={() => void startCall()}
-              className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-3 text-[13px] font-[650] text-paper hover:bg-mark hover:text-forest"
-              title="Поговорить голосом, как по телефону"
-            >
-              <Phone className="size-4" /> Разговор
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowList((v) => !v)}
-            className={clsx('press grid size-9 place-items-center rounded-full', showList ? 'bg-ink text-paper' : 'text-muted hover:bg-ink/[0.06]')}
-            aria-label="Мои чаты"
-            aria-expanded={showList}
-            title="Мои чаты"
-          >
-            <MessagesSquare className="size-4" />
-          </button>
-          <button type="button" onClick={newChat} className="press grid size-9 place-items-center rounded-full text-muted hover:bg-ink/[0.06]" aria-label="Новый чат" title="Новый чат">
-            <SquarePen className="size-4" />
-          </button>
-          <button type="button" onClick={onClose} className="press grid size-9 place-items-center rounded-full hover:bg-ink/[0.06]" aria-label="Закрыть">
-            <X className="size-5" />
-          </button>
-        </header>
+        <MessagesSquare className="size-4" />
+      </button>
+      <button type="button" onClick={newChat} className="press grid size-9 place-items-center rounded-full text-muted hover:bg-ink/[0.06]" aria-label="Новый чат" title="Новый чат">
+        <SquarePen className="size-4" />
+      </button>
+      <button type="button" onClick={onClose} className="press grid size-9 place-items-center rounded-full hover:bg-ink/[0.06]" aria-label="Закрыть">
+        <X className="size-5" />
+      </button>
+    </header>
 
-        {onSwitch && (
-          <div className="flex gap-1.5 overflow-x-auto border-b border-dashed border-hair-soft px-3 py-2" role="tablist" aria-label="Помощники">
-            {HELPERS.map((h) => (
+    {onSwitch && (
+      <div className="flex gap-1.5 overflow-x-auto border-b border-dashed border-hair-soft px-3 py-2" role="tablist" aria-label="Помощники">
+        {HELPERS.map((h) => (
+          <button
+            key={h}
+            type="button"
+            role="tab"
+            aria-selected={h === game}
+            onClick={() => h !== game && onSwitch(h)}
+            className={clsx('press flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1.5 text-[13.5px] font-[600]', h === game ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}
+          >
+            <span className="text-[16px]">{faceOf(h)}</span>
+            {HELPER_NAME[h]}
+          </button>
+        ))}
+      </div>
+    )}
+
+    {game === 'lingo' && (
+      <div className="flex gap-1 border-b border-dashed border-hair-soft px-3 py-2" role="tablist">
+        {(
+          [
+            ['mix', 'English + русский'],
+            ['en', 'Only English'],
+          ] as const
+        ).map(([m, label]) => (
+          <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => mode !== m && switchMode(m)} className={clsx('press flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-[600]', mode === m ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}>
+            {label}
+          </button>
+        ))}
+      </div>
+    )}
+
+    {showList ? (
+      <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
+        <button type="button" onClick={newChat} className="press mb-2 flex items-center gap-2 rounded-[10px] border border-dashed border-ink/30 px-3 py-2.5 text-[14.5px] font-[600] hover:bg-mark">
+          <SquarePen className="size-4" /> Новый чат
+        </button>
+        {threads.length ? (
+          threads.map((t) => (
+            <div key={t.id} className={clsx('flex items-center gap-1 rounded-[10px] pl-3', t.id === current ? 'bg-tint' : 'hover:bg-ink/[0.05]')}>
               <button
-                key={h}
                 type="button"
-                role="tab"
-                aria-selected={h === game}
-                onClick={() => h !== game && onSwitch(h)}
-                className={clsx('press flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1.5 text-[13.5px] font-[600]', h === game ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}
+                onClick={() => {
+                  leave();
+                  openThread(t);
+                }}
+                className="flex min-w-0 flex-1 flex-col py-2.5 text-left"
+                aria-current={t.id === current ? 'true' : undefined}
               >
-                <span className="text-[16px]">{faceOf(h)}</span>
-                {HELPER_NAME[h]}
+                <span className="truncate text-[15px] font-[600]">{t.title}</span>
+                <span className="t-mono text-[11.5px] text-muted">{when(t.updated)}</span>
               </button>
-            ))}
-          </div>
-        )}
-
-        {game === 'lingo' && (
-          <div className="flex gap-1 border-b border-dashed border-hair-soft px-3 py-2" role="tablist">
-            {(
-              [
-                ['mix', 'English + русский'],
-                ['en', 'Only English'],
-              ] as const
-            ).map(([m, label]) => (
-              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => mode !== m && switchMode(m)} className={clsx('press flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-[600]', mode === m ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}>
-                {label}
+              <button type="button" onClick={() => removeThread(t.id)} className="press grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-ink/[0.08]" aria-label={`Удалить чат «${t.title}»`} title="Удалить чат">
+                <Trash2 className="size-4" />
               </button>
-            ))}
-          </div>
-        )}
-
-        {showList ? (
-          <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
-            <button type="button" onClick={newChat} className="press mb-2 flex items-center gap-2 rounded-[10px] border border-dashed border-ink/30 px-3 py-2.5 text-[14.5px] font-[600] hover:bg-mark">
-              <SquarePen className="size-4" /> Новый чат
-            </button>
-            {threads.length ? (
-              threads.map((t) => (
-                <div key={t.id} className={clsx('flex items-center gap-1 rounded-[10px] pl-3', t.id === current ? 'bg-tint' : 'hover:bg-ink/[0.05]')}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      leave();
-                      openThread(t);
-                    }}
-                    className="flex min-w-0 flex-1 flex-col py-2.5 text-left"
-                    aria-current={t.id === current ? 'true' : undefined}
-                  >
-                    <span className="truncate text-[15px] font-[600]">{t.title}</span>
-                    <span className="t-mono text-[11.5px] text-muted">{when(t.updated)}</span>
-                  </button>
-                  <button type="button" onClick={() => removeThread(t.id)} className="press grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-ink/[0.08]" aria-label={`Удалить чат «${t.title}»`} title="Удалить чат">
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))
-            ) : (
-              <p className="px-2 py-3 text-[14.5px] text-muted">Здесь появятся твои разговоры — к любому можно вернуться и продолжить.</p>
-            )}
-          </div>
+            </div>
+          ))
         ) : (
-          <div ref={list} className="graph-paper flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-            {!msgs.length && (
-              <div className="flex flex-col gap-3">
-                <p className="rounded-[14px] rounded-tl-[4px] bg-paper px-4 py-3 text-[15.5px] shadow-sticker">
-                  {talk
-                    ? mode === 'mix'
-                      ? `${hello} (Болтаем по-английски, а ошибки объясню по-русски. Не знаешь, как сказать, — спроси по-русски. Можно голосом: жми «Разговор».)`
-                      : `${hello} (English only! Write or press «Разговор» and just talk — I'll gently fix your mistakes.)`
-                    : game === 'school'
-                      ? 'Привет! Я Луч, помощник «Спектра» 🌈 Расскажу о школе и преподавателях, помогу выбрать предмет и записаться на занятие. С чем помочь?'
-                      : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
-                </p>
-                {!talk && (
-                  <div className="flex flex-wrap gap-2">
-                    {SUGGEST[game].map((s) => (
-                      <button key={s} type="button" onClick={() => void send(s)} className="press rounded-full border border-ink/20 bg-paper px-3 py-1.5 text-[13.5px] hover:bg-mark">
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
+          <p className="px-2 py-3 text-[14.5px] text-muted">Здесь появятся твои разговоры — к любому можно вернуться и продолжить.</p>
+        )}
+      </div>
+    ) : (
+      <div ref={list} className="graph-paper flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+        {!msgs.length && (
+          <div className="flex flex-col gap-3">
+            <p className="rounded-[14px] rounded-tl-[4px] bg-paper px-4 py-3 text-[15.5px] shadow-sticker">
+              {talk
+                ? mode === 'mix'
+                  ? `${hello} (Болтаем по-английски, а ошибки объясню по-русски. Не знаешь, как сказать, — спроси по-русски. Можно голосом: жми «Разговор».)`
+                  : `${hello} (English only! Write or press «Разговор» and just talk — I'll gently fix your mistakes.)`
+                : game === 'school'
+                  ? 'Привет! Я Луч, помощник «Спектра» 🌈 Расскажу о школе и преподавателях, помогу выбрать предмет и записаться на занятие. С чем помочь?'
+                  : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
+            </p>
+            {!talk && (
+              <div className="flex flex-wrap gap-2">
+                {SUGGEST[game].map((s) => (
+                  <button key={s} type="button" onClick={() => void send(s)} className="press rounded-full border border-ink/20 bg-paper px-3 py-1.5 text-[13.5px] hover:bg-mark">
+                    {s}
+                  </button>
+                ))}
               </div>
             )}
-            {msgs.map((m, i) => {
-              const live = shown !== null && i === msgs.length - 1 && m.role === 'assistant';
-              const signup = m.role === 'assistant' && !live ? SIGNUP.exec(m.content) : null;
-              // метку записи не показываем — ни целиком, ни недопечатанной
-              const text = (live ? m.content.slice(0, shown) : m.content).replace(new RegExp(SIGNUP, 'g'), '').replace(/\[\[[^\]]*\]?$/, '');
-              // ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
-              const parts = m.role === 'assistant' ? text.split(/\n\s*\n/) : [text];
-              const bubbles = parts.map((part, j) => {
-                const body = part.trim();
-                if (!body && !(live && j === parts.length - 1)) return null;
-                return (
-                  <div
-                    key={`${i}.${j}`}
-                    className={clsx(
-                      'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
-                      m.role === 'user' && 'whitespace-pre-wrap',
-                      m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
-                    )}
-                  >
-                    {body ? m.role === 'assistant' ? <Markdown text={body} /> : body : <Dots />}
-                  </div>
-                );
-              });
-              if (!signup) return bubbles;
-              return [
-                ...bubbles,
-                <div key={`${i}.form`} className="w-full rounded-[14px] bg-bone p-4 shadow-sticker">
-                  <BookingForm compact narrow subjectSlug={signup[1]} note="Заявка из чата с Лучом" />
-                </div>,
-              ];
-            })}
-            {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
           </div>
         )}
+        {msgs.map((m, i) => {
+          const live = shown !== null && i === msgs.length - 1 && m.role === 'assistant';
+          const signup = m.role === 'assistant' && !live ? SIGNUP.exec(m.content) : null;
+          // метку записи не показываем — ни целиком, ни недопечатанной
+          const text = (live ? m.content.slice(0, shown) : m.content).replace(new RegExp(SIGNUP, 'g'), '').replace(/\[\[[^\]]*\]?$/, '');
+          // ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
+          const parts = m.role === 'assistant' ? text.split(/\n\s*\n/) : [text];
+          const bubbles = parts.map((part, j) => {
+            const body = part.trim();
+            if (!body && !(live && j === parts.length - 1)) return null;
+            return (
+              <div
+                key={`${i}.${j}`}
+                className={clsx(
+                  'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
+                  m.role === 'user' && 'whitespace-pre-wrap',
+                  m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
+                )}
+              >
+                {body ? m.role === 'assistant' ? <Markdown text={body} /> : body : <Dots />}
+              </div>
+            );
+          });
+          if (!signup) return bubbles;
+          return [
+            ...bubbles,
+            <div key={`${i}.form`} className="w-full rounded-[14px] bg-bone p-4 shadow-sticker">
+              <BookingForm compact narrow subjectSlug={signup[1]} note="Заявка из чата с Лучом" />
+            </div>,
+          ];
+        })}
+        {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
+      </div>
+    )}
 
-        <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-dashed border-hair-soft px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            onClick={() => {
-              unlockAudio();
-              setVoice((v) => !v);
-            }}
-            className={clsx('press grid size-11 shrink-0 place-items-center rounded-full', voice ? 'bg-mark text-forest' : 'text-muted hover:bg-ink/[0.06]')}
-            aria-pressed={voice}
-            aria-label={voice ? 'Ответы голосом: вкл' : 'Ответы голосом: выкл'}
-            title="Отвечать голосом"
-          >
-            <Headphones className="size-5" />
+    <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-dashed border-hair-soft px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio();
+          setVoice((v) => !v);
+        }}
+        className={clsx('press grid size-11 shrink-0 place-items-center rounded-full', voice ? 'bg-mark text-forest' : 'text-muted hover:bg-ink/[0.06]')}
+        aria-pressed={voice}
+        aria-label={voice ? 'Ответы голосом: вкл' : 'Ответы голосом: выкл'}
+        title="Отвечать голосом"
+      >
+        <Headphones className="size-5" />
+      </button>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            void send(text);
+          }
+        }}
+        rows={1}
+        maxLength={800}
+        placeholder={listening ? 'Слушаю…' : mode === 'en' ? 'Write in English…' : mode === 'mix' ? 'Пиши по-английски или спроси по-русски…' : 'Спроси что угодно по теме…'}
+        className="max-h-32 min-h-11 flex-1 resize-none rounded-[12px] border-[1.5px] border-ink/20 bg-paper px-3 py-2.5 text-[15.5px] focus-visible:border-ink focus-visible:outline-none"
+      />
+      {mic && (
+        <button
+          type="button"
+          onClick={() => void speakIn()}
+          className={clsx('press grid size-11 shrink-0 place-items-center rounded-full transition-shadow', listening ? 'bg-[var(--ray-0)] text-paper' : 'bg-bone hover:bg-mark')}
+          style={listening ? { boxShadow: `0 0 0 ${4 + level * 14}px color-mix(in oklab, var(--ray-0) 30%, transparent)` } : undefined}
+          aria-label={listening ? 'Остановить' : 'Сказать голосом'}
+        >
+          <Mic className="size-5" />
+        </button>
+      )}
+      <button type="submit" disabled={busy || !text.trim()} className="press grid size-11 shrink-0 place-items-center rounded-full bg-ink text-paper hover:bg-mark hover:text-forest disabled:opacity-40" aria-label="Отправить">
+        <Send className="size-5" />
+      </button>
+    </form>
+    <p className="px-4 pb-2 text-center text-[11.5px] text-muted">Это нейросеть «Спектра»: она может ошибаться. Не пиши личные данные.</p>
+
+    {/* «Разговор»: экран звонка поверх чата */}
+    <AnimatePresence>
+      {call && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-between bg-forest px-6 pt-10 pb-[max(28px,env(safe-area-inset-bottom))] text-cream">
+          <div className="flex flex-col items-center gap-1 text-center">
+            <b className="t-display text-[28px]">{name}</b>
+            <span className="t-mono text-[12px] text-mark">{talk ? 'speaking English' : 'разговор голосом'}</span>
+          </div>
+          <button type="button" onClick={interrupt} className="relative grid size-56 place-items-center" aria-label={call === 'listening' ? 'Я договорил' : call === 'paused' ? 'Продолжить разговор' : 'Перебить и сказать своё'}>
+            {[0, 1, 2].map((k) => (
+              <motion.span
+                key={k}
+                className="absolute inset-0 rounded-full border-2 border-mark"
+                animate={
+                  call === 'speaking'
+                    ? { scale: [1, 1.25 + k * 0.12], opacity: [0.6, 0] }
+                    : call === 'listening'
+                      ? { scale: 1 + level * (0.35 + k * 0.15), opacity: 0.25 + level * 0.5 }
+                      : call === 'thinking'
+                        ? { rotate: 360, opacity: 0.35 }
+                        : { scale: 1, opacity: 0.2 }
+                }
+                transition={call === 'speaking' ? { repeat: Infinity, duration: 1.4, delay: k * 0.35 } : call === 'thinking' ? { repeat: Infinity, duration: 2.4, ease: 'linear' } : { duration: 0.12 }}
+                style={call === 'thinking' ? { borderStyle: 'dashed' } : undefined}
+              />
+            ))}
+            <span className="grid size-40 place-items-center rounded-full bg-tint text-[72px] shadow-sticker">{faceOf(game)}</span>
           </button>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void send(text);
-              }
-            }}
-            rows={1}
-            maxLength={800}
-            placeholder={listening ? 'Слушаю…' : mode === 'en' ? 'Write in English…' : mode === 'mix' ? 'Пиши по-английски или спроси по-русски…' : 'Спроси что угодно по теме…'}
-            className="max-h-32 min-h-11 flex-1 resize-none rounded-[12px] border-[1.5px] border-ink/20 bg-paper px-3 py-2.5 text-[15.5px] focus-visible:border-ink focus-visible:outline-none"
-          />
-          {mic && (
-            <button
-              type="button"
-              onClick={() => void speakIn()}
-              className={clsx('press grid size-11 shrink-0 place-items-center rounded-full transition-shadow', listening ? 'bg-[var(--ray-0)] text-paper' : 'bg-bone hover:bg-mark')}
-              style={listening ? { boxShadow: `0 0 0 ${4 + level * 14}px color-mix(in oklab, var(--ray-0) 30%, transparent)` } : undefined}
-              aria-label={listening ? 'Остановить' : 'Сказать голосом'}
-            >
-              <Mic className="size-5" />
+          <div className="flex w-full flex-col items-center gap-5">
+            <p className="min-h-[3.5em] max-w-sm text-center text-[16px] text-cream/90">
+              {call === 'listening' ? text || 'Говори — я слушаю…' : call === 'thinking' ? 'Думаю…' : call === 'speaking' ? 'Отвечаю. Нажми на меня, чтобы перебить' : 'Пауза. Нажми на меня, чтобы продолжить'}
+            </p>
+            {error && <p className="rounded-[8px] bg-butter px-3 py-2 text-[14px] text-forest">{error}</p>}
+            <button type="button" onClick={endCall} className="press grid size-16 place-items-center rounded-full bg-[var(--ray-0)] text-paper shadow-sticker" aria-label="Закончить разговор">
+              <PhoneOff className="size-7" />
             </button>
-          )}
-          <button type="submit" disabled={busy || !text.trim()} className="press grid size-11 shrink-0 place-items-center rounded-full bg-ink text-paper hover:bg-mark hover:text-forest disabled:opacity-40" aria-label="Отправить">
-            <Send className="size-5" />
-          </button>
-        </form>
-        <p className="px-4 pb-2 text-center text-[11.5px] text-muted">Это нейросеть «Спектра»: она может ошибаться. Не пиши личные данные.</p>
-
-        {/* «Разговор»: экран звонка поверх чата */}
-        <AnimatePresence>
-          {call && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-between bg-forest px-6 pt-10 pb-[max(28px,env(safe-area-inset-bottom))] text-cream">
-              <div className="flex flex-col items-center gap-1 text-center">
-                <b className="t-display text-[28px]">{name}</b>
-                <span className="t-mono text-[12px] text-mark">{talk ? 'speaking English' : 'разговор голосом'}</span>
-              </div>
-              <button type="button" onClick={interrupt} className="relative grid size-56 place-items-center" aria-label={call === 'listening' ? 'Я договорил' : call === 'paused' ? 'Продолжить разговор' : 'Перебить и сказать своё'}>
-                {[0, 1, 2].map((k) => (
-                  <motion.span
-                    key={k}
-                    className="absolute inset-0 rounded-full border-2 border-mark"
-                    animate={
-                      call === 'speaking'
-                        ? { scale: [1, 1.25 + k * 0.12], opacity: [0.6, 0] }
-                        : call === 'listening'
-                          ? { scale: 1 + level * (0.35 + k * 0.15), opacity: 0.25 + level * 0.5 }
-                          : call === 'thinking'
-                            ? { rotate: 360, opacity: 0.35 }
-                            : { scale: 1, opacity: 0.2 }
-                    }
-                    transition={call === 'speaking' ? { repeat: Infinity, duration: 1.4, delay: k * 0.35 } : call === 'thinking' ? { repeat: Infinity, duration: 2.4, ease: 'linear' } : { duration: 0.12 }}
-                    style={call === 'thinking' ? { borderStyle: 'dashed' } : undefined}
-                  />
-                ))}
-                <span className="grid size-40 place-items-center rounded-full bg-tint text-[72px] shadow-sticker">{faceOf(game)}</span>
-              </button>
-              <div className="flex w-full flex-col items-center gap-5">
-                <p className="min-h-[3.5em] max-w-sm text-center text-[16px] text-cream/90">
-                  {call === 'listening' ? text || 'Говори — я слушаю…' : call === 'thinking' ? 'Думаю…' : call === 'speaking' ? 'Отвечаю. Нажми на меня, чтобы перебить' : 'Пауза. Нажми на меня, чтобы продолжить'}
-                </p>
-                {error && <p className="rounded-[8px] bg-butter px-3 py-2 text-[14px] text-forest">{error}</p>}
-                <button type="button" onClick={endCall} className="press grid size-16 place-items-center rounded-full bg-[var(--ray-0)] text-paper shadow-sticker" aria-label="Закончить разговор">
-                  <PhoneOff className="size-7" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.section>
-    </motion.div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
