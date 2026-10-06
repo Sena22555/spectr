@@ -81,6 +81,29 @@ const CLOUD_KEY = () => process.env.CLOUD_LLM_KEY ?? '';
 const CLOUD_MODEL = () => process.env.CLOUD_LLM_MODEL ?? 'claude-haiku-4-5-20251001';
 export const cloudEnabled = () => Boolean(CLOUD_URL() && CLOUD_KEY());
 
+/**
+ * Запрос к облаку в родном формате Anthropic (/v1/messages): посредник теряет системные сообщения
+ * в OpenAI-совместимом адресе, а здесь инструкции соблюдаются. Диалог должен начинаться с ученика
+ * и чередоваться — склеиваем подряд идущие реплики одной стороны.
+ */
+function cloudRequest(messages: ChatMsg[], maxTokens: number, temperature: number, stream: boolean, signal: AbortSignal) {
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const turns: { role: 'user' | 'assistant'; content: string }[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') continue;
+    const last = turns[turns.length - 1];
+    if (last?.role === m.role) last.content += `\n\n${m.content}`;
+    else turns.push({ role: m.role, content: m.content });
+  }
+  if (turns[0]?.role === 'assistant') turns.unshift({ role: 'user', content: '(начало разговора)' });
+  return fetch(`${CLOUD_URL()}/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': CLOUD_KEY(), 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: CLOUD_MODEL(), system, messages: turns, max_tokens: maxTokens, temperature, stream }),
+    signal,
+  });
+}
+
 export const gigaEnabled = () => Boolean(GIGA_KEY());
 export const llmEnabled = () => Boolean(LLM_URL() || GIGA_KEY() || cloudEnabled());
 export const localLlmEnabled = () => Boolean(LLM_URL());
@@ -215,15 +238,10 @@ export async function chatOnce(messages: ChatMsg[], maxTokens: number, signal?: 
   try {
     if (cloud) {
       try {
-        const res = await fetch(`${CLOUD_URL()}/chat/completions`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${CLOUD_KEY()}` },
-          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(messages), max_tokens: maxTokens, temperature: 0.8 }),
-          signal: signal ?? AbortSignal.timeout(20_000),
-        });
+        const res = await cloudRequest(messages, maxTokens, 0.8, false, signal ?? AbortSignal.timeout(20_000));
         if (!res.ok) throw new Error(`cloud ${res.status}`);
-        const d = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-        const text = (d.choices?.[0]?.message?.content ?? '').trim();
+        const d = (await res.json()) as { content?: { type: string; text?: string }[] };
+        const text = (d.content ?? []).map((c) => c.text ?? '').join('').trim();
         if (text) return text;
       } catch (err) {
         if (!LLM_URL()) throw err;
@@ -271,10 +289,12 @@ async function readStream(res: Response, onToken: (t: string) => void) {
       buf = buf.slice(i + 1);
       if (!line.startsWith('data:')) continue;
       const data = line.slice(5).trim();
-      if (data === '[DONE]') return got;
+      if (data === '[DONE]' || data.includes('"type":"message_stop"')) return got;
       try {
         // модель иногда вставляет китайские слова — вырезаем их на всякий случай
-        const t = (JSON.parse(data).choices?.[0]?.delta?.content as string | undefined)?.replace(/[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, '');
+        const d = JSON.parse(data);
+        // OpenAI: choices[0].delta.content; Anthropic: content_block_delta → delta.text
+        const t = ((d.choices?.[0]?.delta?.content ?? (d.type === 'content_block_delta' ? d.delta?.text : undefined)) as string | undefined)?.replace(/[\u3000-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]+/g, '');
         if (t) {
           got = true;
           onToken(t);
@@ -294,12 +314,8 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
     if (cloudEnabled()) {
       let started = false;
       try {
-        const res = await fetch(`${CLOUD_URL()}/chat/completions`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', accept: 'text/event-stream', authorization: `Bearer ${CLOUD_KEY()}` },
-          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(opts.cloudNote ? [...messages.slice(0, 1), { role: 'system', content: opts.cloudNote }, ...messages.slice(1)] : messages), stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5 }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
-        });
+        const withNote = opts.cloudNote ? [...messages, { role: 'system' as const, content: opts.cloudNote }] : messages;
+        const res = await cloudRequest(withNote, maxTokens, opts.temperature ?? 0.5, true, AbortSignal.any([signal, AbortSignal.timeout(60_000)]));
         const got = await readStream(res, (t) => {
           started = true;
           onToken(t);
