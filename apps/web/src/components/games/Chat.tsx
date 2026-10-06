@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { AnimatePresence, motion, useIsPresent } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 import { Headphones, MessagesSquare, Mic, Phone, PhoneOff, Send, SquarePen, Trash2, X } from 'lucide-react';
 import { api, apiHeaders } from '../../lib/api';
@@ -31,6 +31,15 @@ const hueOf = (h: HelperKey) => (h === 'school' ? 2 : GAME_META[h].hue);
 const roleOf = (h: HelperKey) => (h === 'school' ? 'школа «Спектр»' : GAME_META[h].subject.toLowerCase());
 // метка записи из ответа Луча: под сообщением появляется форма (личные данные в чат не пишем)
 const SIGNUP = /\[\[запись(?::([\w-]+))?\]\]/;
+
+/** Недопечатанный текст: без «висящих» ** и половинок ссылок — чтобы не мелькали звёздочки и скобки. */
+function tidyLive(t: string) {
+  let s = t.replace(/\[([^\]]+)\]\([^)]*$/, '$1').replace(/\[([^\]]*)$/, '$1');
+  if ((s.match(/\*\*/g) ?? []).length % 2) s = s.replace(/\*\*(?![\s\S]*\*\*)/, '');
+  return s.replace(/\*$/, '');
+}
+// эмодзи и составные символы не режем пополам
+const isTail = (c: number) => (c >= 0xdc00 && c <= 0xdfff) || c === 0xfe0f || c === 0x200d || (c >= 0x1f3fb && c <= 0x1f3ff);
 
 const SUGGEST: Record<HelperKey, string[]> = {
   school: ['Расскажи, как устроена школа', 'Хочу подготовиться к ОГЭ по математике', 'Кто преподаёт физику?', 'Хочу записаться на занятие'],
@@ -239,6 +248,9 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
   currentRef.current = current;
   const [showList, setShowList] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>(() => threads[0]?.msgs ?? []);
+  // всплывают только новые сообщения: история открытого чата появляется сразу
+  const [animFrom, setAnimFrom] = useState(msgs.length);
+  const reduce = useReducedMotion();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   // сколько символов последнего ответа уже «напечатано»: облако присылает ответ почти мгновенно,
@@ -285,10 +297,16 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
   useEffect(() => {
     if (!busy) persist(msgs);
   }, [msgs, busy, persist]);
+  // новое сообщение — плавно вниз; пока текст печатается — подкручиваем без анимации и только если читатель внизу
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' });
-  }, [msgs, showList, shown]);
-  // печатаем по слову; в разговоре между сообщениями — пауза с «точками», будто набирает следующее
+  }, [msgs.length, showList]);
+  useEffect(() => {
+    const el = list.current;
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight;
+  }, [shown, msgs]);
+  // печатаем по буквам с живым ритмом: короткие паузы после точек и запятых, между сообщениями — «точки»,
+  // будто набирает следующее; чем больше осталось, тем быстрее, чтобы длинный ответ не тянулся
   useEffect(() => {
     if (shown === null) return;
     const full = msgs.at(-1)?.role === 'assistant' ? msgs.at(-1)!.content : '';
@@ -298,9 +316,20 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
     }
     const rest = full.slice(shown);
     const gap = /^\s+/.exec(rest)?.[0] ?? '';
-    const step = gap.includes('\n\n') ? gap.length : (/^\s*\S+/.exec(rest)?.[0] ?? rest).length;
-    const atBreak = shown > 0 && /\n\s*\n\s*$/.test(full.slice(0, shown));
-    const id = setTimeout(() => setShown(shown + step), atBreak ? (talk ? 700 : 450) : rest.length > 400 ? 15 : 40);
+    let next = shown;
+    let delay = 16;
+    if (gap.includes('\n\n')) {
+      next += gap.length;
+      delay = 90;
+    } else {
+      next += rest.length > 600 ? 6 : rest.length > 250 ? 3 : rest.length > 100 ? 2 : 1;
+      while (next < full.length && isTail(full.codePointAt(next) ?? 0)) next++;
+      const prev = full[shown - 1] ?? '';
+      if (shown > 0 && /\n\s*\n\s*$/.test(full.slice(0, shown))) delay = talk ? 650 : 420;
+      else if (/[.!?…]/.test(prev) && /^\s/.test(rest)) delay = 170;
+      else if (/[,;:—]/.test(prev) && /^\s/.test(rest)) delay = 60;
+    }
+    const id = setTimeout(() => setShown(Math.min(next, full.length)), delay);
     return () => clearTimeout(id);
   }, [shown, msgs, busy, talk]);
   useEffect(
@@ -329,6 +358,7 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
   };
   const openThread = (t: Thread | undefined) => {
     setShown(null);
+    setAnimFrom(t?.msgs.length ?? 0);
     setCurrent(t?.id ?? null);
     currentRef.current = t?.id ?? null;
     setMsgs(t?.msgs ?? []);
@@ -602,17 +632,24 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
         )}
         {msgs.map((m, i) => {
           const live = shown !== null && i === msgs.length - 1 && m.role === 'assistant';
+          const calm = Boolean(reduce) || i < animFrom;
           const signup = m.role === 'assistant' && !live ? SIGNUP.exec(m.content) : null;
           // метку записи не показываем — ни целиком, ни недопечатанной
-          const text = (live ? m.content.slice(0, shown) : m.content).replace(new RegExp(SIGNUP, 'g'), '').replace(/\[\[[^\]]*\]?$/, '');
+          const raw = (live ? m.content.slice(0, shown) : m.content).replace(new RegExp(SIGNUP, 'g'), '').replace(/\[\[[^\]]*\]?$/, '');
+          const text = live ? tidyLive(raw) : raw;
           // ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
           const parts = m.role === 'assistant' ? text.split(/\n\s*\n/) : [text];
           const bubbles = parts.map((part, j) => {
             const body = part.trim();
             if (!body && !(live && j === parts.length - 1)) return null;
             return (
-              <div
+              <motion.div
                 key={`${i}.${j}`}
+                // новое сообщение мягко всплывает от своего «хвостика», как в мессенджере
+                initial={calm ? false : { opacity: 0, y: 10, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                style={{ transformOrigin: m.role === 'user' ? '100% 100%' : '0% 100%' }}
                 className={clsx(
                   'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
                   m.role === 'user' && 'whitespace-pre-wrap',
@@ -620,15 +657,21 @@ function ChatBody({ game, name, where, onClose, onSwitch }: PanelProps) {
                 )}
               >
                 {body ? m.role === 'assistant' ? <Markdown text={body} /> : body : <Dots />}
-              </div>
+              </motion.div>
             );
           });
           if (!signup) return bubbles;
           return [
             ...bubbles,
-            <div key={`${i}.form`} className="w-full rounded-[14px] bg-bone p-4 shadow-sticker">
+            <motion.div
+              key={`${i}.form`}
+              initial={calm ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+              className="w-full rounded-[14px] bg-bone p-4 shadow-sticker"
+            >
               <BookingForm compact narrow subjectSlug={signup[1]} note="Заявка из чата с Лучом" />
-            </div>,
+            </motion.div>,
           ];
         })}
         {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
