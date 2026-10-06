@@ -288,7 +288,7 @@ async function readStream(res: Response, onToken: (t: string) => void) {
 }
 
 /** Потоковый ответ: GigaChat, если подключён, иначе (или при его сбое до первого слова) — своя модель. */
-export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number } = {}) {
+export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken: (t: string) => void, signal: AbortSignal, opts: { temperature?: number; presence?: number; cloudNote?: string } = {}) {
   active++;
   try {
     if (cloudEnabled()) {
@@ -297,7 +297,7 @@ export async function chatStream(maxTokens: number, messages: ChatMsg[], onToken
         const res = await fetch(`${CLOUD_URL()}/chat/completions`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'text/event-stream', authorization: `Bearer ${CLOUD_KEY()}` },
-          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(messages), stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5 }),
+          body: JSON.stringify({ model: CLOUD_MODEL(), messages: forGiga(opts.cloudNote ? [...messages.slice(0, 1), { role: 'system', content: opts.cloudNote }, ...messages.slice(1)] : messages), stream: true, max_tokens: maxTokens, temperature: opts.temperature ?? 0.5 }),
           signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
         });
         const got = await readStream(res, (t) => {

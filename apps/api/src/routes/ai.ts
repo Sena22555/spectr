@@ -39,6 +39,11 @@ function systemPrompt(game: Persona) {
 
 const TALK_LEVELS = ['Starter', 'A1', 'A2', 'B1'];
 
+const HELP_CLOUD_NOTE =
+  'Главное про стиль: ты не учебник, а старший друг в мессенджере. Строго до 120 слов, без заголовков и без «#». Суть одной фразой → 2–4 пункта списком → короткий пример → один вопрос для самопроверки.';
+const TALK_CLOUD_NOTE =
+  "Before replying, check the student's last message for grammar or word mistakes. If there is any mistake (wrong tense, missing article, word order, wrong verb form), the first line MUST be ✏️ and the corrected sentence. Then 1–2 short, natural sentences. Never more than 3 sentences in total.";
+
 /** Последние реплики, но начало окна двигается шагами — так у модели остаётся в кеше одинаковое начало разговора. */
 export function stableWindow<T>(list: T[], max: number, step: number) {
   if (list.length <= max) return list;
@@ -252,7 +257,10 @@ export async function aiRoutes(app: FastifyInstance) {
           }
         },
         abort.signal,
-        talk ? { temperature: 0.7, presence: 0.4 } : undefined,
+        // облачная модель умнее, но любит длинные «статьи» и пропускает поправки — напоминаем главное
+        talk
+          ? { temperature: 0.7, presence: 0.4, cloudNote: TALK_CLOUD_NOTE }
+          : { cloudNote: body.voice ? undefined : HELP_CLOUD_NOTE },
       );
       if (sentence.trim()) emit(sentence);
       // для голосового режима — подписанные фразы: английские читает английский голос, русские — голос помощника
