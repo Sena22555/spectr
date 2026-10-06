@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import clsx from 'clsx';
-import { Headphones, Mic, Phone, PhoneOff, Send, Trash2, X } from 'lucide-react';
+import { Headphones, MessagesSquare, Mic, Phone, PhoneOff, Send, SquarePen, Trash2, X } from 'lucide-react';
 import { apiHeaders } from '../../lib/api';
 import { Markdown } from './Markdown';
 import { COACH_FACE, useCoachData } from '../../lib/coach';
@@ -16,6 +16,8 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
 }
+// help — вопросы помощнику по-русски; у Лины два раздела практики: mix — болтаем по-английски, ошибки объясняет по-русски, en — только английский
+type Mode = 'help' | 'mix' | 'en';
 
 const SUGGEST: Record<GameKey, string[]> = {
   lingo: ['Объясни Present Perfect по-простому', 'Чем отличается a и the?', 'Как сказать «я опоздал» по-английски?', 'Что мне подтянуть?'],
@@ -35,14 +37,45 @@ const helloLine = () => LINA_HELLO[Math.floor(Math.random() * LINA_HELLO.length)
 
 const NAME_TO: Record<string, string> = { Лина: 'Лину', Матвей: 'Матвея', Фотон: 'Фотона', Байт: 'Байта' };
 
-const storeKey = (game: GameKey, talk: boolean) => `spectr.chat.${game}${talk ? '.talk' : ''}`;
-function load(game: GameKey, talk: boolean): Msg[] {
+// Чаты хранятся на устройстве: у каждого раздела свой список — можно начать новый, вернуться к старому и продолжить
+interface Thread {
+  id: string;
+  title: string;
+  updated: number;
+  msgs: Msg[];
+}
+const MAX_THREADS = 30;
+const SUFFIX: Record<Mode, string> = { help: '', mix: '.mix', en: '.talk' };
+const newId = () => Math.random().toString(36).slice(2, 10);
+const titleOf = (msgs: Msg[]) => (msgs.find((m) => m.role === 'user')?.content ?? 'Новый чат').replace(/\s+/g, ' ').trim().slice(0, 60);
+const clean = (msgs: Msg[]) => msgs.filter((m) => m.content?.trim());
+
+function loadThreads(game: GameKey, mode: Mode): Thread[] {
   try {
-    return (JSON.parse(localStorage.getItem(storeKey(game, talk)) ?? '[]') as Msg[]).filter((m) => m.content?.trim());
+    const raw = localStorage.getItem(`spectr.chats.${game}${SUFFIX[mode]}`);
+    if (raw) return (JSON.parse(raw) as Thread[]).filter((t) => t?.id && Array.isArray(t.msgs));
+    // переезд со старого хранения, где у раздела был один чат
+    const old = clean(JSON.parse(localStorage.getItem(`spectr.chat.${game}${SUFFIX[mode]}`) ?? '[]') as Msg[]);
+    return old.length ? [{ id: newId(), title: titleOf(old), updated: Date.now(), msgs: old }] : [];
   } catch {
     return [];
   }
 }
+function saveThreads(game: GameKey, mode: Mode, list: Thread[]) {
+  try {
+    localStorage.setItem(`spectr.chats.${game}${SUFFIX[mode]}`, JSON.stringify(list));
+  } catch {
+    /* хранилище недоступно — чат просто не запомнится */
+  }
+}
+function when(ts: number) {
+  const d = new Date(ts);
+  const days = Math.round((new Date(new Date().toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86_400_000);
+  if (days === 0) return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (days === 1) return 'вчера';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+const LISTEN_LANG: Record<Mode, 'ru' | 'en' | 'auto'> = { help: 'ru', mix: 'auto', en: 'en' };
 
 /** Кнопка «Спросить …» в углу экрана и само окно чата. */
 export function ChatLauncher({ game, where }: { game: GameKey; where?: string }) {
@@ -72,17 +105,17 @@ export function ChatLauncher({ game, where }: { game: GameKey; where?: string })
 }
 
 /** Один запрос к помощнику: текст приходит потоком, в голосовом режиме каждое предложение сразу звучит. */
-async function askHelper(args: { game: GameKey; history: Msg[]; talk: boolean; voice: boolean; where?: string; signal: AbortSignal; onText(t: string): void; speak: boolean }) {
+async function askHelper(args: { game: GameKey; history: Msg[]; mode: Mode; voice: boolean; where?: string; signal: AbortSignal; onText(t: string): void; speak: boolean }) {
   const res = await fetch('/api/ai/chat', {
     method: 'POST',
     headers: apiHeaders(),
     body: JSON.stringify({
       game: args.game,
       // разговор — окном, которое сдвигается блоками (как на сервере): начало истории стабильно, модель отвечает из кеша
-      messages: ((h) => (args.talk ? (h.length <= 24 ? h : h.slice(Math.ceil((h.length - 24) / 8) * 8)) : h.slice(-10)))(args.history.filter((m) => m.content.trim()))
+      messages: ((h) => (args.mode !== 'help' ? (h.length <= 24 ? h : h.slice(Math.ceil((h.length - 24) / 8) * 8)) : h.slice(-10)))(args.history.filter((m) => m.content.trim()))
         .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) })),
       where: args.where,
-      mode: args.talk ? 'talk' : 'help',
+      mode: args.mode === 'en' ? 'talk' : args.mode,
       voice: args.voice,
       level: savedEnLevel() ?? undefined,
     }),
@@ -124,9 +157,16 @@ async function askHelper(args: { game: GameKey; history: Msg[]; talk: boolean; v
 type CallState = 'listening' | 'thinking' | 'speaking' | 'paused';
 
 function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string; where?: string; onClose(): void }) {
-  const [talk, setTalk] = useState(false);
-  const [hello] = useState(helloLine);
-  const [msgs, setMsgs] = useState<Msg[]>(() => load(game, false));
+  const [mode, setMode] = useState<Mode>(game === 'lingo' ? 'mix' : 'help');
+  const talk = mode !== 'help';
+  const [hello, setHello] = useState(helloLine);
+  const [threads, setThreads] = useState<Thread[]>(() => loadThreads(game, mode));
+  // открываем последний чат — можно сразу продолжить
+  const [current, setCurrent] = useState<string | null>(() => threads[0]?.id ?? null);
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const [showList, setShowList] = useState(false);
+  const [msgs, setMsgs] = useState<Msg[]>(() => threads[0]?.msgs ?? []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,14 +185,34 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   msgsRef.current = msgs;
   const mic = canRecord() || canRecognize();
 
+  /** Записать переписку в текущий чат (новый чат получает номер при первой реплике). */
+  const persist = useCallback(
+    (list: Msg[]) => {
+      const done = clean(list);
+      if (!done.length) return;
+      const id = currentRef.current ?? newId();
+      if (!currentRef.current) {
+        currentRef.current = id;
+        setCurrent(id);
+      }
+      setThreads((prev) => {
+        const was = prev.find((t) => t.id === id);
+        // просто открыли старый чат — не поднимаем его наверх списка
+        if (was && was.msgs.length === done.length && was.msgs.at(-1)?.content === done.at(-1)?.content) return prev;
+        const next = [{ id, title: titleOf(done), updated: Date.now(), msgs: done.slice(-60) }, ...prev.filter((t) => t.id !== id)].slice(0, MAX_THREADS);
+        saveThreads(game, mode, next);
+        return next;
+      });
+    },
+    [game, mode],
+  );
+  // сохраняем, когда ответ дописан (во время печати не пишем в хранилище на каждое слово)
   useEffect(() => {
-    try {
-      localStorage.setItem(storeKey(game, talk), JSON.stringify(msgs.filter((m) => m.content.trim()).slice(-20)));
-    } catch {
-      /* ignore */
-    }
+    if (!busy) persist(msgs);
+  }, [msgs, busy, persist]);
+  useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' });
-  }, [msgs, game, talk]);
+  }, [msgs, showList]);
   useEffect(
     () => () => {
       callId.current++;
@@ -168,13 +228,37 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const switchMode = (t: boolean) => {
+  /** Остановить всё, что звучит и печатается, и запомнить текущий чат перед переходом. */
+  const leave = () => {
     endCall();
     abort.current?.abort();
     stopVoice();
-    setTalk(t);
-    setMsgs(load(game, t));
+    persist(msgsRef.current);
     setError(null);
+    setShowList(false);
+  };
+  const openThread = (t: Thread | undefined) => {
+    setCurrent(t?.id ?? null);
+    currentRef.current = t?.id ?? null;
+    setMsgs(t?.msgs ?? []);
+    if (!t) setHello(helloLine());
+  };
+  const switchMode = (m: Mode) => {
+    leave();
+    const list = loadThreads(game, m);
+    setMode(m);
+    setThreads(list);
+    openThread(list[0]);
+  };
+  const newChat = () => {
+    leave();
+    openThread(undefined);
+  };
+  const removeThread = (id: string) => {
+    const next = threads.filter((t) => t.id !== id);
+    setThreads(next);
+    saveThreads(game, mode, next);
+    if (id === current) openThread(undefined);
   };
 
   /** Отправить реплику; возвращает ответ (для режима разговора). */
@@ -197,7 +281,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         const answer = await askHelper({
           game,
           history,
-          talk,
+          mode,
           voice: Boolean(opts.voiceMode),
           where,
           signal: ctrl.signal,
@@ -214,7 +298,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
         setBusy(false);
       }
     },
-    [game, talk, where, hello],
+    [game, mode, talk, where, hello],
   );
 
   // кнопка микрофона: одна реплика голосом — ответ голосом
@@ -225,7 +309,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     setListening(true);
     voiceRef.current = true;
     setVoice(true);
-    const r = listenSpeech(talk ? 'en' : 'ru', { onLevel: setLevel, onText: setText });
+    const r = listenSpeech(LISTEN_LANG[mode], { onLevel: setLevel, onText: setText });
     stopMic.current = r.stop;
     try {
       const said = await r.promise;
@@ -255,7 +339,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     let silent = 0;
     while (live()) {
       setCall('listening');
-      const r = listenSpeech(talk ? 'en' : 'ru', { onLevel: setLevel, onText: setText });
+      const r = listenSpeech(LISTEN_LANG[mode], { onLevel: setLevel, onText: setText });
       stopMic.current = r.stop;
       let said = '';
       try {
@@ -298,6 +382,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setShowList(false);
     void send(text);
   };
 
@@ -318,7 +403,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
           <span className="grid size-11 place-items-center rounded-full bg-paper text-[24px] shadow-sticker">{COACH_FACE[game]}</span>
           <div className="flex min-w-0 flex-1 flex-col">
             <b className="t-heading text-[18px] leading-tight">{name}</b>
-            <span className="t-mono text-[11px] text-hue">{busy ? 'печатает…' : talk ? 'разговорная практика · English' : `помощник · ${GAME_META[game].subject.toLowerCase()}`}</span>
+            <span className="t-mono text-[11px] text-hue">{busy ? 'печатает…' : mode === 'mix' ? 'English + русский' : mode === 'en' ? 'only English' : `помощник · ${GAME_META[game].subject.toLowerCase()}`}</span>
           </div>
           {mic && (
             <button
@@ -330,8 +415,18 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
               <Phone className="size-4" /> Разговор
             </button>
           )}
-          <button type="button" onClick={() => setMsgs([])} className="press grid size-9 place-items-center rounded-full text-muted hover:bg-ink/[0.06]" aria-label="Очистить чат" title="Очистить чат">
-            <Trash2 className="size-4" />
+          <button
+            type="button"
+            onClick={() => setShowList((v) => !v)}
+            className={clsx('press grid size-9 place-items-center rounded-full', showList ? 'bg-ink text-paper' : 'text-muted hover:bg-ink/[0.06]')}
+            aria-label="Мои чаты"
+            aria-expanded={showList}
+            title="Мои чаты"
+          >
+            <MessagesSquare className="size-4" />
+          </button>
+          <button type="button" onClick={newChat} className="press grid size-9 place-items-center rounded-full text-muted hover:bg-ink/[0.06]" aria-label="Новый чат" title="Новый чат">
+            <SquarePen className="size-4" />
           </button>
           <button type="button" onClick={onClose} className="press grid size-9 place-items-center rounded-full hover:bg-ink/[0.06]" aria-label="Закрыть">
             <X className="size-5" />
@@ -340,58 +435,93 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
 
         {game === 'lingo' && (
           <div className="flex gap-1 border-b border-dashed border-hair-soft px-3 py-2" role="tablist">
-            {[
-              [false, 'Спросить по-русски'],
-              [true, 'Поболтать по-английски'],
-            ].map(([t, label]) => (
-              <button key={String(t)} type="button" role="tab" aria-selected={talk === t} onClick={() => switchMode(t as boolean)} className={clsx('press flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-[600]', talk === t ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}>
-                {label as string}
+            {(
+              [
+                ['mix', 'English + русский'],
+                ['en', 'Only English'],
+              ] as const
+            ).map(([m, label]) => (
+              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => mode !== m && switchMode(m)} className={clsx('press flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-[600]', mode === m ? 'bg-ink text-paper' : 'hover:bg-ink/[0.06]')}>
+                {label}
               </button>
             ))}
           </div>
         )}
 
-        <div ref={list} className="graph-paper flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-          {!msgs.length && (
-            <div className="flex flex-col gap-3">
-              <p className="rounded-[14px] rounded-tl-[4px] bg-paper px-4 py-3 text-[15.5px] shadow-sticker">
-                {talk
-                  ? `${hello} (Пиши или жми «Разговор» и говори голосом — я подстроюсь под твой уровень и мягко поправлю ошибки.)`
-                  : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
-              </p>
-              {!talk && (
-                <div className="flex flex-wrap gap-2">
-                  {SUGGEST[game].map((s) => (
-                    <button key={s} type="button" onClick={() => void send(s)} className="press rounded-full border border-ink/20 bg-paper px-3 py-1.5 text-[13.5px] hover:bg-mark">
-                      {s}
-                    </button>
-                  ))}
+        {showList ? (
+          <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
+            <button type="button" onClick={newChat} className="press mb-2 flex items-center gap-2 rounded-[10px] border border-dashed border-ink/30 px-3 py-2.5 text-[14.5px] font-[600] hover:bg-mark">
+              <SquarePen className="size-4" /> Новый чат
+            </button>
+            {threads.length ? (
+              threads.map((t) => (
+                <div key={t.id} className={clsx('flex items-center gap-1 rounded-[10px] pl-3', t.id === current ? 'bg-tint' : 'hover:bg-ink/[0.05]')}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      leave();
+                      openThread(t);
+                    }}
+                    className="flex min-w-0 flex-1 flex-col py-2.5 text-left"
+                    aria-current={t.id === current ? 'true' : undefined}
+                  >
+                    <span className="truncate text-[15px] font-[600]">{t.title}</span>
+                    <span className="t-mono text-[11.5px] text-muted">{when(t.updated)}</span>
+                  </button>
+                  <button type="button" onClick={() => removeThread(t.id)} className="press grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-ink/[0.08]" aria-label={`Удалить чат «${t.title}»`} title="Удалить чат">
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-          {msgs.map((m, i) => (
-            <p
-              key={i}
-              className={clsx(
-                'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
-                m.role === 'user' && 'whitespace-pre-wrap',
-                m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
-              )}
-            >
-              {m.content ? (
-                m.role === 'assistant' ? (
-                  <Markdown text={m.content} />
+              ))
+            ) : (
+              <p className="px-2 py-3 text-[14.5px] text-muted">Здесь появятся твои разговоры — к любому можно вернуться и продолжить.</p>
+            )}
+          </div>
+        ) : (
+          <div ref={list} className="graph-paper flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+            {!msgs.length && (
+              <div className="flex flex-col gap-3">
+                <p className="rounded-[14px] rounded-tl-[4px] bg-paper px-4 py-3 text-[15.5px] shadow-sticker">
+                  {talk
+                    ? mode === 'mix'
+                      ? `${hello} (Болтаем по-английски, а ошибки объясню по-русски. Не знаешь, как сказать, — спроси по-русски. Можно голосом: жми «Разговор».)`
+                      : `${hello} (English only! Write or press «Разговор» and just talk — I'll gently fix your mistakes.)`
+                    : `Йоу! Я ${name}. Спрашивай что непонятно — объясню по-человечески. Можно голосом: нажми «Разговор» сверху и просто говори.`}
+                </p>
+                {!talk && (
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGEST[game].map((s) => (
+                      <button key={s} type="button" onClick={() => void send(s)} className="press rounded-full border border-ink/20 bg-paper px-3 py-1.5 text-[13.5px] hover:bg-mark">
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <p
+                key={i}
+                className={clsx(
+                  'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
+                  m.role === 'user' && 'whitespace-pre-wrap',
+                  m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
+                )}
+              >
+                {m.content ? (
+                  m.role === 'assistant' ? (
+                    <Markdown text={m.content} />
+                  ) : (
+                    m.content
+                  )
                 ) : (
-                  m.content
-                )
-              ) : (
-                <Dots />
-              )}
-            </p>
-          ))}
-          {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
-        </div>
+                  <Dots />
+                )}
+              </p>
+            ))}
+            {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-dashed border-hair-soft px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
           <button
@@ -418,7 +548,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
             }}
             rows={1}
             maxLength={800}
-            placeholder={listening ? 'Слушаю…' : talk ? 'Write in English…' : 'Спроси что угодно по теме…'}
+            placeholder={listening ? 'Слушаю…' : mode === 'en' ? 'Write in English…' : mode === 'mix' ? 'Пиши по-английски или спроси по-русски…' : 'Спроси что угодно по теме…'}
             className="max-h-32 min-h-11 flex-1 resize-none rounded-[12px] border-[1.5px] border-ink/20 bg-paper px-3 py-2.5 text-[15.5px] focus-visible:border-ink focus-visible:outline-none"
           />
           {mic && (

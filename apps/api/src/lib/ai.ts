@@ -35,7 +35,7 @@ function ffmpeg(args: string[], input: Buffer): Promise<Buffer> {
 }
 
 /** Распознать речь (Whisper на нашем сервере): любой формат из браузера → wav 16 кГц → текст. */
-export async function transcribe(audio: Buffer, lang: 'ru' | 'en') {
+export async function transcribe(audio: Buffer, lang: 'ru' | 'en' | 'auto') {
   const wav = await ffmpeg(['-i', 'pipe:0', '-ar', '16000', '-ac', '1', '-f', 'wav', 'pipe:1'], audio);
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'speech.wav');

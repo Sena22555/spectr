@@ -181,12 +181,12 @@ export const canRecord = () => typeof window !== 'undefined' && Boolean(navigato
  * Распознаёт наш сервер; если он недоступен — распознавание браузера.
  * onLevel — громкость 0..1 для анимации, onText — промежуточный текст (только у браузерного распознавания).
  */
-export function listenSpeech(lang: 'ru' | 'en', opts: { onLevel?: (v: number) => void; onText?: (t: string) => void } = {}) {
+export function listenSpeech(lang: 'ru' | 'en' | 'auto', opts: { onLevel?: (v: number) => void; onText?: (t: string) => void } = {}) {
   let stopFn: () => void = () => undefined;
   const promise = (async () => {
     stopVoice();
     if (!(await serverStt()) || !canRecord()) {
-      const r = recognize(lang === 'en' ? 'en-US' : 'ru-RU', opts.onText);
+      const r = recognize(lang === 'ru' ? 'ru-RU' : 'en-US', opts.onText);
       stopFn = r.stop;
       return r.promise;
     }

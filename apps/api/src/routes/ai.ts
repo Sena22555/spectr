@@ -39,10 +39,43 @@ function systemPrompt(game: Persona) {
 
 const TALK_LEVELS = ['Starter', 'A1', 'A2', 'B1'];
 
+/**
+ * «English + русский»: разговор идёт по-английски, а поправки и ответы на вопросы — по-русски,
+ * чтобы новичок понимал, в чём ошибка. Начало подсказки общее для всех уровней (кеш модели).
+ */
+function mixPromptFor(level: string) {
+  const easy = level === 'Starter' || level === 'A1';
+  return [
+    'You are Lina, a friendly 19-year-old girl from Brighton (England). You chat with a Russian teenager to help them practise English. The chat itself is in English, explanations are in Russian.',
+    'Rules:',
+    '1. If the student\'s English message has a mistake, start with one line: ✏️ and the corrected sentence. Then one short line in Russian starting with 💡 that explains the mistake simply.',
+    '2. Then continue the chat in English: 1–2 short sentences, react to what they said and share something about yourself.',
+    '3. If the student writes in Russian, asks how to say something or asks about a word or grammar, first answer in Russian (up to 4 short sentences, English examples with translation), then continue the chat in English with a simple question.',
+    '4. Sometimes, not always, end with one question. Never repeat a question. At most one emoji, never write "P.S." You talk with kids: nothing about alcohol, no rude words, no personal data.',
+    '',
+    'Examples:',
+    'Student: yesterday I go to cinema',
+    'Lina: ✏️ Yesterday I went to the cinema.',
+    '💡 Вчера — это прошлое, поэтому go меняется на went.',
+    'Nice! I love scary movies, but I always watch them with the lights on. What did you see?',
+    '',
+    'Student: как сказать «мне скучно»?',
+    'Lina: «Мне скучно» — I\'m bored. Не путай с I\'m boring — это «я скучный» 😄',
+    'So, are you bored right now? What do you usually do when you\'re bored?',
+    '',
+    'Student: I like pizza',
+    'Lina: Same here! Pepperoni is my favourite, although I always burn my mouth because I can\'t wait.',
+    '',
+    easy ? 'This student is a beginner: use very simple English and short sentences.' : 'Use simple, natural everyday English.',
+  ].join('\n');
+}
+
 const HELP_CLOUD_NOTE =
   'Главное про стиль: ты не учебник, а старший друг в мессенджере. Строго до 120 слов, без заголовков и без «#». Суть одной фразой → 2–4 пункта списком → короткий пример → один вопрос для самопроверки.';
 const TALK_CLOUD_NOTE =
   "Before replying, check the student's last message for grammar or word mistakes. If there is any mistake (wrong tense, missing article, word order, wrong verb form), the first line MUST be ✏️ and the corrected sentence. Then 1–2 short, natural sentences. Never more than 3 sentences in total.";
+const MIX_CLOUD_NOTE =
+  "Before replying, check the student's last message for mistakes. If there is any mistake, the first line MUST be ✏️ and the corrected sentence, the second line 💡 and a short explanation in Russian. Questions in Russian get a short answer in Russian. The chat itself stays in English, 1–2 short sentences.";
 
 /** Последние реплики, но начало окна двигается шагами — так у модели остаётся в кеше одинаковое начало разговора. */
 export function stableWindow<T>(list: T[], max: number, step: number) {
@@ -86,7 +119,7 @@ function talkPromptFor(level: string) {
  */
 export async function warmChats(log: (m: string) => void) {
   if (!localLlmEnabled()) return;
-  const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1'), talkPromptFor('B1')];
+  const prompts = [...(['lingo', 'math', 'physics', 'code'] as Persona[]).map((g) => systemPrompt(g)), talkPromptFor('A1'), talkPromptFor('B1'), mixPromptFor('A1')];
   let ok = 0;
   for (const content of prompts) {
     try {
@@ -155,7 +188,9 @@ export async function aiRoutes(app: FastifyInstance) {
   // распознавание речи для голосового общения и «Скажи вслух»: запись из браузера → текст
   app.post('/ai/stt', { config: rl(40, '5 minutes') }, async (req, reply) => {
     if (!sttEnabled()) return reply.code(503).send({ error: 'Распознавание речи выключено' });
-    const lang = (req.query as { lang?: string }).lang === 'en' ? 'en' : 'ru';
+    // auto — английский с русским: ученик может заговорить на любом из двух языков
+    const q = (req.query as { lang?: string }).lang;
+    const lang = q === 'en' || q === 'auto' ? q : 'ru';
     const file = await req.file();
     if (!file) return reply.code(400).send({ error: 'Нет записи' });
     const audio = await file.toBuffer();
@@ -176,7 +211,8 @@ export async function aiRoutes(app: FastifyInstance) {
         // история из браузера может содержать оборванный пустой ответ — не отказываем, а чистим
         messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) })).min(1).max(30),
         where: z.string().max(120).optional(),
-        mode: z.enum(['help', 'talk']).default('help'),
+        // talk — только английский, mix — английский с объяснениями по-русски
+        mode: z.enum(['help', 'talk', 'mix']).default('help'),
         voice: z.boolean().default(false),
         level: z.string().max(10).optional(),
       })
@@ -185,7 +221,7 @@ export async function aiRoutes(app: FastifyInstance) {
     // окно модели — 3 тыс. токенов на разговор: берём недавнюю историю и обрезаем длинные реплики;
     // в разговорной практике реплики короткие — помним больше, чтобы Лина не повторялась.
     // Окно разговора сдвигается блоками по 8 реплик: начало истории не меняется каждый ход, и модель не перечитывает её заново
-    const isTalk = body.game === 'lingo' && body.mode === 'talk';
+    const isTalk = body.game === 'lingo' && body.mode !== 'help';
     const recent = body.messages.filter((m) => m.content.trim());
     body.messages = (isTalk ? stableWindow(recent, 24, 8) : recent.slice(-6)).map((m) => ({ ...m, content: m.content.slice(0, isTalk ? 400 : m.role === 'user' ? 800 : 700) }));
     if (!body.messages.length || body.messages[body.messages.length - 1]!.role !== 'user') return reply.code(400).send({ error: 'Напиши вопрос — я отвечу' });
@@ -205,9 +241,10 @@ export async function aiRoutes(app: FastifyInstance) {
       /* без заметок тоже можно */
     }
     // разговорная практика английского: Лина говорит по-английски на уровне ученика и мягко поправляет
-    const talk = body.game === 'lingo' && body.mode === 'talk';
+    const talk = isTalk;
+    const mix = talk && body.mode === 'mix';
     const level = TALK_LEVELS.includes(body.level ?? '') ? body.level! : 'A1';
-    const talkPrompt = talkPromptFor(level);
+    const talkPrompt = mix ? mixPromptFor(level) : talkPromptFor(level);
     // переменная часть — отдельным сообщением после постоянной, чтобы кеш модели не сбрасывался
     const about = [notes.length ? `Об ученике: ${notes.join(' ')}` : '', body.where ? `Ученик сейчас в разделе: ${body.where}.` : ''].filter(Boolean).join('\n');
     const messages: ChatMsg[] = talk
@@ -233,7 +270,7 @@ export async function aiRoutes(app: FastifyInstance) {
     const voiceOf = (t: string) => ((t.match(/[a-z]/gi) ?? []).length > (t.match(/[а-яё]/gi) ?? []).length ? EN_VOICE : COACH_VOICE[body.game]);
     const emit = (raw: string) => {
       if (/^\s*p\.?\s?s\b/i.test(raw)) return;
-      const t = speakable(raw.replace(/\\[()[\]]/g, '').replace(/✏️/g, ''));
+      const t = speakable(raw.replace(/\\[()[\]]/g, '').replace(/✏️|💡/g, ''));
       if (t.length < 2 || spoken >= 14) return;
       spoken++;
       const v = voiceOf(t);
@@ -241,7 +278,7 @@ export async function aiRoutes(app: FastifyInstance) {
     };
     try {
       await chatStream(
-        talk ? 90 : body.voice ? 200 : 300,
+        talk ? (mix ? 160 : 90) : body.voice ? 200 : 300,
         messages,
         (t) => {
           full += t;
@@ -259,7 +296,7 @@ export async function aiRoutes(app: FastifyInstance) {
         abort.signal,
         // облачная модель умнее, но любит длинные «статьи» и пропускает поправки — напоминаем главное
         talk
-          ? { temperature: 0.7, presence: 0.4, cloudNote: TALK_CLOUD_NOTE }
+          ? { temperature: 0.7, presence: 0.4, cloudNote: mix ? MIX_CLOUD_NOTE : TALK_CLOUD_NOTE }
           : { cloudNote: body.voice ? undefined : HELP_CLOUD_NOTE },
       );
       if (sentence.trim()) emit(sentence);
