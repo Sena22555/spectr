@@ -169,6 +169,9 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   const [msgs, setMsgs] = useState<Msg[]>(() => threads[0]?.msgs ?? []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  // сколько символов последнего ответа уже «напечатано»: облако присылает ответ почти мгновенно,
+  // а показываем его по словам, как живой человек; null — показан целиком
+  const [shown, setShown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [voice, setVoice] = useState(false);
   const voiceRef = useRef(false);
@@ -212,7 +215,22 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
   }, [msgs, busy, persist]);
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' });
-  }, [msgs, showList]);
+  }, [msgs, showList, shown]);
+  // печатаем по слову; в разговоре между сообщениями — пауза с «точками», будто набирает следующее
+  useEffect(() => {
+    if (shown === null) return;
+    const full = msgs.at(-1)?.role === 'assistant' ? msgs.at(-1)!.content : '';
+    if (shown >= full.length) {
+      if (!busy) setShown(null);
+      return;
+    }
+    const rest = full.slice(shown);
+    const gap = /^\s+/.exec(rest)?.[0] ?? '';
+    const step = gap.includes('\n\n') ? gap.length : (/^\s*\S+/.exec(rest)?.[0] ?? rest).length;
+    const atBreak = talk && shown > 0 && /\n\s*\n\s*$/.test(full.slice(0, shown));
+    const id = setTimeout(() => setShown(shown + step), atBreak ? 700 : rest.length > 400 ? 15 : 40);
+    return () => clearTimeout(id);
+  }, [shown, msgs, busy, talk]);
   useEffect(
     () => () => {
       callId.current++;
@@ -238,6 +256,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
     setShowList(false);
   };
   const openThread = (t: Thread | undefined) => {
+    setShown(null);
     setCurrent(t?.id ?? null);
     currentRef.current = t?.id ?? null;
     setMsgs(t?.msgs ?? []);
@@ -273,6 +292,7 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
       // приветствие Лины — часть разговора: она помнит, о чём сама спросила
       const before = talk && !msgsRef.current.length ? [{ role: 'assistant' as const, content: hello }] : msgsRef.current;
       const history = [...before, { role: 'user' as const, content: q }];
+      setShown(0);
       setMsgs([...history, { role: 'assistant', content: '' }]);
       setBusy(true);
       const ctrl = new AbortController();
@@ -499,26 +519,28 @@ function ChatPanel({ game, name, where, onClose }: { game: GameKey; name: string
                 )}
               </div>
             )}
-            {msgs.map((m, i) => (
-              <p
-                key={i}
-                className={clsx(
-                  'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
-                  m.role === 'user' && 'whitespace-pre-wrap',
-                  m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
-                )}
-              >
-                {m.content ? (
-                  m.role === 'assistant' ? (
-                    <Markdown text={m.content} />
-                  ) : (
-                    m.content
-                  )
-                ) : (
-                  <Dots />
-                )}
-              </p>
-            ))}
+            {msgs.map((m, i) => {
+              const live = shown !== null && i === msgs.length - 1 && m.role === 'assistant';
+              const text = live ? m.content.slice(0, shown) : m.content;
+              // в разговоре ответ из нескольких мыслей — несколько сообщений подряд, как в мессенджере
+              const parts = m.role === 'assistant' && talk ? text.split(/\n\s*\n/) : [text];
+              return parts.map((part, j) => {
+                const body = part.trim();
+                if (!body && !(live && j === parts.length - 1)) return null;
+                return (
+                  <p
+                    key={`${i}.${j}`}
+                    className={clsx(
+                      'max-w-[88%] px-4 py-2.5 text-[15.5px] leading-relaxed shadow-sticker',
+                      m.role === 'user' && 'whitespace-pre-wrap',
+                      m.role === 'user' ? 'self-end rounded-[14px] rounded-tr-[4px] bg-ink text-paper' : 'self-start rounded-[14px] rounded-tl-[4px] bg-paper',
+                    )}
+                  >
+                    {body ? m.role === 'assistant' ? <Markdown text={body} /> : body : <Dots />}
+                  </p>
+                );
+              });
+            })}
             {error && <p className="self-center rounded-[8px] bg-butter px-3 py-2 text-[14px]">{error}</p>}
           </div>
         )}
